@@ -8,23 +8,43 @@
 //!
 //! The two components used are Variables and Wires.
 
+use ark_ff::Field;
+
 /// The value is a reference to the actual value that was added to the
 /// constraint system
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Variable(pub(crate) usize);
+pub struct Variable(pub(crate) Option<usize>);
 
-/// Stores the data for a specific wire in an arithmetic circuit
-/// This data is the gate index and the type of wire
-/// Left(1) signifies that this wire belongs to the first gate and is the left
-/// wire
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum WireData {
-    /// Left Wire of n'th gate
-    Left(usize),
-    /// Right Wire of n'th gate
-    Right(usize),
-    /// Output Wire of n'th gate
-    Output(usize),
-    /// Fourth Wire of n'th gate
-    Fourth(usize),
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
+///
+pub struct VariableMap<F: Field>(Vec<F>);
+
+impl<F: Field> VariableMap<F> {
+    ///
+    pub(crate) fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    ///
+    pub(crate) fn with_capacity(size: usize) -> Self {
+        Self(Vec::with_capacity(size))
+    }
+
+    ///
+    pub fn assign_variable(&mut self, value: F) -> Variable {
+        let var = Variable(Some(self.0.len()));
+        self.0.push(value);
+
+        var
+    }
+
+    ///
+    pub fn value_of_var(&self, var: Variable) -> F {
+        if let Some(i) = var.0 {
+            self.0[i]
+        } else {
+            F::zero()
+        }
+    }
 }

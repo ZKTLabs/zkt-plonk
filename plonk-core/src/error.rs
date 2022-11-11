@@ -6,6 +6,8 @@
 
 //! A collection of all possible errors encountered in PLONK.
 
+use crate::commitment::HomomorphicCommitment;
+
 /// Defines all possible errors that can be encountered in PLONK.
 #[derive(Debug)]
 pub enum Error {
@@ -30,16 +32,11 @@ pub enum Error {
     UninitializedPIGenerator,
     /// PublicInput serialization error
     InvalidPublicInputBytes,
-    /// PublicInput value conversion error
-    InvalidPublicInputValue,
     /// This error occurs when the Prover structure already contains a
     /// preprocessed circuit inside, but you call preprocess again.
     CircuitAlreadyPreprocessed,
-
-    // Preprocessing errors
-    /// This error occurs when an error triggers during the preprocessing
-    /// stage.
-    MismatchedPolyLen,
+    /// Public input position is already assigned.
+    AssignedPublicInput(usize),
 
     /// Polynomial Commitment errors
     PCError {
@@ -78,6 +75,10 @@ pub enum Error {
     ScalarMalformed,
 
     // Plonkup errors
+    /// Table is already registered
+    TableRepeated(&'static str),
+    /// Table is not registered
+    TableNotRegistered,
     /// Query element not found in lookup table
     ElementNotIndexed,
     /// Cannot commit to table column polynomial
@@ -96,10 +97,7 @@ impl From<ark_poly_commit::error::Error> for Error {
 pub fn to_pc_error<F, PC>(error: PC::Error) -> Error
 where
     F: ark_ff::Field,
-    PC: ark_poly_commit::PolynomialCommitment<
-        F,
-        ark_poly::univariate::DensePolynomial<F>,
-    >,
+    PC: HomomorphicCommitment<F>,
 {
     Error::PCError {
         error: format!("Polynomial Commitment Error: {:?}", error),
@@ -130,11 +128,8 @@ impl std::fmt::Display for Error {
             Self::InvalidPublicInputBytes => {
                 write!(f, "invalid public input bytes")
             }
-            Self::InvalidPublicInputValue => {
-                write!(f, "public input value conversion error")
-            }
-            Self::MismatchedPolyLen => {
-                write!(f, "the length of the wires is not the same")
+            Self::AssignedPublicInput(pos) => {
+                write!(f, "public input position {:?} is already assigned", pos)
             }
             Self::PCError { error } => {
                 write!(f, "{:?}", error)
@@ -163,6 +158,8 @@ impl std::fmt::Display for Error {
             Self::NotEnoughBytes => write!(f, "not enough bytes left to read"),
             Self::PointMalformed => write!(f, "point bytes malformed"),
             Self::ScalarMalformed => write!(f, "scalar bytes malformed"),
+            Self::TableRepeated(name) => write!(f, "table {:?} is registered", name),
+            Self::TableNotRegistered => write!(f, "table is not registered"),
             Self::ElementNotIndexed => {
                 write!(f, "element not found in lookup table")
             }

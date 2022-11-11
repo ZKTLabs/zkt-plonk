@@ -17,7 +17,7 @@ use ark_ff::PrimeField;
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly_commit::{sonic_pc::SonicKZG10, PolynomialCommitment};
 use plonk::error::to_pc_error;
-use plonk_core::circuit::{verify_proof, Circuit};
+use plonk_core::plonkup::{verify_proof, Circuit};
 use plonk_core::constraint_system::StandardComposer;
 use plonk_core::error::Error;
 use plonk_core::prelude::*;

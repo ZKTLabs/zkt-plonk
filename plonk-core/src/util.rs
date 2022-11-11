@@ -4,11 +4,14 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use ark_ec::{ModelParameters, TEModelParameters};
-use ark_ff::{BigInteger, FftField, Field, FpParameters, PrimeField};
-use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
-use core::ops::Mul;
-use std::ops::Add;
+use core::ops::{Add, Mul};
+use ark_ff::{FftField, Field};
+use ark_poly::{
+    EvaluationDomain,
+    GeneralEvaluationDomain,
+    univariate::DensePolynomial,
+    UVPolynomial,
+};
 
 /// Returns an iterator over increasing powers of the given `scalar` starting
 /// at `0`.
@@ -88,75 +91,118 @@ where
     }
 }
 
-/// Get a pairing friendly curve scalar `E::Fr` from a scalar of the embedded
-/// curve. Panics if the embedded scalar is greater than the modulus of the
-/// pairing firendly curve scalar field
-#[allow(dead_code)]
-pub fn from_embedded_curve_scalar<F, P>(
-    embedded_scalar: <P as ModelParameters>::ScalarField,
-) -> F
+///
+pub(crate) fn poly_from_evals<F, D>(
+    domain: &D,
+    mut evals: Vec<F>,
+) -> DensePolynomial<F>
 where
-    F: PrimeField,
-    P: TEModelParameters<BaseField = F>,
+    F: FftField,
+    D: EvaluationDomain<F>,
 {
-    let scalar_repr = embedded_scalar.into_repr();
-    let modulus = <<F as PrimeField>::Params as FpParameters>::MODULUS;
-    if modulus.num_bits() >= scalar_repr.num_bits() {
-        let s = <<F as PrimeField>::BigInt as BigInteger>::from_bits_le(
-            &scalar_repr.to_bits_le(),
-        );
-        assert!(s < modulus,
-            "The embedded scalar exceeds the capacity representation of the outter curve scalar");
-    } else {
-        let m = <<P::ScalarField as PrimeField>::BigInt as BigInteger>::from_bits_le(
-            &modulus.to_bits_le(),
-        );
-        assert!(scalar_repr < m,
-            "The embedded scalar exceeds the capacity representation of the outter curve scalar");
-    }
-    F::from_le_bytes_mod_order(&scalar_repr.to_bytes_le())
+    domain.ifft_in_place(&mut evals);
+    DensePolynomial::from_coefficients_vec(evals)
 }
 
-/// Get a embedded curve scalar `P::ScalarField` from a scalar of the pariring
-/// friendly curve. Panics if the pairing frindly curve scalar is greater than
-/// the modulus of the embedded curve scalar field
-#[allow(dead_code)]
-pub(crate) fn to_embedded_curve_scalar<F, P>(pfc_scalar: F) -> P::ScalarField
+///
+pub(crate) fn poly_from_evals_ref<F, D>(
+    domain: &D,
+    evals: &[F],
+) -> DensePolynomial<F>
 where
-    F: PrimeField,
-    P: TEModelParameters<BaseField = F>,
+    F: FftField,
+    D: EvaluationDomain<F>,
 {
-    let scalar_repr = pfc_scalar.into_repr();
-    let modulus =
-        <<P::ScalarField as PrimeField>::Params as FpParameters>::MODULUS;
-    if modulus.num_bits() >= scalar_repr.num_bits() {
-        let s = <<P::ScalarField as PrimeField>::BigInt as BigInteger>::from_bits_le(
-            &scalar_repr.to_bits_le(),
-        );
-        assert!(s < modulus,
-            "The embedded scalar exceeds the capacity representation of the outter curve scalar");
-    } else {
-        let m = <<F as PrimeField>::BigInt as BigInteger>::from_bits_le(
-            &modulus.to_bits_le(),
-        );
-        assert!(scalar_repr < m,
-            "The embedded scalar exceeds the capacity representation of the outter curve scalar");
-    }
-    P::ScalarField::from_le_bytes_mod_order(&scalar_repr.to_bytes_le())
+    DensePolynomial::from_coefficients_vec(domain.ifft(evals))
+}
+
+///
+pub(crate) fn poly_from_coset_evals<F, D>(
+    domain: &D,
+    mut evals: Vec<F>,
+) -> DensePolynomial<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    domain.coset_ifft_in_place(&mut evals);
+    DensePolynomial::from_coefficients_vec(evals)
+}
+
+///
+pub(crate) fn poly_from_coset_evals_ref<F, D>(
+    domain: &D,
+    evals: &[F],
+) -> DensePolynomial<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    DensePolynomial::from_coefficients_vec(domain.coset_fft(evals))
+}
+
+///
+pub(crate) fn evals_from_poly<F, D>(
+    domain: &D,
+    mut poly: DensePolynomial<F>,
+) -> Vec<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    domain.fft_in_place(&mut poly.coeffs);
+    poly.coeffs
+}
+
+///
+pub(crate) fn evals_from_poly_ref<F, D>(
+    domain: &D,
+    poly: &DensePolynomial<F>,
+) -> Vec<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    domain.fft(poly)
+}
+
+///
+pub(crate) fn coset_evals_from_poly<F, D>(
+    domain: &D,
+    mut poly: DensePolynomial<F>,
+) -> Vec<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    domain.coset_fft_in_place(&mut poly.coeffs);
+    poly.coeffs
+}
+
+///
+pub(crate) fn coset_evals_from_poly_ref<F, D>(
+    domain: &D,
+    poly: &DensePolynomial<F>,
+) -> Vec<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    domain.coset_fft(poly)
 }
 
 /// Linear combination of a series of values
 ///
 /// For values [v_0, v_1,... v_k] returns:
 /// v_0 + challenge * v_1 + ... + challenge^k  * v_k
-pub fn lc<T, F>(values: &[T], challenge: &F) -> T
+pub(crate) fn lc<T, F>(values: &[T], challenge: F) -> T
 where
     T: Mul<F, Output = T> + Add<T, Output = T> + Clone,
     F: Field,
 {
     // Ensure valid challenge
-    assert_ne!(*challenge, F::zero());
-    assert_ne!(*challenge, F::one());
+    assert_ne!(challenge, F::zero());
+    assert_ne!(challenge, F::one());
 
     let kth_val = match values.last() {
         Some(val) => val.clone(),
@@ -167,7 +213,47 @@ where
         .iter()
         .rev()
         .skip(1)
-        .fold(kth_val, |acc, val| acc * *challenge + val.clone())
+        .fold(kth_val, |acc, val| acc * challenge + val.clone())
+}
+
+/// The first lagrange polynomial has the expression:
+///
+/// ```text
+/// L_0(X) = mul_from_1_to_(n-1) [(X - omega^i) / (1 - omega^i)]
+/// ```
+///
+/// with `omega` being the generator of the domain (the `n`th root of unity).
+///
+/// We use two equalities:
+///   1. `mul_from_1_to_(n-1) [1 / (1 - omega^i)] = 1 / n` NOTE: L'Hôpital Principle
+///   2. `mul_from_1_to_(n-1) [(X - omega^i)] = (X^n - 1) / (X - 1)`
+/// to obtain the expression:
+///
+/// ```text
+/// L_0(X) = (X^n - 1) / n * (X - 1)
+/// ```
+pub(crate) fn compute_first_lagrange_evaluation<F: Field>(
+    n: usize,
+    zh_eval: F,
+    z: F,
+) -> F {
+    let n_fr = F::from(n as u64);
+    let denom = n_fr * (z - F::one());
+    zh_eval * denom.inverse().unwrap()
+}
+
+/// Computes lagrange polynomial over `domain` of `index`.
+pub(crate) fn compute_lagrange_poly<F, D>(domain: &D, index: usize) -> DensePolynomial<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
+    let n = domain.size();
+    assert!(index < n);
+
+    let mut x_evals = vec![F::zero(); n];
+    x_evals[index] = F::one();
+    poly_from_evals(domain, x_evals)
 }
 
 /// Macro to quickly label polynomials
@@ -176,7 +262,7 @@ macro_rules! label_polynomial {
     ($poly:expr) => {
         ark_poly_commit::LabeledPolynomial::new(
             stringify!($poly).to_owned(),
-            $poly.clone(),
+            $poly,
             None,
             None,
         )
@@ -211,6 +297,45 @@ macro_rules! get_label {
     };
 }
 
+///
+#[cfg(feature = "parallel")]
+#[macro_export]
+macro_rules! par_izip {
+    // @closure creates a tuple-flattening closure for .map() call. usage:
+    // @closure partial_pattern => partial_tuple , rest , of , iterators
+    // eg. izip!( @closure ((a, b), c) => (a, b, c) , dd , ee )
+    ( @closure $p:pat => $tup:expr ) => {
+        |$p| $tup
+    };
+
+    // The "b" identifier is a different identifier on each recursion level thanks to hygiene.
+    ( @closure $p:pat => ( $($tup:tt)* ) , $_iter:expr $( , $tail:expr )* ) => {
+        $crate::par_izip!(@closure ($p, b) => ( $($tup)*, b ) $( , $tail )*)
+    };
+
+    // unary
+    ($first:expr $(,)*) => {
+        rayon::iter::IntoParallelIterator::into_par_iter($first)
+    };
+
+    // binary
+    ($first:expr, $second:expr $(,)*) => {
+        $crate::par_izip!($first)
+            .zip($second)
+    };
+
+    // n-ary where n > 2
+    ( $first:expr $( , $rest:expr )* $(,)* ) => {
+        $crate::par_izip!($first)
+            $(
+                .zip($rest)
+            )*
+            .map(
+                $crate::par_izip!(@closure a => (a) $( , $rest )*)
+            )
+    };
+}
+
 #[cfg(test)]
 mod test {
     use crate::batch_field_test;
@@ -236,7 +361,7 @@ mod test {
                 + d * challenge * challenge * challenge
                 + e * challenge * challenge * challenge * challenge;
 
-            let result = lc(&[a, b, c, d, e], &challenge);
+            let result = lc(&[a, b, c, d, e], challenge);
             assert_eq!(result, expected)
         }
     }
@@ -257,7 +382,7 @@ mod test {
                 + d * challenge * challenge * challenge
                 + e * challenge * challenge * challenge * challenge;
 
-            let result = lc(&[a, b, c, d, e], &challenge);
+            let result = lc(&[a, b, c, d, e], challenge);
             assert_eq!(result, expected)
         }
     }

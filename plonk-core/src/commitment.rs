@@ -8,7 +8,7 @@ use ark_poly_commit::{sonic_pc::SonicKZG10, PolynomialCommitment};
 pub trait HomomorphicCommitment<F>:
     PolynomialCommitment<F, DensePolynomial<F>>
 where
-    F: PrimeField,
+    F: Field,
     Self::VerifierKey: core::fmt::Debug,
 {
     /// Combine a linear combination of homomorphic commitments

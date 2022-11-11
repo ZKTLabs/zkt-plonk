@@ -7,17 +7,13 @@
 //! PLONK Proving System
 
 mod linearisation_poly;
-mod permutation;
-mod preprocess;
 mod quotient_poly;
-mod widget;
+mod keys;
 
 pub mod pi;
 pub mod proof;
-pub mod prover;
-pub mod verifier;
+pub mod prove;
+pub mod setup;
 
 pub use proof::*;
-pub use prover::Prover;
-pub use verifier::Verifier;
-pub use widget::*;
+pub use keys::*;

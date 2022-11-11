@@ -146,7 +146,7 @@ where
             &degree,
             |b, _| {
                 b.iter(|| {
-                    plonk::circuit::verify_proof::<F, P, HC>(
+                    plonk::plonkup::verify_proof::<F, P, HC>(
                         &pp,
                         vk.clone(),
                         &proof,
