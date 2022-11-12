@@ -98,7 +98,7 @@ where
     process(&mut proving);
 
     check_arith_gate(
-        &setup.composer.to_setup_composer(),
-        &proving.composer.to_proving_composer(),
+        setup.composer.setup_ref(),
+        proving.composer.proving_ref(),
     );
 }

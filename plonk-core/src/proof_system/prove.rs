@@ -79,7 +79,7 @@ where
         })?;
     assert_eq!(domain.size(), n);
 
-    let mut composer = cs.composer.to_proving_composer();
+    let mut composer = cs.composer.unwrap_proving();
     // Pad composer
     composer.pad_to(n);
 

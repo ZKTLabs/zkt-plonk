@@ -22,7 +22,7 @@ impl<F: Field> ConstraintSystem<F> {
         let c: Variable;
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 // Add selector vectors
                 composer.q_m.push(F::zero());
                 composer.q_l.push(F::zero());
@@ -38,7 +38,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.n += 1;
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let a_value = composer.var_map.value_of_var(a);
                 let b_value = composer.var_map.value_of_var(b);
                 let c_value = self.lookup_table.lookup::<T>(&a_value, &b_value)?;

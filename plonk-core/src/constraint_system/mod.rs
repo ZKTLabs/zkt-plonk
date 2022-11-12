@@ -62,9 +62,9 @@ impl<F: Field> ConstraintSystem<F> {
     ///
     pub fn new(setup: bool) -> Self {
         let composer = if setup {
-            Composer::SetupComposer(SetupComposer::new())
+            Composer::Setup(SetupComposer::new())
         } else {
-            Composer::ProvingComposer(ProvingComposer::new())
+            Composer::Proving(ProvingComposer::new())
         };
 
         Self {
@@ -80,11 +80,11 @@ impl<F: Field> ConstraintSystem<F> {
         variable_size: usize,
     ) -> Self {
         let composer = if setup {
-            Composer::SetupComposer(
+            Composer::Setup(
                 SetupComposer::with_capacity(constraint_size, variable_size)
             )
         } else {
-            Composer::ProvingComposer(
+            Composer::Proving(
                 ProvingComposer::with_capacity(constraint_size, variable_size)
             )
         };
@@ -98,8 +98,8 @@ impl<F: Field> ConstraintSystem<F> {
     /// Returns the length of the circuit that can accomodate the lookup table.
     fn total_size(&self) -> usize {
         let circuit_size = match &self.composer {
-            Composer::SetupComposer(composer) => composer.n,
-            Composer::ProvingComposer(composer) => composer.n,
+            Composer::Setup(composer) => composer.n,
+            Composer::Proving(composer) => composer.n,
         };
         std::cmp::max(circuit_size, self.lookup_table.size())
     }
@@ -112,8 +112,8 @@ impl<F: Field> ConstraintSystem<F> {
     ///
     pub fn assign_variable(&mut self, value: F) -> Variable {
         match &mut self.composer {
-            Composer::SetupComposer(composer) => composer.perm.new_variable(),
-            Composer::ProvingComposer(composer) => {
+            Composer::Setup(composer) => composer.perm.new_variable(),
+            Composer::Proving(composer) => {
                 composer.var_map.assign_variable(value)
             }
         }
@@ -123,7 +123,7 @@ impl<F: Field> ConstraintSystem<F> {
     /// [`Variable`]s are equal.
     pub fn constrain_equal(&mut self, x: Variable, y: Variable) {
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_left(F::one())
                     .with_right(-F::one());
@@ -136,7 +136,7 @@ impl<F: Field> ConstraintSystem<F> {
                     false,
                 );
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 composer.input_wires(
                     x,
                     y,
@@ -153,7 +153,7 @@ impl<F: Field> ConstraintSystem<F> {
     /// circuit instances and [`Proof`](crate::proof_system::Proof)s generated.
     pub fn constrain_variable(&mut self, x: Variable, constant: F, pi: Option<F>) {
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_out(F::one())
                     .with_constant(-constant);
@@ -166,7 +166,7 @@ impl<F: Field> ConstraintSystem<F> {
                     pi.is_some(),
                 );
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 composer.input_wires(
                     Variable(None),
                     Variable(None),
@@ -215,7 +215,7 @@ impl<F: Field> ConstraintSystem<F> {
         let (y, z): (Variable, Variable);
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_out(F::one())
@@ -231,7 +231,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x, z, Variable(None), sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x);
                 let y_value = x_value.inverse().unwrap_or_default();
                 let z_value = if x_value.is_zero() { F::one() } else { F::zero() };
@@ -276,7 +276,7 @@ impl<F: Field> ConstraintSystem<F> {
         // (1 - bit) * b - y = 0 => b - bit * b - y = 0
         // x + y - z = 0
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_out(-F::one());
@@ -303,7 +303,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x, y, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit);
                 assert!(bit_value.is_one() || bit_value.is_zero());
         
@@ -339,7 +339,7 @@ impl<F: Field> ConstraintSystem<F> {
         let out: Variable;
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 // bit * value - out = 0
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
@@ -349,7 +349,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(bit, value, out, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit);
                 assert!(bit_value.is_one() || bit_value.is_zero());
 
@@ -383,7 +383,7 @@ impl<F: Field> ConstraintSystem<F> {
         let out: Variable;
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 // bit * value - bit - out + 1 = 0
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
@@ -395,7 +395,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(bit, value, out, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit);
                 assert!(bit_value.is_one() || bit_value.is_zero());
         

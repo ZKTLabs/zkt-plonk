@@ -143,23 +143,39 @@ impl<F: Field> ProvingComposer<F> {
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub enum Composer<F: Field> {
-    SetupComposer(SetupComposer<F>),
-    ProvingComposer(ProvingComposer<F>),
+    Setup(SetupComposer<F>),
+    Proving(ProvingComposer<F>),
 }
 
 impl<F: Field> Composer<F> {
     ///
-    pub fn to_setup_composer(self) -> SetupComposer<F> {
+    pub fn unwrap_setup(self) -> SetupComposer<F> {
         match self {
-            Self::SetupComposer(composer) => composer,
+            Self::Setup(composer) => composer,
             _ => panic!("constraint system is not in setup mode"),
         }
     }
 
     ///
-    pub fn to_proving_composer(self) -> ProvingComposer<F> {
+    pub fn setup_ref(&self) -> &SetupComposer<F> {
         match self {
-            Self::ProvingComposer(composer) => composer,
+            Self::Setup(composer) => composer,
+            _ => panic!("constraint system is not in setup mode"),
+        }
+    }
+
+    ///
+    pub fn unwrap_proving(self) -> ProvingComposer<F> {
+        match self {
+            Self::Proving(composer) => composer,
+            _ => panic!("constraint system is not in proving mode"),
+        }
+    }
+
+    ///
+    pub fn proving_ref(&self) -> &ProvingComposer<F> {
+        match self {
+            Self::Proving(composer) => composer,
             _ => panic!("constraint system is not in proving mode"),
         }
     }
@@ -181,14 +197,14 @@ pub fn check_arith_gate<F: Field>(
 
     // check arithmetic equation
     izip!(
-        &setup.q_m,
-        &setup.q_l,
-        &setup.q_r,
-        &setup.q_o,
-        &setup.q_c,
-        &proving.w_l,
-        &proving.w_r,
-        &proving.w_o,
+        setup.q_m.iter(),
+        setup.q_l.iter(),
+        setup.q_r.iter(),
+        setup.q_o.iter(),
+        setup.q_c.iter(),
+        proving.w_l.iter(),
+        proving.w_r.iter(),
+        proving.w_o.iter(),
         pub_vals,
     )
     .enumerate()

@@ -28,14 +28,14 @@ impl<F: Field> ConstraintSystem<F> {
     /// fail.
     pub fn boolean_gate(&mut self, x: Variable) -> Boolean {
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_out(-F::one());
 
                 composer.arith_constrain(x, x, x, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 composer.input_wires(x, x, x, None);
             }
         }
@@ -49,7 +49,7 @@ impl<F: Field> ConstraintSystem<F> {
         let z: Variable;
         
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_out(-F::one());
@@ -58,7 +58,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x.0, y.0, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
                 let z_value = x_value * y_value;
@@ -78,7 +78,7 @@ impl<F: Field> ConstraintSystem<F> {
         let z: Variable;
         
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_left(-F::one())
@@ -89,7 +89,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x.0, y.0, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
                 let z_value = (F::one() - x_value) * (F::one() - y_value);
@@ -109,7 +109,7 @@ impl<F: Field> ConstraintSystem<F> {
         let z: Variable;
         
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::from(2u64))
                     .with_left(-F::one())
@@ -120,7 +120,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x.0, y.0, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
                 let z_value = (x_value + y_value) - F::from(2u64) * x_value * y_value;
@@ -140,7 +140,7 @@ impl<F: Field> ConstraintSystem<F> {
         let z: Variable;
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(-F::one())
                     .with_left(F::one())
@@ -150,7 +150,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x.0, y.0, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
                 let z_value = x_value * (F::one() - y_value);
@@ -170,7 +170,7 @@ impl<F: Field> ConstraintSystem<F> {
         let z: Variable;
 
         match &mut self.composer {
-            Composer::SetupComposer(composer) => {
+            Composer::Setup(composer) => {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one())
                     .with_left(-F::one())
@@ -182,7 +182,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.arith_constrain(x.0, y.0, z, sels, false);
             }
-            Composer::ProvingComposer(composer) => {
+            Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
                 let z_value = (F::one() - x_value) * (F::one() - y_value);
