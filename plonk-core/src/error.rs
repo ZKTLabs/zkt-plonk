@@ -24,19 +24,13 @@ pub enum Error {
     // Prover/Verifier errors
     /// This error occurs when a proof verification fails.
     ProofVerificationError,
-    /// This error occurs when the circuit is not provided with all of the
-    /// required inputs.
-    CircuitInputsNotFound,
-    /// This error occurs when we want to verify a Proof but the pi_constructor
-    /// attribute is uninitialized.
-    UninitializedPIGenerator,
-    /// PublicInput serialization error
-    InvalidPublicInputBytes,
-    /// This error occurs when the Prover structure already contains a
-    /// preprocessed circuit inside, but you call preprocess again.
-    CircuitAlreadyPreprocessed,
-    /// Public input position is already assigned.
-    AssignedPublicInput(usize),
+    /// Incorrect count of public inputs.
+    IncorrectPublicInputs {
+        ///
+        expect: usize,
+        ///
+        actual: usize,
+    },
 
     /// Polynomial Commitment errors
     PCError {
@@ -74,15 +68,9 @@ pub enum Error {
     /// array.
     ScalarMalformed,
 
-    // Plonkup errors
-    /// Table is already registered
-    TableRepeated(&'static str),
-    /// Table is not registered
-    TableNotRegistered,
-    /// Query element not found in lookup table
+    // Plonkup circuit errors
+    /// Element is not found in lookup table.
     ElementNotIndexed,
-    /// Cannot commit to table column polynomial
-    TablePreProcessingError,
 }
 
 impl From<ark_poly_commit::error::Error> for Error {
@@ -113,29 +101,23 @@ impl std::fmt::Display for Error {
             } => write!(
                 f,
                 "Log-size of the EvaluationDomain group > TWO_ADICITY\
-            Size: {:?} > TWO_ADICITY = {:?}",
-                log_size_of_group, adicity
+                Size: {:?} > TWO_ADICITY = {:?}",
+                log_size_of_group,
+                adicity,
             ),
             Self::ProofVerificationError => {
                 write!(f, "proof verification failed")
             }
-            Self::CircuitInputsNotFound => {
-                write!(f, "circuit inputs not found")
-            }
-            Self::UninitializedPIGenerator => {
-                write!(f, "PI generator uninitialized")
-            }
-            Self::InvalidPublicInputBytes => {
-                write!(f, "invalid public input bytes")
-            }
-            Self::AssignedPublicInput(pos) => {
-                write!(f, "public input position {:?} is already assigned", pos)
+            Self::IncorrectPublicInputs{ expect, actual } => {
+                write!(
+                    f,
+                    "incorrect count of public inputs, expect: {:?}, actual: {:?}",
+                    expect,
+                    actual,
+                )
             }
             Self::PCError { error } => {
                 write!(f, "{:?}", error)
-            }
-            Self::CircuitAlreadyPreprocessed => {
-                write!(f, "circuit has already been preprocessed")
             }
             Self::DegreeIsZero => {
                 write!(f, "cannot create PublicParameters with max degree 0")
@@ -158,13 +140,8 @@ impl std::fmt::Display for Error {
             Self::NotEnoughBytes => write!(f, "not enough bytes left to read"),
             Self::PointMalformed => write!(f, "point bytes malformed"),
             Self::ScalarMalformed => write!(f, "scalar bytes malformed"),
-            Self::TableRepeated(name) => write!(f, "table {:?} is registered", name),
-            Self::TableNotRegistered => write!(f, "table is not registered"),
             Self::ElementNotIndexed => {
                 write!(f, "element not found in lookup table")
-            }
-            Self::TablePreProcessingError => {
-                write!(f, "lookup table not preprocessed correctly")
             }
         }
     }

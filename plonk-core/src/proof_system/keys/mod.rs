@@ -37,7 +37,7 @@ where
     F: Field,
     PC: HomomorphicCommitment<F>,
 {
-    /// Circuit size (not padded to a power of two).
+    /// Circuit size (padded to a power of two).
     pub n: usize,
 
     /// Arithmetic Verifier Key

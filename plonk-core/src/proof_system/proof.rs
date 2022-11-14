@@ -236,10 +236,18 @@ where
             })?;
         assert_eq!(vk.n, domain.size());
 
-        // Append Public Inputs to the transcript
+        // Append Public Inputs to the transcript.
+        let mut pi_num = 0usize;
         pub_inputs.clone().into_iter().enumerate().for_each(|(i, pi)| {
+            pi_num += 1;
             transcript.append_scalar(format!("pi_{}", i).as_str(), pi);
         });
+        if pi_num != vk.arith.lagranges.len() {
+            return Err(Error::IncorrectPublicInputs {
+                expect: vk.arith.lagranges.len(),
+                actual: pi_num,
+            });
+        }
 
         // Subgroup checks are done when the proof is deserialised.
 

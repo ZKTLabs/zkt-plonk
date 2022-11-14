@@ -224,7 +224,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 z = composer.perm.new_variable();
 
-                composer.arith_constrain(x, y, z, sels, false);
+                composer.arith_constrain(y, z, x, sels, false);
             }
             Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x);
@@ -233,319 +233,148 @@ impl<F: Field> ConstraintSystem<F> {
 
                 z = composer.var_map.assign_variable(z_value);
                 
-                composer.input_wires(x, y, z, None);
+                composer.input_wires(y, z, x, None);
             }
         }
 
         z
     }
+
+    /// x^2 - y = 0
+    pub fn square_gate(&mut self, x: Variable) -> Variable {
+        let y: Variable;
+
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                let sels = ArithSelectors::default()
+                    .with_mul(F::one())
+                    .with_out(-F::one());
+
+                y = composer.perm.new_variable();
+
+                composer.arith_constrain(x, x, y, sels, false);
+            }
+            Composer::Proving(composer) => {
+                let x_value = composer.var_map.value_of_var(x);
+                let y_value = x_value.square();
+
+                y = composer.var_map.assign_variable(y_value);
+                
+                composer.input_wires(x, x, y, None);
+            }
+        }
+
+        y
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::constraint_system::helper::test_arith_gates;
+    use ark_ff::Field;
+    use ark_std::test_rng;
+    use ark_bn254::Bn254;
+    use ark_bls12_381::Bls12_381;
+    use ark_bls12_377::Bls12_377;
 
-    use super::*;
-    use ark_ff::UniformRand;
-    use ark_bn254::Fr;
-    use rand_core::OsRng;
+    use crate::{batch_test_field, constraint_system::test_arith_gate};
 
-    #[test]
-    fn test_add_gate() {
-        let rng = &mut OsRng;
-        test_arith_gates(|cs: &mut ConstraintSystem<Fr>| {
-            let x = cs.assign_variable(Fr::rand(rng));
-            let y = cs.assign_variable(Fr::rand(rng));
-            cs.add_gate(x, y);
-        });
+    use super::ConstraintSystem;
+
+    fn test_add_gate<F: Field>() {
+        test_arith_gate(
+            |cs: &mut ConstraintSystem<F>| {
+                let rng = &mut test_rng();
+                let x_value = F::rand(rng);
+                let y_value = F::rand(rng);
+                let z_value = x_value + y_value;
+                let x = cs.assign_variable(x_value);
+                let y = cs.assign_variable(y_value);
+                let assigned_z = cs.assign_variable(z_value);
+                let computed_z = cs.add_gate(x, y);
+                cs.equal_constrain(assigned_z, computed_z);
+            },
+            &[],
+        )
     }
+
+    fn test_sub_gate<F: Field>() {
+        test_arith_gate(
+            |cs: &mut ConstraintSystem<F>| {
+                let rng = &mut test_rng();
+                let x_value = F::rand(rng);
+                let y_value = F::rand(rng);
+                let z_value = x_value - y_value;
+                let x = cs.assign_variable(x_value);
+                let y = cs.assign_variable(y_value);
+                let assigned_z = cs.assign_variable(z_value);
+                let computed_z = cs.sub_gate(x, y);
+                cs.equal_constrain(assigned_z, computed_z);
+            },
+            &[],
+        )
+    }
+
+    fn test_mul_gate<F: Field>() {
+        test_arith_gate(
+            |cs: &mut ConstraintSystem<F>| {
+                let rng = &mut test_rng();
+                let x_value = F::rand(rng);
+                let y_value = F::rand(rng);
+                let z_value = x_value * y_value;
+                let x = cs.assign_variable(x_value);
+                let y = cs.assign_variable(y_value);
+                let assigned_z = cs.assign_variable(z_value);
+                let computed_z = cs.mul_gate(x, y);
+                cs.equal_constrain(assigned_z, computed_z);
+            },
+            &[],
+        )
+    }
+
+    fn test_div_gate<F: Field>() {
+        test_arith_gate(
+            |cs: &mut ConstraintSystem<F>| {
+                let rng = &mut test_rng();
+                let x_value = F::rand(rng);
+                let y_value = F::rand(rng);
+                let z_value = x_value / y_value;
+                let x = cs.assign_variable(x_value);
+                let y = cs.assign_variable(y_value);
+                let assigned_z = cs.assign_variable(z_value);
+                let computed_z = cs.div_gate(x, y);
+                cs.equal_constrain(assigned_z, computed_z);
+            },
+            &[],
+        )
+    }
+
+    batch_test_field!(
+        [
+            test_add_gate,
+            test_sub_gate,
+            test_mul_gate,
+            test_div_gate
+        ],
+        [] => (Bn254)
+    );
+
+    batch_test_field!(
+        [
+            test_add_gate,
+            test_sub_gate,
+            test_mul_gate,
+            test_div_gate
+        ],
+        [] => (Bls12_381)
+    );
+
+    batch_test_field!(
+        [
+            test_add_gate,
+            test_sub_gate,
+            test_mul_gate,
+            test_div_gate
+        ],
+        [] => (Bls12_377)
+    );
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::{
-//         batch_test, commitment::HomomorphicCommitment,
-//         constraint_system::helper::*,
-//     };
-//     use ark_bls12_377::Bls12_377;
-//     use ark_bls12_381::Bls12_381;
-
-//     fn test_public_inputs<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 let var_one = composer.add_input(F::one());
-
-//                 let should_be_three = composer.arithmetic_gate(|gate| {
-//                     gate.witness(var_one, var_one, None)
-//                         .add(F::one(), F::one())
-//                         .pi(F::one())
-//                 });
-
-//                 composer.constrain_to_constant(
-//                     should_be_three,
-//                     F::from(3u64),
-//                     None,
-//                 );
-
-//                 let should_be_four = composer.arithmetic_gate(|gate| {
-//                     gate.witness(var_one, var_one, None)
-//                         .add(F::one(), F::one())
-//                         .pi(F::from(2u64))
-//                 });
-
-//                 composer.constrain_to_constant(
-//                     should_be_four,
-//                     F::from(4u64),
-//                     None,
-//                 );
-//             },
-//             200,
-//         );
-//         assert!(res.is_ok(), "{:?}", res.err().unwrap());
-//     }
-
-//     fn test_correct_add_mul_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 // Verify that (4+5+5) * (6+7+7) = 280
-//                 let four = composer.add_input(F::from(4u64));
-//                 let five = composer.add_input(F::from(5u64));
-//                 let six = composer.add_input(F::from(6u64));
-//                 let seven = composer.add_input(F::from(7u64));
-
-//                 let fourteen = composer.arithmetic_gate(|gate| {
-//                     gate.witness(four, five, None)
-//                         .add(F::one(), F::one())
-//                         .pi(F::from(5u64))
-//                 });
-
-//                 let twenty = composer.arithmetic_gate(|gate| {
-//                     gate.witness(six, seven, None)
-//                         .add(F::one(), F::one())
-//                         .fan_in_3(F::one(), seven)
-//                 });
-
-//                 // There are quite a few ways to check the equation is correct,
-//                 // depending on your circumstance If we already
-//                 // have the output wire, we can constrain the output of the
-//                 // mul_gate to be equal to it If we do not, we
-//                 // can compute it using an `arithmetic_gate`. If the output
-//                 // is public, we can also constrain the output wire of the mul
-//                 // gate to it. This is what this test does
-//                 let output = composer.arithmetic_gate(|gate| {
-//                     gate.witness(fourteen, twenty, None).mul(F::one())
-//                 });
-
-//                 composer.constrain_to_constant(output, F::from(280u64), None);
-//             },
-//             200,
-//         );
-//         assert!(res.is_ok(), "{:?}", res.err().unwrap());
-//     }
-
-//     fn test_correct_add_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 let zero = composer.zero_var();
-//                 let one = composer.add_input(F::one());
-
-//                 let c = composer.arithmetic_gate(|gate| {
-//                     gate.witness(one, zero, None)
-//                         .add(F::one(), F::one())
-//                         .constant(F::from(2u64))
-//                 });
-
-//                 composer.constrain_to_constant(c, F::from(3u64), None);
-//             },
-//             32,
-//         );
-//         assert!(res.is_ok(), "{:?}", res.err().unwrap());
-//     }
-
-//     fn test_correct_big_add_mul_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 // Verify that (4+5+5) * (6+7+7) + (8*9) = 352
-//                 let four = composer.add_input(F::from(4u64));
-//                 let five = composer.add_input(F::from(5u64));
-//                 let six = composer.add_input(F::from(6u64));
-//                 let seven = composer.add_input(F::from(7u64));
-//                 let nine = composer.add_input(F::from(9u64));
-
-//                 let fourteen = composer.arithmetic_gate(|gate| {
-//                     gate.witness(four, five, None)
-//                         .add(F::one(), F::one())
-//                         .fan_in_3(F::one(), five)
-//                 });
-
-//                 let twenty = composer.arithmetic_gate(|gate| {
-//                     gate.witness(six, seven, None)
-//                         .add(F::one(), F::one())
-//                         .fan_in_3(F::one(), seven)
-//                 });
-
-//                 let output = composer.arithmetic_gate(|gate| {
-//                     gate.witness(fourteen, twenty, None)
-//                         .mul(F::one())
-//                         .fan_in_3(F::from(8u64), nine)
-//                 });
-
-//                 composer.constrain_to_constant(output, F::from(352u64), None);
-//             },
-//             200,
-//         );
-//         assert!(res.is_ok());
-//     }
-
-//     fn test_correct_big_arith_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 // Verify that (4*5)*6 + 4*7 + 5*8 + 9*10 + 11 = 289
-//                 let a = composer.add_input(F::from(4u64));
-//                 let b = composer.add_input(F::from(5u64));
-//                 let q_m = F::from(6u64);
-//                 let q_l = F::from(7u64);
-//                 let q_r = F::from(8u64);
-//                 let d = composer.add_input(F::from(9u64));
-//                 let q_4 = F::from(10u64);
-//                 let q_c = F::from(11u64);
-
-//                 let output = composer.arithmetic_gate(|gate| {
-//                     gate.witness(a, b, None)
-//                         .mul(q_m)
-//                         .add(q_l, q_r)
-//                         .fan_in_3(q_4, d)
-//                         .constant(q_c)
-//                 });
-
-//                 composer.constrain_to_constant(output, F::from(289u64), None);
-//             },
-//             200,
-//         );
-//         assert!(res.is_ok());
-//     }
-
-//     fn test_incorrect_big_arith_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 // Verify that (4*5)*6 + 4*7 + 5*8 + 9*12 + 11 != 289
-//                 let a = composer.add_input(F::from(4u64));
-//                 let b = composer.add_input(F::from(5u64));
-//                 let q_m = F::from(6u64);
-//                 let q_l = F::from(7u64);
-//                 let q_r = F::from(8u64);
-//                 let d = composer.add_input(F::from(9u64));
-//                 let q_4 = F::from(12u64);
-//                 let q_c = F::from(11u64);
-
-//                 let output = composer.arithmetic_gate(|gate| {
-//                     gate.witness(a, b, None)
-//                         .mul(q_m)
-//                         .add(q_l, q_r)
-//                         .fan_in_3(q_4, d)
-//                         .constant(q_c)
-//                 });
-
-//                 composer.constrain_to_constant(output, F::from(289u64), None);
-//             },
-//             200,
-//         );
-//         assert!(res.is_err());
-//     }
-
-//     fn test_incorrect_add_mul_gate<F, P, PC>()
-//     where
-//         F: PrimeField,
-//         P: TEComposerlParameters<BaseField = F>,
-//         PC: HomomorphicCommitment<F>,
-//     {
-//         let res = gadget_tester::<F, P, PC>(
-//             |composer: &mut ConstraintSystem<F, P>| {
-//                 // Verify that (5+5) * (6+7) != 117
-//                 let five = composer.add_input(F::from(5u64));
-//                 let six = composer.add_input(F::from(6u64));
-//                 let seven = composer.add_input(F::from(7u64));
-
-//                 let five_plus_five = composer.arithmetic_gate(|gate| {
-//                     gate.witness(five, five, None).add(F::one(), F::one())
-//                 });
-
-//                 let six_plus_seven = composer.arithmetic_gate(|gate| {
-//                     gate.witness(six, seven, None).add(F::one(), F::one())
-//                 });
-
-//                 let output = composer.arithmetic_gate(|gate| {
-//                     gate.witness(five_plus_five, six_plus_seven, None)
-//                         .add(F::one(), F::one())
-//                 });
-
-//                 composer.constrain_to_constant(output, F::from(117u64), None);
-//             },
-//             200,
-//         );
-//         assert!(res.is_err());
-//     }
-
-//     // Bls12-381 tests
-//     batch_test!(
-//         [
-//             test_public_inputs,
-//             test_correct_add_mul_gate,
-//             test_correct_add_gate,
-//             test_correct_big_add_mul_gate,
-//             test_correct_big_arith_gate,
-//             test_incorrect_add_mul_gate,
-//             test_incorrect_big_arith_gate
-//         ],
-//         [] => (
-//             Bls12_381, ark_ed_on_bls12_381::EdwardsParameters
-//         )
-//     );
-
-//     // Bls12-377 tests
-//     batch_test!(
-//         [
-//             test_public_inputs,
-//             test_correct_add_mul_gate,
-//             test_correct_add_gate,
-//             test_correct_big_add_mul_gate,
-//             test_correct_big_arith_gate,
-//             test_incorrect_add_mul_gate,
-//             test_incorrect_big_arith_gate
-//         ],
-//         [] => (
-//             Bls12_377, ark_ed_on_bls12_377::EdwardsParameters
-//         )
-//     );
-// }

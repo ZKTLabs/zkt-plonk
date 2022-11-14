@@ -6,20 +6,19 @@
 
 use ark_ff::Field;
 
-use crate::{lookup::CustomTable, error::Error};
+use crate::lookup::CustomTable;
 
 use super::{Composer, Variable, ConstraintSystem};
 
 impl<F: Field> ConstraintSystem<F> {
     /// Adds a plookup gate to the circuit with its corresponding
     /// constraints.
-    pub fn lookup_gate<T: CustomTable<F>>(
+    pub fn lookup_gate_constrain<T: CustomTable<F>>(
         &mut self,
         a: Variable,
         b: Variable,
-    ) -> Result<Variable, Error> {
-        let c: Variable;
-
+        c: Variable,
+    ) {
         match &mut self.composer {
             Composer::Setup(composer) => {
                 // Add selector vectors
@@ -31,8 +30,6 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.q_lookup.push(F::one());
 
-                c = composer.perm.new_variable();
-
                 composer.perm.add_variables_to_map(a, b, c, composer.n);
 
                 composer.n += 1;
@@ -40,9 +37,9 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Proving(composer) => {
                 let a_value = composer.var_map.value_of_var(a);
                 let b_value = composer.var_map.value_of_var(b);
-                let c_value = self.lookup_table.lookup::<T>(&a_value, &b_value)?;
+                let c_value = composer.var_map.value_of_var(c);
 
-                c = composer.var_map.assign_variable(c_value);
+                self.lookup_table.ensure_in_table::<T>(&a_value, &b_value, &c_value);
                 
                 composer.w_l.push(a);
                 composer.w_r.push(b);
@@ -51,8 +48,6 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.n += 1;
             }
         }
-
-        Ok(c)
     }
 }
 

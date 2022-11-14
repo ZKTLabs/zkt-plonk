@@ -169,17 +169,14 @@ use crate::{
 /// ```
 pub trait Circuit<F: Field>: Sized {
     ///
-    fn add_custom_tables(_: &mut LookupTable<F>) -> Result<(), Error> {
-        // No custom table
-        Ok(())
-    }
+    fn register_tables(_: &mut LookupTable<F>) {}
     
     /// Implementation used to fill the composer.
     fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error>;
 
     ///
     fn circuit(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
-        Self::add_custom_tables(&mut cs.lookup_table)?;
+        Self::register_tables(&mut cs.lookup_table);
         self.synthesize(cs)
     }
 }

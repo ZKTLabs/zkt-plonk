@@ -9,9 +9,7 @@ use ark_ff::{Field, FftField};
 use ark_poly::EvaluationDomain;
 use ark_poly::univariate::DensePolynomial;
 
-use crate::error::Error;
-use crate::lookup::MultiSet;
-use crate::util::lc;
+use crate::{lookup::MultiSet, util::lc};
 
 ///
 pub trait CustomTable<F: Field> {
@@ -182,18 +180,20 @@ impl<F: Field> LookupTable<F> {
     }
 
     ///
-    pub fn add_custom_table<T>(&mut self) -> Result<&mut Self, Error>
-    where
-        T: CustomTable<F>,
-    {
+    pub fn add_custom_table<T: CustomTable<F>>(&mut self) -> &mut Self {
         let sel = T::selector();
         let rows = T::collect_rows();
+        assert!(
+            self.0.insert(sel, rows).is_none(),
+            "table selector is already registered",
+        );
 
-        if self.0.insert(sel, rows).is_some() {
-            Err(Error::TableRepeated(std::any::type_name::<T>()))
-        } else {
-            Ok(self)
-        }
+        self
+    }
+
+    ///
+    pub fn contains_table<T: CustomTable<F>>(&mut self) -> bool {
+        self.0.contains_key(&T::selector())
     }
 
     /// Takes in a table, which is a vector of slices containing
@@ -271,16 +271,15 @@ impl<F: Field> LookupTable<F> {
     /// element must be predetermined to be between -1 and 2 depending on
     /// the type of table used. If the element does not exist, it will
     /// return an error.
-    pub(crate) fn lookup<T: CustomTable<F>>(&self, a: &F, b: &F) -> Result<F, Error> {
-        let (_, _, r3) = self
+    pub(crate) fn ensure_in_table<T: CustomTable<F>>(&self, a: &F, b: &F, c: &F) {
+        let name = std::any::type_name::<T>();
+        self
             .0
             .get(&T::selector())
-            .ok_or(Error::TableNotRegistered)?
+            .expect(format!("table selector of {} is not found", name).as_str())
             .iter()
-            .find(|(r1, r2, _)| r1 == a && r2 == b)
-            .ok_or(Error::ElementNotIndexed)?;
-
-        Ok(*r3)
+            .find(|(r1, r2, r3)| r1 == a && r2 == b && r3 == c)
+            .expect(format!("elements not found in lookup table {}", name).as_str());
     }
 }
 

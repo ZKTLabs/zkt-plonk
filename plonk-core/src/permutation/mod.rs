@@ -175,7 +175,7 @@ impl Permutation {
 }
 
 ///
-pub(crate) fn compute_z1_poly<F: FftField, D: EvaluationDomain<F>>(
+pub(crate) fn compute_z1_poly<F, D>(
     domain: &D,
     beta: F,
     gamma: F,
@@ -185,7 +185,11 @@ pub(crate) fn compute_z1_poly<F: FftField, D: EvaluationDomain<F>>(
     sigma1: &[F],
     sigma2: &[F],
     sigma3: &[F],
-) -> DensePolynomial<F> {
+) -> DensePolynomial<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
     let n = domain.size();
     assert_eq!(a.len(), n);
     assert_eq!(b.len(), n);
@@ -250,7 +254,7 @@ pub(crate) fn compute_z1_poly<F: FftField, D: EvaluationDomain<F>>(
 }
 
 ///
-pub(crate) fn compute_z2_poly<F: FftField, D: EvaluationDomain<F>>(
+pub(crate) fn compute_z2_poly<F, D>(
     domain: &D,
     delta: F,
     epsilon: F,
@@ -258,7 +262,11 @@ pub(crate) fn compute_z2_poly<F: FftField, D: EvaluationDomain<F>>(
     t: &[F],
     h1: &[F],
     h2: &[F],
-) -> DensePolynomial<F> {
+) -> DensePolynomial<F>
+where
+    F: FftField,
+    D: EvaluationDomain<F>,
+{
     let n = domain.size();
 
     assert_eq!(f.len(), n);

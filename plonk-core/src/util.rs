@@ -130,31 +130,6 @@ where
 }
 
 ///
-pub(crate) fn poly_from_coset_evals_ref<F, D>(
-    domain: &D,
-    evals: &[F],
-) -> DensePolynomial<F>
-where
-    F: FftField,
-    D: EvaluationDomain<F>,
-{
-    DensePolynomial::from_coefficients_vec(domain.coset_fft(evals))
-}
-
-///
-pub(crate) fn evals_from_poly<F, D>(
-    domain: &D,
-    mut poly: DensePolynomial<F>,
-) -> Vec<F>
-where
-    F: FftField,
-    D: EvaluationDomain<F>,
-{
-    domain.fft_in_place(&mut poly.coeffs);
-    poly.coeffs
-}
-
-///
 pub(crate) fn evals_from_poly_ref<F, D>(
     domain: &D,
     poly: &DensePolynomial<F>,
@@ -336,70 +311,70 @@ macro_rules! par_izip {
     };
 }
 
-#[cfg(test)]
-mod test {
-    use crate::batch_field_test;
+// #[cfg(test)]
+// mod test {
+//     use crate::batch_field_test;
 
-    use super::*;
-    use ark_bls12_377::Fr as Bls12_377_scalar_field;
-    use ark_bls12_381::Fr as Bls12_381_scalar_field;
-    use ark_ff::Field;
-    use rand_core::OsRng;
+//     use super::*;
+//     use ark_bls12_377::Fr as Bls12_377_scalar_field;
+//     use ark_bls12_381::Fr as Bls12_381_scalar_field;
+//     use ark_ff::Field;
+//     use rand_core::OsRng;
 
-    fn test_correct_lc<F: Field>() {
-        let n_iter = 10;
-        for _ in 0..n_iter {
-            let a = F::rand(&mut OsRng);
-            let b = F::rand(&mut OsRng);
-            let c = F::rand(&mut OsRng);
-            let d = F::rand(&mut OsRng);
-            let e = F::rand(&mut OsRng);
-            let challenge = F::rand(&mut OsRng);
-            let expected = a
-                + b * challenge
-                + c * challenge * challenge
-                + d * challenge * challenge * challenge
-                + e * challenge * challenge * challenge * challenge;
+//     fn test_correct_lc<F: Field>() {
+//         let n_iter = 10;
+//         for _ in 0..n_iter {
+//             let a = F::rand(&mut OsRng);
+//             let b = F::rand(&mut OsRng);
+//             let c = F::rand(&mut OsRng);
+//             let d = F::rand(&mut OsRng);
+//             let e = F::rand(&mut OsRng);
+//             let challenge = F::rand(&mut OsRng);
+//             let expected = a
+//                 + b * challenge
+//                 + c * challenge * challenge
+//                 + d * challenge * challenge * challenge
+//                 + e * challenge * challenge * challenge * challenge;
 
-            let result = lc(&[a, b, c, d, e], challenge);
-            assert_eq!(result, expected)
-        }
-    }
+//             let result = lc(&[a, b, c, d, e], challenge);
+//             assert_eq!(result, expected)
+//         }
+//     }
 
-    fn test_incorrect_lc<F: Field>() {
-        let n_iter = 10;
-        for _ in 0..n_iter {
-            let a = F::rand(&mut OsRng);
-            let b = F::rand(&mut OsRng);
-            let c = F::rand(&mut OsRng);
-            let d = F::rand(&mut OsRng);
-            let e = F::rand(&mut OsRng);
-            let challenge = F::rand(&mut OsRng);
-            let expected = F::one()
-                + a
-                + b * challenge
-                + c * challenge * challenge
-                + d * challenge * challenge * challenge
-                + e * challenge * challenge * challenge * challenge;
+//     fn test_incorrect_lc<F: Field>() {
+//         let n_iter = 10;
+//         for _ in 0..n_iter {
+//             let a = F::rand(&mut OsRng);
+//             let b = F::rand(&mut OsRng);
+//             let c = F::rand(&mut OsRng);
+//             let d = F::rand(&mut OsRng);
+//             let e = F::rand(&mut OsRng);
+//             let challenge = F::rand(&mut OsRng);
+//             let expected = F::one()
+//                 + a
+//                 + b * challenge
+//                 + c * challenge * challenge
+//                 + d * challenge * challenge * challenge
+//                 + e * challenge * challenge * challenge * challenge;
 
-            let result = lc(&[a, b, c, d, e], challenge);
-            assert_eq!(result, expected)
-        }
-    }
-    batch_field_test!(
-        [
-        test_correct_lc
-        ],
-        [
-        test_incorrect_lc
-        ] => Bls12_381_scalar_field
-    );
-    batch_field_test!(
-        [
-        test_correct_lc
-        ],
-        [
-        test_incorrect_lc
-        ] => Bls12_377_scalar_field
-    );
-}
+//             let result = lc(&[a, b, c, d, e], challenge);
+//             assert_eq!(result, expected)
+//         }
+//     }
+//     batch_field_test!(
+//         [
+//         test_correct_lc
+//         ],
+//         [
+//         test_incorrect_lc
+//         ] => Bls12_381_scalar_field
+//     );
+//     batch_field_test!(
+//         [
+//         test_correct_lc
+//         ],
+//         [
+//         test_incorrect_lc
+//         ] => Bls12_377_scalar_field
+//     );
+// }
