@@ -4,7 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 use ark_ff::{Field, FftField};
 use ark_poly::EvaluationDomain;
 use ark_poly::univariate::DensePolynomial;

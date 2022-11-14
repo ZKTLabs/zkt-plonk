@@ -6,8 +6,7 @@
 
 use ark_ff::Field;
 
-use crate::lookup::CustomTable;
-use crate::error::Error;
+use crate::{lookup::CustomTable, error::Error};
 
 use super::{Composer, Variable, ConstraintSystem};
 

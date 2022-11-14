@@ -82,8 +82,45 @@
 // }
 
 use ark_ff::Field;
+use itertools::izip;
 
-use super::{ConstraintSystem, composer::check_arith_gate};
+use super::{ConstraintSystem, SetupComposer, ProvingComposer};
+
+///
+pub fn check_arith_gate<F: Field>(
+    setup: &SetupComposer<F>,
+    proving: &ProvingComposer<F>,
+) {
+    assert_eq!(setup.n, proving.n, "circuit size not matched");
+
+    assert!(
+        setup.pp.get_pos().zip(proving.pi.get_pos()).all(|(i, j)| i == j),
+        "positions of public inputs not matched",
+    );
+
+    let pub_vals = proving.pi.as_evals(proving.n);
+
+    // check arithmetic equation
+    izip!(
+        setup.q_m.iter(),
+        setup.q_l.iter(),
+        setup.q_r.iter(),
+        setup.q_o.iter(),
+        setup.q_c.iter(),
+        proving.w_l.iter(),
+        proving.w_r.iter(),
+        proving.w_o.iter(),
+        pub_vals,
+    )
+    .enumerate()
+    .for_each(|(i, (&q_m, &q_l, &q_r, &q_o, &q_c, &w_l, &w_r, &w_o, pi))| {
+        let a = proving.var_map.value_of_var(w_l);
+        let b = proving.var_map.value_of_var(w_r);
+        let c = proving.var_map.value_of_var(w_o);
+        let out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
+        assert!(out.is_zero(), "arithmetic gate {} is not satisfied", i);
+    });
+}
 
 ///
 pub(super) fn test_arith_gates<F, Fn>(mut process: Fn)

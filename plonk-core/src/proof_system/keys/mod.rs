@@ -10,7 +10,6 @@ pub mod arithmetic;
 pub mod permutation;
 pub mod lookup;
 
-
 use ark_ff::{Field, FftField};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use ark_serialize::*;

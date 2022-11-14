@@ -7,9 +7,8 @@
 //! Tools & traits for PLONK circuits
 
 use std::{marker::PhantomData, rc::Rc};
-use ark_ff::{PrimeField, FftField, Field};
+use ark_ff::{FftField, Field};
 use ark_poly::GeneralEvaluationDomain;
-use ark_serialize::*;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::{
@@ -17,59 +16,13 @@ use crate::{
     error::{to_pc_error, Error},
     constraint_system::ConstraintSystem,
     proof_system::{
-        pi::PublicInputs,
         Proof,
-        ProverKey,
-        VerifierKey,
-        setup::plonkup_setup,
-        prove::plonkup_prove, ExtendedProverKey,
+        ProverKey, ExtendedProverKey, VerifierKey,
+        plonkup_setup, plonkup_prove,
     },
-    transcript::TranscriptProtocol, lookup::LookupTable,
+    transcript::TranscriptProtocol,
+    lookup::LookupTable,
 };
-
-/// Collection of structs/objects that the Verifier will use in order to
-/// de/serialize data needed for Circuit proof verification.
-/// This structure can be seen as a link between the [`Circuit`] public input
-/// positions and the [`VerifierKey`] that the Verifier needs to use.
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = "VerifierKey<F,PC>: core::fmt::Debug"),
-    Eq(bound = "VerifierKey<F,PC>: Eq"),
-    PartialEq(bound = "VerifierKey<F,PC>: PartialEq")
-)]
-pub struct VerifierData<F, PC>
-where
-    F: PrimeField,
-    PC: HomomorphicCommitment<F>,
-{
-    /// Verifier Key
-    pub key: VerifierKey<F, PC>,
-    /// Public Input
-    pub pi: PublicInputs<F>,
-}
-
-impl<F, PC> VerifierData<F, PC>
-where
-    F: PrimeField,
-    PC: HomomorphicCommitment<F>,
-{
-    /// Creates a new `VerifierData` from a [`VerifierKey`] and the public
-    /// input of the circuit that it represents.
-    pub fn new(key: VerifierKey<F, PC>, pi: PublicInputs<F>) -> Self {
-        Self { key, pi }
-    }
-
-    /// Returns a reference to the contained [`VerifierKey`].
-    pub fn key(&self) -> &VerifierKey<F, PC> {
-        &self.key
-    }
-
-    /// Returns a reference to the contained Public Input .
-    pub fn pi(&self) -> &PublicInputs<F> {
-        &self.pi
-    }
-}
 
 /// Trait that should be implemented for any circuit function to provide to it
 /// the capabilities of automatically being able to generate, and verify proofs
@@ -306,12 +259,15 @@ where
     }
 
     ///
-    pub fn verify(
+    pub fn verify<'a, I>(
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,
         proof: &Proof<F, GeneralEvaluationDomain<F>, PC>,
         pub_inputs: &[F],
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = &'a F> + Clone,
+    {
         let transcript = &mut T::new("Plonkup");
         vk.seed_transcript(transcript);
 

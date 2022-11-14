@@ -6,11 +6,11 @@
 
 //! Module containing the lookups.
 
-pub(crate) mod lookup_table;
-pub(crate) mod multiset;
+mod lookup_table;
+mod multiset;
 
 pub use lookup_table::{CustomTable, LookupTable};
-pub use multiset::MultiSet;
+pub(crate) use multiset::MultiSet;
 
 // // #[cfg(test)]
 // // mod test {

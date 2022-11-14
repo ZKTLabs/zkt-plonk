@@ -139,7 +139,7 @@ where
     }
 
     /// Computes the commitment to `[r]_1`.
-    fn compute_linearisation_commitment(
+    fn compute_linearisation_commitment<'a, I>(
         &self,
         alpha: F,
         beta: F,
@@ -150,9 +150,12 @@ where
         z: F,
         l_1_eval: F,
         zh_eval: F,
-        pub_inputs: &[F],
+        pub_inputs: I,
         vk: &VerifierKey<F, PC>,
-    ) -> PC::Commitment {
+    ) -> PC::Commitment
+    where
+        I: IntoIterator<Item = &'a F>,
+    {
         //    6 for arithmetic
         // +  1 for range
         // +  1 for logic
@@ -215,15 +218,16 @@ where
     }
 
     /// Performs the verification of a [`Proof`] returning a boolean result.
-    pub(crate) fn verify_proof<T>(
+    pub(crate) fn verify_proof<'a, T, I>(
         &self,
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,
         transcript: &mut T,
-        pub_inputs: &[F],
+        pub_inputs: I,
     ) -> Result<(), Error>
     where
         T: TranscriptProtocol<F, PC::Commitment>,
+        I: IntoIterator<Item = &'a F> + Clone,
     {
         let domain = D::new(vk.n)
             .ok_or(Error::InvalidEvalDomainSize {
@@ -233,7 +237,7 @@ where
         assert_eq!(vk.n, domain.size());
 
         // Append Public Inputs to the transcript
-        pub_inputs.iter().enumerate().for_each(|(i, pi)| {
+        pub_inputs.clone().into_iter().enumerate().for_each(|(i, pi)| {
             transcript.append_scalar(format!("pi_{}", i).as_str(), pi);
         });
 

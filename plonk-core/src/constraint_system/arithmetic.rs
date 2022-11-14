@@ -9,8 +9,7 @@
 use ark_ff::Field;
 
 use super::{
-    Variable,
-    ConstraintSystem,
+    Variable, ConstraintSystem,
     Composer, SetupComposer, ProvingComposer,
 };
 

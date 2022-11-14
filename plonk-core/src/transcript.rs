@@ -17,6 +17,7 @@ where
     F: Field,
     PC: PCCommitment,
 {
+    ///
     fn new(label: &str) -> Self;
 
     ///
@@ -25,6 +26,7 @@ where
     ///
     fn append_scalar(&mut self, label: &str, item: &F);
 
+    ///
     fn append_commitment(&mut self, label: &str, item: &PC);
 
     /// Compute a `label`ed challenge variable.

@@ -35,10 +35,10 @@
 
 extern crate alloc;
 
-mod permutation;
-mod transcript;
 mod util;
 
+pub mod permutation;
+pub mod transcript;
 pub mod plonkup;
 pub mod commitment;
 pub mod constraint_system;

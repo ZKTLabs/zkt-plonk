@@ -9,11 +9,13 @@
 mod linearisation_poly;
 mod quotient_poly;
 mod keys;
+mod pi;
+mod prove;
+mod setup;
+mod proof;
 
-pub mod pi;
-pub mod proof;
-pub mod prove;
-pub mod setup;
-
+pub(crate) use prove::plonkup_prove;
+pub(crate) use setup::plonkup_setup;
+pub use pi::*;
 pub use proof::*;
 pub use keys::*;

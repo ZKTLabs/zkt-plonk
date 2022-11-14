@@ -15,10 +15,11 @@
 //! ECC op. gates, Range checks, Logical gates (Bitwise ops) etc.
 
 use ark_ff::Field;
-use itertools::izip;
 
-use crate::permutation::Permutation;
-use crate::proof_system::pi::{PublicInputs, PublicPositions};
+use crate::{
+    permutation::Permutation,
+    proof_system::{PublicInputs, PublicPositions},
+};
 
 use super::{Variable, VariableMap};
 
@@ -79,6 +80,7 @@ impl<F: Field> SetupComposer<F> {
     }
 }
 
+///
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct ProvingComposer<F: Field> {
@@ -140,10 +142,13 @@ impl<F: Field> ProvingComposer<F> {
     }
 }
 
+///
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub enum Composer<F: Field> {
+    ///
     Setup(SetupComposer<F>),
+    ///
     Proving(ProvingComposer<F>),
 }
 
@@ -180,41 +185,3 @@ impl<F: Field> Composer<F> {
         }
     }
 }
-
-///
-pub fn check_arith_gate<F: Field>(
-    setup: &SetupComposer<F>,
-    proving: &ProvingComposer<F>,
-) {
-    assert_eq!(setup.n, proving.n, "circuit size not matched");
-
-    assert!(
-        setup.pp.get_pos().zip(proving.pi.get_pos()).all(|(i, j)| i == j),
-        "positions of public inputs not matched",
-    );
-
-    let pub_vals = proving.pi.as_evals(proving.n);
-
-    // check arithmetic equation
-    izip!(
-        setup.q_m.iter(),
-        setup.q_l.iter(),
-        setup.q_r.iter(),
-        setup.q_o.iter(),
-        setup.q_c.iter(),
-        proving.w_l.iter(),
-        proving.w_r.iter(),
-        proving.w_o.iter(),
-        pub_vals,
-    )
-    .enumerate()
-    .for_each(|(i, (&q_m, &q_l, &q_r, &q_o, &q_c, &w_l, &w_r, &w_o, pi))| {
-        let a = proving.var_map.value_of_var(w_l);
-        let b = proving.var_map.value_of_var(w_r);
-        let c = proving.var_map.value_of_var(w_o);
-        let out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
-        assert!(out.is_zero(), "arithmetic gate {} is not satisfied", i);
-    });
-}
-
-

@@ -8,13 +8,9 @@
 
 use ark_ff::Field;
 
-use super::{
-    ArithSelectors,
-    Composer,
-    Variable,
-    ConstraintSystem,
-};
+use super::{ArithSelectors, Composer, Variable, ConstraintSystem};
 
+///
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Boolean(pub Variable);
 

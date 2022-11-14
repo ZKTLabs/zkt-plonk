@@ -9,17 +9,13 @@
 pub(crate) mod constants;
 
 use ark_ff::{FftField, Field};
-use ark_poly::{
-    domain::EvaluationDomain,
-    univariate::DensePolynomial,
-};
+use ark_poly::{domain::EvaluationDomain, univariate::DensePolynomial};
 use constants::{K1, K2};
 use itertools::Itertools;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use crate::constraint_system::Variable;
-use crate::util::poly_from_evals;
+use crate::{constraint_system::Variable, util::poly_from_evals};
 
 /// Stores the data for a specific wire in an arithmetic circuit
 /// This data is the gate index and the type of wire

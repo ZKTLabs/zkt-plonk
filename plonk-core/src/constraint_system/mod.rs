@@ -16,9 +16,10 @@ mod variable;
 
 pub(crate) mod helper;
 
-pub(crate) use composer::{Composer, SetupComposer, ProvingComposer};
-pub use variable::{Variable, VariableMap};
 pub use arithmetic::ArithSelectors;
+pub use boolean::Boolean;
+pub use composer::*;
+pub use variable::*;
 
 use ark_ff::Field;
 
