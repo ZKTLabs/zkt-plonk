@@ -39,9 +39,9 @@ impl<F: Field> ProvingComposer<F> {
         assert!(n.is_power_of_two());
         assert!(n >= self.n);
 
-        self.w_l.resize(n, Variable(None));
-        self.w_r.resize(n, Variable(None));
-        self.w_o.resize(n, Variable(None));
+        self.w_l.resize(n, Variable::Zero);
+        self.w_r.resize(n, Variable::Zero);
+        self.w_o.resize(n, Variable::Zero);
     }
 
     ///

@@ -13,7 +13,12 @@ use ark_ff::Field;
 /// The value is a reference to the actual value that was added to the
 /// constraint system
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Variable(pub(crate) Option<usize>);
+pub enum Variable {
+    ///
+    Zero,
+    ///
+    Var(usize),
+}
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
@@ -33,7 +38,7 @@ impl<F: Field> VariableMap<F> {
 
     ///
     pub fn assign_variable(&mut self, value: F) -> Variable {
-        let var = Variable(Some(self.0.len()));
+        let var = Variable::Var(self.0.len());
         self.0.push(value);
 
         var
@@ -41,10 +46,9 @@ impl<F: Field> VariableMap<F> {
 
     ///
     pub fn value_of_var(&self, var: Variable) -> F {
-        if let Some(i) = var.0 {
-            self.0[i]
-        } else {
-            F::zero()
+        match var {
+            Variable::Var(i) => self.0[i],
+            Variable::Zero => F::zero(),
         }
     }
 }

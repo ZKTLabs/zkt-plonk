@@ -17,61 +17,38 @@ pub trait CustomTable<F: Field> {
     type DataType: Clone;
 
     ///
-    const FROM_OUT: bool;
-
-    ///
     fn selector() -> F;
 
     ///
     fn convert(value: Self::DataType) -> F;
 
     ///
-    fn output(_: Self::DataType, _: Self::DataType) -> Self::DataType {
-        unimplemented!("output function is not implemented");
-    }
+    fn output(x: Self::DataType, y: Self::DataType) -> Self::DataType;
 
     ///
-    fn collect_a_inputs() -> Vec<Self::DataType> {
-        unimplemented!("collect a inputs function is not implemented");
-    }
+    fn collect_x_inputs() -> Vec<Self::DataType>;
 
     ///
-    fn collect_b_inputs() -> Vec<Self::DataType> {
-        unimplemented!("collect b inputs function is not implemented");
-    }
+    fn collect_y_inputs() -> Vec<Self::DataType>;
 
     ///
-    fn collect_outputs() -> Vec<Self::DataType> {
-        unimplemented!("collect outputs function is not implemented");
-    }
-
-    ///
-    fn row_from_input(a: Self::DataType, b: Self::DataType) -> (F, F, F) {
+    fn row(x: Self::DataType, y: Self::DataType) -> (F, F, F) {
         (
-            Self::convert(a.clone()),
-            Self::convert(b.clone()),
-            Self::convert(Self::output(a, b)),
+            Self::convert(x.clone()),
+            Self::convert(y.clone()),
+            Self::convert(Self::output(x, y)),
         )
     }
 
     ///
-    fn row_from_output(c: Self::DataType) -> (F, F, F) {
-        (F::zero(), F::zero(), Self::convert(c))
-    }
-
-    ///
     fn collect_rows() -> Vec<(F, F, F)> {
-        if Self::FROM_OUT {
-            Self::collect_outputs().into_iter().map(Self::row_from_output).collect()
-        } else {
-            Self::collect_a_inputs()
-                .into_iter()
-                .zip(Self::collect_b_inputs())
-                .map(|(a, b)| {
-                    Self::row_from_input(a, b)
-                })
-                .collect()
-        }
+        Self::collect_x_inputs()
+            .into_iter()
+            .zip(Self::collect_y_inputs())
+            .map(|(x, y)| {
+                Self::row(x, y)
+            })
+            .collect()
     }
 }
 
@@ -79,12 +56,11 @@ pub trait CustomTable<F: Field> {
 #[macro_export]
 macro_rules! impl_range_table {
     ($table:ident, $tp:ty, $sel:expr) => {
+        ///
         pub struct $table;
 
         impl<F: Field> CustomTable<F> for $table {
             type DataType = $tp;
-
-            const FROM_OUT: bool = true;
 
             fn selector() -> F {
                 F::from($sel)
@@ -94,8 +70,16 @@ macro_rules! impl_range_table {
                 F::from(value)
             }
 
-            fn collect_outputs() -> Vec<Self::DataType> {
+            fn output(_x: Self::DataType, _y: Self::DataType) -> Self::DataType {
+                0
+            }
+
+            fn collect_x_inputs() -> Vec<Self::DataType> {
                 (0..=<$tp>::MAX).collect()
+            }
+
+            fn collect_y_inputs() -> Vec<Self::DataType> {
+                vec![0]
             }
         }
     };
@@ -105,12 +89,11 @@ macro_rules! impl_range_table {
 #[macro_export]
 macro_rules! impl_logic_operation_table {
     ($table:ident, $tp:ty, $out:ident, $sel:expr) => {
+        ///
         pub struct $table;
 
         impl<F: Field> CustomTable<F> for $table {
             type DataType = $tp;
-
-            const FROM_OUT: bool = false;
 
             fn selector() -> F {
                 F::from($sel)
@@ -124,11 +107,11 @@ macro_rules! impl_logic_operation_table {
                 $out(left, right)
             }
 
-            fn collect_a_inputs() -> Vec<Self::DataType> {
+            fn collect_x_inputs() -> Vec<Self::DataType> {
                 (0..=<$tp>::MAX).collect()
             }
 
-            fn collect_b_inputs() -> Vec<Self::DataType> {
+            fn collect_y_inputs() -> Vec<Self::DataType> {
                 (0..=<$tp>::MAX).collect()
             }
         }
@@ -271,14 +254,14 @@ impl<F: Field> LookupTable<F> {
     /// element must be predetermined to be between -1 and 2 depending on
     /// the type of table used. If the element does not exist, it will
     /// return an error.
-    pub(crate) fn ensure_in_table<T: CustomTable<F>>(&self, a: &F, b: &F, c: &F) {
+    pub(crate) fn ensure_in_table<T: CustomTable<F>>(&self, x: &F, y: &F, z: &F) {
         let name = std::any::type_name::<T>();
         self
             .0
             .get(&T::selector())
             .expect(format!("table selector of {} is not found", name).as_str())
             .iter()
-            .find(|(r1, r2, r3)| r1 == a && r2 == b && r3 == c)
+            .find(|(r1, r2, r3)| r1 == x && r2 == y && r3 == z)
             .expect(format!("elements not found in lookup table {}", name).as_str());
     }
 }

@@ -11,7 +11,6 @@
 mod arithmetic;
 mod boolean;
 mod lookup;
-mod uint;
 mod composer;
 mod variable;
 mod helper;
@@ -57,7 +56,7 @@ pub struct ConstraintSystem<F: Field> {
     ///
     pub composer: Composer<F>,
     ///
-    pub(crate) lookup_table: LookupTable<F>,
+    pub lookup_table: LookupTable<F>,
 }
 
 impl<F: Field> ConstraintSystem<F> {
@@ -133,7 +132,7 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.arith_constrain(
                     x,
                     y,
-                    Variable(None),
+                    Variable::Zero,
                     sels,
                     false,
                 );
@@ -142,7 +141,7 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.input_wires(
                     x,
                     y,
-                    Variable(None),
+                    Variable::Zero,
                     None,
                 );
             }
@@ -157,8 +156,8 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_out(-F::one());
 
                 composer.arith_constrain(
-                    Variable(None),
-                    Variable(None),
+                    Variable::Zero,
+                    Variable::Zero,
                     x,
                     sels,
                     true,
@@ -166,8 +165,8 @@ impl<F: Field> ConstraintSystem<F> {
             }
             Composer::Proving(composer) => {
                 composer.input_wires(
-                    Variable(None),
-                    Variable(None),
+                    Variable::Zero,
+                    Variable::Zero,
                     x,
                     Some(composer.var_map.value_of_var(x)),
                 );
@@ -199,7 +198,7 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = ArithSelectors::default()
                     .with_mul(F::one());
 
-                composer.arith_constrain(x, z, Variable(None), sels, false);
+                composer.arith_constrain(x, z, Variable::Zero, sels, false);
             }
             Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x);
@@ -210,7 +209,7 @@ impl<F: Field> ConstraintSystem<F> {
                 z = composer.var_map.assign_variable(z_value);
                 
                 composer.input_wires(x, y, z, None);
-                composer.input_wires(x, z, Variable(None), None);
+                composer.input_wires(x, z, Variable::Zero, None);
             }
         }
 

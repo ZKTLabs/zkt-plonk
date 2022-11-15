@@ -54,7 +54,7 @@ impl Permutation {
     /// into the system It is always allocated in the `variable_map`.
     pub fn new_variable(&mut self) -> Variable {
         // Generate the Variable
-        let var = Variable(Some(self.0.len()));
+        let var = Variable::Var(self.0.len());
 
         // Allocate space for the Variable on the variable_map
         // Each vector is initialised with a capacity of 16.
@@ -84,7 +84,7 @@ impl Permutation {
     fn add_variable_to_map(&mut self, var: Variable, wire_data: WireData) {
         // NOTE: Since we always allocate space for the Vec of WireData when a
         // `Variable` is added to the variable_map, this should never fail.
-        if let Some(i) = var.0 {
+        if let Variable::Var(i) = var {
             self.0[i].push(wire_data);
         }
     }

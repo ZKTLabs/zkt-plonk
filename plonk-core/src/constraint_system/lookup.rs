@@ -15,9 +15,9 @@ impl<F: Field> ConstraintSystem<F> {
     /// constraints.
     pub fn lookup_gate_constrain<T: CustomTable<F>>(
         &mut self,
-        a: Variable,
-        b: Variable,
-        c: Variable,
+        x: Variable,
+        y: Variable,
+        z: Variable,
     ) {
         match &mut self.composer {
             Composer::Setup(composer) => {
@@ -30,20 +30,19 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.q_lookup.push(F::one());
 
-                composer.perm.add_variables_to_map(a, b, c, composer.n);
+                composer.perm.add_variables_to_map(x, y, z, composer.n);
 
                 composer.n += 1;
             }
             Composer::Proving(composer) => {
-                let a_value = composer.var_map.value_of_var(a);
-                let b_value = composer.var_map.value_of_var(b);
-                let c_value = composer.var_map.value_of_var(c);
+                let x_value = composer.var_map.value_of_var(x);
+                let y_value = composer.var_map.value_of_var(y);
+                let z_value = composer.var_map.value_of_var(z);
+                self.lookup_table.ensure_in_table::<T>(&x_value, &y_value, &z_value);
 
-                self.lookup_table.ensure_in_table::<T>(&a_value, &b_value, &c_value);
-                
-                composer.w_l.push(a);
-                composer.w_r.push(b);
-                composer.w_o.push(c);
+                composer.w_l.push(x);
+                composer.w_r.push(y);
+                composer.w_o.push(z);
 
                 composer.n += 1;
             }

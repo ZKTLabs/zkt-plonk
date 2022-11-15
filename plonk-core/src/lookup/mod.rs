@@ -9,8 +9,9 @@
 mod lookup_table;
 mod multiset;
 
-pub use lookup_table::{CustomTable, LookupTable};
 pub(crate) use multiset::MultiSet;
+
+pub use lookup_table::*;
 
 // // #[cfg(test)]
 // // mod test {
