@@ -332,6 +332,34 @@ where
     poly_from_evals(domain, z2_evals)
 }
 
+#[cfg(test)]
+mod test {
+    
+    use ark_ff::Field;
+
+    use crate::constraint_system::ConstraintSystem;
+    use super::*;
+
+    fn test_compute_all_sigma_evals<F: Field>() {
+        let mut cs = ConstraintSystem::new(true);
+        let mut composer = cs.composer.unwrap_setup();
+
+        // x1 * x4 = x2
+        // x1 + x3 = x2
+        // x1 + x2 = 2*x3
+        // x3 * x4 = 2*x2
+        let x1 = composer.perm.assign_variable(F::from(4u64));
+        let x2 = cs.assign_variable(F::from(12u64));
+        let x3 = cs.assign_variable(F::from(8u64));
+        let x4 = cs.assign_variable(F::from(3u64));
+
+        let y2 = cs.mul_gate(&x1.into(), &x4.into());
+
+
+    }
+
+}
+
 // #[cfg(test)]
 // mod test {
 //     use super::*;

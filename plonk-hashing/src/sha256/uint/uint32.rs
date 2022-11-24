@@ -472,9 +472,7 @@ pub enum Uint32<F: Field> {
 impl<F: Field> Uint32<F> {
     pub fn to_uint8x4(&self, cs: &mut ConstraintSystem<F>) -> Uint8x4<F> {
         match self {
-            Uint32::Constant(value) => {
-                Uint8x4::constant(*value)
-            }
+            Uint32::Constant(value) => Uint8x4::constant(*value),
             Uint32::Variable(var) => {
                 let r0 = Uint8Var::assign(cs, var.value as u8);
                 let r1 = Uint8Var::assign(cs, (var.value >> 8) as u8);
@@ -556,12 +554,12 @@ impl<F: Field> Uint32<F> {
 
 ///
 #[derive(Debug, Clone)]
-pub enum FlexibleUint32<F: Field> {
+pub enum Uint8x4or32<F: Field> {
     Uint8x4(Uint8x4<F>),
     Uint32(Uint32<F>),
 }
 
-impl<F: Field> FlexibleUint32<F> {
+impl<F: Field> Uint8x4or32<F> {
     pub fn and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
         match self {
             Self::Uint8x4(x) => {
@@ -646,9 +644,7 @@ impl<F: Field> FlexibleUint32<F> {
                 let var = bytes.to_uint32(cs);
                 Self::Uint32(var.shr(cs, n))
             }
-            Self::Uint32(var) => {
-                Self::Uint32(var.shr(cs, n))
-            }
+            Self::Uint32(var) => Self::Uint32(var.shr(cs, n)),
         }
     }
 
@@ -658,9 +654,7 @@ impl<F: Field> FlexibleUint32<F> {
                 let var = bytes.to_uint32(cs);
                 Self::Uint32(var.rotr(cs, n))
             }
-            Self::Uint32(var) => {
-                Self::Uint32(var.rotr(cs, n))
-            }
+            Self::Uint32(var) => Self::Uint32(var.rotr(cs, n)),
         }
     }
 
@@ -676,5 +670,12 @@ impl<F: Field> FlexibleUint32<F> {
             .collect_vec();
 
         Self::Uint32(Uint32::mod_add(cs, operands))
+    }
+
+    pub fn to_uint8x4(self, cs: &mut ConstraintSystem<F>) -> Uint8x4<F> {
+        match self {
+            Self::Uint8x4(bytes) => bytes,
+            Self::Uint32(var) => var.to_uint8x4(cs),
+        }
     }
 }
