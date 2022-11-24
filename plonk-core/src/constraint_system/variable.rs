@@ -17,7 +17,55 @@ pub enum Variable {
     ///
     Zero,
     ///
+    One,
+    ///
     Var(usize),
+}
+
+impl Variable {
+    ///
+    pub fn linear_transform<F: Field>(self, coeff: F, offset: F) -> LTVariable<F> {
+        LTVariable {
+            var: self,
+            coeff,
+            offset,
+        }
+    }
+}
+
+///
+#[derive(Debug, Clone)]
+pub struct LTVariable<F: Field> {
+    ///
+    pub var: Variable,
+    ///
+    pub coeff: F,
+    ///
+    pub offset: F,
+}
+
+impl<F: Field> From<Variable> for LTVariable<F> {
+    fn from(var: Variable) -> Self {
+        Self {
+            var,
+            coeff: F::one(),
+            offset: F::zero(),
+        }
+    }
+}
+
+impl<F: Field> LTVariable<F> {
+    ///
+    pub fn linear_transform(&self, coeff: F, offset: F) -> Self {
+        let coeff = self.coeff * coeff;
+        let offset = self.offset * coeff + offset;
+        
+        Self {
+            var: self.var,
+            coeff,
+            offset,
+        }
+    }
 }
 
 #[derive(derivative::Derivative)]
@@ -38,10 +86,16 @@ impl<F: Field> VariableMap<F> {
 
     ///
     pub fn assign_variable(&mut self, value: F) -> Variable {
-        let var = Variable::Var(self.0.len());
-        self.0.push(value);
+        if value.is_zero() {
+            Variable::Zero
+        } else if value.is_one() {
+            Variable::One
+        } else {
+            let var = Variable::Var(self.0.len());
+            self.0.push(value);
 
-        var
+            var
+        }
     }
 
     ///
@@ -49,6 +103,18 @@ impl<F: Field> VariableMap<F> {
         match var {
             Variable::Var(i) => self.0[i],
             Variable::Zero => F::zero(),
+            Variable::One => F::one(),
         }
+    }
+
+    ///
+    pub fn value_of_lt_var(&self, lt_var: &LTVariable<F>) -> F {
+        let value = match lt_var.var {
+            Variable::Var(i) => self.0[i],
+            Variable::Zero => F::zero(),
+            Variable::One => F::one(),
+        };
+
+        value * lt_var.coeff + lt_var.offset
     }
 }

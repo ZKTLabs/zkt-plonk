@@ -17,9 +17,8 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [features]
-# Enable Standard Library
-std = []
 
 [dependencies]
 plonk-core = { path = "../plonk-core" }
 ark-ff = "0.3.0"
+itertools = "0.10.5"

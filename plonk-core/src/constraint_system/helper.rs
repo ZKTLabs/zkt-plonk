@@ -17,9 +17,9 @@ pub fn check_arith_gate<F: Field>(
 ) {
     assert_eq!(setup.n, proving.n, "circuit size in setup not equals to proving");
 
-    assert_eq!(setup.pp.size(), pub_inputs.len(), "public inputs count in setup is not correct");
+    assert_eq!(setup.pp.size(), pub_inputs.len(), "arity of public inputs in setup is not correct");
 
-    assert_eq!(proving.pi.size(), pub_inputs.len(), "public inputs count in proving is not correct");
+    assert_eq!(proving.pi.size(), pub_inputs.len(), "arity of public inputs in proving is not correct");
 
     for (i, (x, y)) in proving.pi.get_vals().zip(pub_inputs.iter()).enumerate() {
         assert_eq!(x, y, "public input value at {:?} is not correct", i);
@@ -42,7 +42,6 @@ pub fn check_arith_gate<F: Field>(
         let b = proving.var_map.value_of_var(w_r);
         let c = proving.var_map.value_of_var(w_o);
         let out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
-
         assert!(out.is_zero(), "arithmetic gate at {:?} is not satisfied", i);
     }
 }

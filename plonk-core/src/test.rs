@@ -13,8 +13,8 @@
 
 #[macro_export]
 macro_rules! batch_test_field {
-    ( [$($test_set:ident),*], [$($test_panic_set:ident),*] => ($engine:ty) ) => {
-        paste::item! {
+    ($engine:ty, [$($test_set:ident),*], [$($test_panic_set:ident),*]) => {
+        paste::paste! {
             $(
                 #[test]
                 #[allow(non_snake_case)]

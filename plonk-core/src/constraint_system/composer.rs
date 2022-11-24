@@ -21,7 +21,107 @@ use crate::{
     proof_system::{PublicInputs, PublicPositions},
 };
 
-use super::{Variable, VariableMap};
+use super::{Variable, VariableMap, LTVariable};
+
+#[derive(Debug, Clone, Copy)]
+///
+pub struct Selectors<F: Field> {
+    q_m: F,
+    q_l: F,
+    q_r: F,
+    q_o: F,
+    q_c: F,
+    q_lookup: F,
+}
+
+impl<F: Field> Selectors<F> {
+    ///
+    pub fn new_arith() -> Self {
+        Self {
+            q_m: F::zero(),
+            q_l: F::zero(),
+            q_r: F::zero(),
+            q_o: F::zero(),
+            q_c: F::zero(),
+            q_lookup: F::zero(),
+        }
+    }
+
+    ///
+    pub fn new_lookup() -> Self {
+        Self {
+            q_m: F::zero(),
+            q_l: F::zero(),
+            q_r: F::zero(),
+            q_o: F::zero(),
+            q_c: F::zero(),
+            q_lookup: F::one(),
+        }
+    }
+
+    ///
+    pub fn with_mul(mut self, q_m: F) -> Self {
+        self.q_m = q_m;
+        self
+    }
+
+    ///
+    pub fn with_left(mut self, q_l: F) -> Self {
+        self.q_l = q_l;
+        self
+    }
+
+    ///
+    pub fn with_right(mut self, q_r: F) -> Self {
+        self.q_r = q_r;
+        self
+    }
+
+    ///
+    pub fn with_out(mut self, q_o: F) -> Self {
+        self.q_o = q_o;
+        self
+    }
+
+    ///
+    pub fn with_constant(mut self, q_c: F) -> Self {
+        self.q_c = q_c;
+        self
+    }
+
+    ///
+    pub fn with_left_lt(mut self, w_l: &LTVariable<F>) -> Self {
+        let q_m = self.q_m * w_l.coeff;
+        let q_l = self.q_l * w_l.coeff;
+        self.q_r += self.q_m * w_l.offset;
+        self.q_c += self.q_l * w_l.offset;
+        self.q_m = q_m;
+        self.q_l = q_l;
+
+        self
+    }
+
+    ///
+    pub fn with_right_lt(mut self, w_r: &LTVariable<F>) -> Self {
+        let q_m = self.q_m * w_r.coeff;
+        let q_r = self.q_r * w_r.coeff;
+        self.q_l += self.q_m * w_r.offset;
+        self.q_c += self.q_r * w_r.offset;
+        self.q_m = q_m;
+        self.q_r = q_r;
+
+        self
+    }
+
+    ///
+    pub fn with_out_lt(mut self, w_o: &LTVariable<F>) -> Self {
+        let q_o = self.q_o * w_o.coeff;
+        self.q_c += self.q_o * w_o.offset;
+        self.q_o = q_o;
+
+        self
+    }
+}
 
 ///
 #[derive(derivative::Derivative)]
@@ -77,6 +177,40 @@ impl<F: Field> SetupComposer<F> {
             perm: Permutation::with_capacity(variable_size),
             pp: PublicPositions::new(),
         }
+    }
+
+    /// Adds an arithmetic gate.
+    /// This gate gives total freedom to the end user to implement the
+    /// corresponding circuits in the most optimized way possible because
+    /// the user has access to the full set of variables, as well as
+    /// selector coefficients that take part in the computation of the gate
+    /// equation.
+    ///
+    /// The final constraint added will force the following:
+    /// `(a * b) * q_m + a * q_l + b * q_r + q_c + PI + q_o * c = 0`.
+    pub fn gate_constrain(
+        &mut self,
+        w_l: Variable,
+        w_r: Variable,
+        w_o: Variable,
+        sels: Selectors<F>,
+        with_pi: bool,
+    ) {
+        // Add selector vectors
+        self.q_l.push(sels.q_l);
+        self.q_r.push(sels.q_r);
+        self.q_m.push(sels.q_m);
+        self.q_o.push(sels.q_o);
+        self.q_c.push(sels.q_c);
+        self.q_lookup.push(sels.q_lookup);
+
+        self.perm.add_variables_to_map(w_l, w_r, w_o, self.n);
+
+        if with_pi {
+            self.pp.add_input(self.n);
+        }
+
+        self.n += 1;
     }
 }
 
@@ -139,6 +273,25 @@ impl<F: Field> ProvingComposer<F> {
             var_map: VariableMap::with_capacity(variable_size),
             pi: PublicInputs::new(),
         }
+    }
+
+    ///
+    pub fn input_wires(
+        &mut self,
+        w_l: Variable,
+        w_r: Variable,
+        w_o: Variable,
+        pi: Option<F>,
+    ) {
+        self.w_l.push(w_l);
+        self.w_r.push(w_r);
+        self.w_o.push(w_o);
+
+        if let Some(pi) = pi {
+            self.pi.add_input(self.n, pi);
+        }
+
+        self.n += 1;
     }
 }
 

@@ -6,47 +6,84 @@
 
 use ark_ff::Field;
 
-use crate::lookup::CustomTable;
+use crate::lookup::*;
 
-use super::{Composer, Variable, ConstraintSystem};
+use super::{Composer, Variable, ConstraintSystem, Selectors};
 
 impl<F: Field> ConstraintSystem<F> {
+    ///
+    pub fn contains_gate<T: CustomSet<F>>(&mut self, x: Variable) {
+        assert!(self.lookup_table.contains_table::<T>());
+        
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                let sels = Selectors::new_lookup();
+                
+                composer.gate_constrain(x, Variable::Zero, Variable::Zero, sels, false);
+            }
+            Composer::Proving(composer) => {
+                let x_value = composer.var_map.value_of_var(x);
+                self.lookup_table.contains::<T>(&x_value);
+
+                composer.input_wires(x, Variable::Zero, Variable::Zero, None);
+            }
+        }
+    }
+    ///
+    pub fn lookup_1d_gate<T: Custom1DMap<F>>(&mut self, x: Variable) -> Variable {
+        assert!(self.lookup_table.contains_table::<T>());
+
+        let y: Variable;
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                y = composer.perm.new_variable();
+
+                let sels = Selectors::new_lookup();
+
+                composer.gate_constrain(x, y, Variable::Zero, sels, false);
+            }
+            Composer::Proving(composer) => {
+                let x_value = composer.var_map.value_of_var(x);
+                let y_value = self.lookup_table.lookup_1d::<T>(&x_value);
+
+                y = composer.var_map.assign_variable(y_value);
+
+                composer.input_wires(x, y, Variable::Zero, None);
+            }
+        }
+
+        y
+    }
     /// Adds a plookup gate to the circuit with its corresponding
     /// constraints.
-    pub fn lookup_gate_constrain<T: CustomTable<F>>(
+    pub fn lookup_2d_gate<T: Custom2DMap<F>>(
         &mut self,
         x: Variable,
         y: Variable,
-        z: Variable,
-    ) {
+    ) -> Variable {
+        assert!(self.lookup_table.contains_table::<T>());
+
+        let z: Variable;
         match &mut self.composer {
             Composer::Setup(composer) => {
-                // Add selector vectors
-                composer.q_m.push(F::zero());
-                composer.q_l.push(F::zero());
-                composer.q_r.push(F::zero());
-                composer.q_o.push(F::zero());
-                composer.q_c.push(F::zero());
+                z = composer.perm.new_variable();
 
-                composer.q_lookup.push(F::one());
+                let sels = Selectors::new_lookup();
 
-                composer.perm.add_variables_to_map(x, y, z, composer.n);
-
-                composer.n += 1;
+                composer.gate_constrain(x, y, z, sels, false);
             }
             Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x);
                 let y_value = composer.var_map.value_of_var(y);
-                let z_value = composer.var_map.value_of_var(z);
-                self.lookup_table.ensure_in_table::<T>(&x_value, &y_value, &z_value);
+                let z_value = self.lookup_table.lookup_2d::<T>(&x_value, &y_value);
 
-                composer.w_l.push(x);
-                composer.w_r.push(y);
-                composer.w_o.push(z);
+                z = composer.var_map.assign_variable(z_value);
 
-                composer.n += 1;
+                composer.input_wires(x, y, z, None);
             }
         }
+
+        z
     }
 }
 

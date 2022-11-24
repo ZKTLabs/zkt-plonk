@@ -15,8 +15,7 @@ mod composer;
 mod variable;
 mod helper;
 
-pub use arithmetic::ArithSelectors;
-pub use boolean::Boolean;
+pub use boolean::*;
 pub use composer::*;
 pub use variable::*;
 pub use helper::*;
@@ -113,52 +112,71 @@ impl<F: Field> ConstraintSystem<F> {
     ///
     pub fn assign_variable(&mut self, value: F) -> Variable {
         match &mut self.composer {
-            Composer::Setup(composer) => composer.perm.new_variable(),
+            Composer::Setup(composer) => {
+                composer.perm.new_variable()
+            },
             Composer::Proving(composer) => {
                 composer.var_map.assign_variable(value)
             }
         }
     }
 
-    /// Add a constraint into the circuit description that states that two
-    /// [`Variable`]s are equal.
-    pub fn equal_constrain(&mut self, x: Variable, y: Variable) {
+    ///
+    pub fn arith_constrain(
+        &mut self,
+        w_l: Variable,
+        w_r: Variable,
+        w_o: Variable,
+        sels: Selectors<F>,
+        pi: Option<F>,
+    ) {
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = ArithSelectors::default()
-                    .with_left(F::one())
-                    .with_right(-F::one());
-
-                composer.arith_constrain(
-                    x,
-                    y,
-                    Variable::Zero,
+                composer.gate_constrain(
+                    w_l,
+                    w_r,
+                    w_o,
                     sels,
-                    false,
+                    pi.is_some(),
                 );
             }
             Composer::Proving(composer) => {
                 composer.input_wires(
-                    x,
-                    y,
-                    Variable::Zero,
-                    None,
+                    w_l,
+                    w_r,
+                    w_o,
+                    pi,
                 );
             }
         }
     }
+}
+
+impl<F: Field> ConstraintSystem<F> {
+/// Add a constraint into the circuit description that states that two
+    /// [`Variable`]s are equal.
+    pub fn equal_constrain(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) {
+        let sels = Selectors::new_arith()
+            .with_left(F::one())
+            .with_right(-F::one())
+            .with_left_lt(x)
+            .with_right_lt(y);
+        
+        self.arith_constrain(x.var, y.var, Variable::Zero, sels, None);
+    }
 
     /// x = public input
-    pub fn set_variable_public(&mut self, x: Variable) {
+    pub fn set_lt_var_public(&mut self, x: &LTVariable<F>) {
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = ArithSelectors::default()
-                    .with_out(-F::one());
+                let sels = Selectors::new_arith()
+                    .with_out(-F::one())
+                    .with_out_lt(x);
 
-                composer.arith_constrain(
+                composer.gate_constrain(
                     Variable::Zero,
                     Variable::Zero,
-                    x,
+                    x.var,
                     sels,
                     true,
                 );
@@ -167,8 +185,8 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.input_wires(
                     Variable::Zero,
                     Variable::Zero,
-                    x,
-                    Some(composer.var_map.value_of_var(x)),
+                    x.var,
+                    Some(composer.var_map.value_of_lt_var(x)),
                 );
             }
         }
@@ -176,40 +194,41 @@ impl<F: Field> ConstraintSystem<F> {
 
     /// A gate which outputs a variable whose value is 1 if
     /// the input is 0 and whose value is 0 otherwise
-    pub fn is_zero_with_output(&mut self, x: Variable) -> Boolean {
+    pub fn is_zero_with_output(&mut self, x: &LTVariable<F>) -> Boolean {
         // Enforce constraints. The constraint system being used here is
         // x * y + z - 1 = 0
         // x * z = 0
         // where y is auxiliary and z is the boolean (x == 0).
         let (y, z): (Variable, Variable);
-
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = ArithSelectors::default()
-                    .with_mul(F::one())
-                    .with_out(F::one())
-                    .with_constant(-F::one());
-
                 y = composer.perm.new_variable();
                 z = composer.perm.new_variable();
 
-                composer.arith_constrain(x, y, z, sels, false);
+                let sels = Selectors::new_arith()
+                    .with_mul(F::one())
+                    .with_out(F::one())
+                    .with_constant(-F::one())
+                    .with_left_lt(x);
 
-                let sels = ArithSelectors::default()
-                    .with_mul(F::one());
+                composer.gate_constrain(x.var, y, z, sels, false);
 
-                composer.arith_constrain(x, z, Variable::Zero, sels, false);
+                let sels = Selectors::new_arith()
+                    .with_mul(F::one())
+                    .with_left_lt(x);
+
+                composer.gate_constrain(x.var, z, Variable::Zero, sels, false);
             }
             Composer::Proving(composer) => {
-                let x_value = composer.var_map.value_of_var(x);
+                let x_value = composer.var_map.value_of_lt_var(x);
                 let y_value = x_value.inverse().unwrap_or_default();
                 let z_value = if x_value.is_zero() { F::one() } else { F::zero() };
 
                 y = composer.var_map.assign_variable(y_value);
                 z = composer.var_map.assign_variable(z_value);
                 
-                composer.input_wires(x, y, z, None);
-                composer.input_wires(x, z, Variable::Zero, None);
+                composer.input_wires(x.var, y, z, None);
+                composer.input_wires(x.var, z, Variable::Zero, None);
             }
         }
 
@@ -218,9 +237,9 @@ impl<F: Field> ConstraintSystem<F> {
 
     /// A gate which outputs a variable whose value is 1 if the
     /// two input variables have equal values and whose value is 0 otherwise.
-    pub fn is_eq_with_output(&mut self, x: Variable, y: Variable) -> Boolean {
+    pub fn is_eq_with_output(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) -> Boolean {
         let difference = self.sub_gate(x, y);
-        self.is_zero_with_output(difference)
+        self.is_zero_with_output(&difference.into())
     }
 
     /// Conditionally selects a [`Variable`] based on an input bit.
@@ -236,55 +255,57 @@ impl<F: Field> ConstraintSystem<F> {
     pub fn conditional_select(
         &mut self,
         bit: Boolean,
-        choice_a: Variable,
-        choice_b: Variable,
+        choice_a: &LTVariable<F>,
+        choice_b: &LTVariable<F>,
     ) -> Variable {
         let (x, y, z): (Variable, Variable, Variable);
-        
         // bit * a - x = 0
         // (1 - bit) * b - y = 0 => b - bit * b - y = 0
         // x + y - z = 0
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = ArithSelectors::default()
-                    .with_mul(F::one())
-                    .with_out(-F::one());
-
                 x = composer.perm.new_variable();
+                y = composer.perm.new_variable();
+                z = composer.perm.new_variable();
 
-                composer.arith_constrain(bit.0, choice_a, x, sels, false);
+                let sels = Selectors::new_arith()
+                    .with_mul(F::one())
+                    .with_out(-F::one())
+                    .with_right_lt(choice_a);
 
-                let sels = ArithSelectors::default()
+                composer.gate_constrain(bit.0, choice_a.var, x, sels, false);
+
+                let sels = Selectors::new_arith()
                     .with_mul(-F::one())
                     .with_right(F::one())
-                    .with_out(-F::one());
+                    .with_out(-F::one())
+                    .with_right_lt(choice_b);
 
-                y = composer.perm.new_variable();
+                composer.gate_constrain(bit.0, choice_b.var, y, sels, false);
 
-                composer.arith_constrain(bit.0, choice_b, y, sels, false);
-
-                let sels = ArithSelectors::default()
+                let sels = Selectors::new_arith()
                     .with_left(F::one())
                     .with_right(F::one())
                     .with_out(-F::one());
-
-                z = composer.perm.new_variable();
-
-                composer.arith_constrain(x, y, z, sels, false);
+                
+                composer.gate_constrain(x, y, z, sels, false);
             }
             Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit.0);
                 assert!(bit_value.is_one() || bit_value.is_zero());
-        
-                let x_value = composer.var_map.value_of_var(choice_a);
-                let y_value = composer.var_map.value_of_var(choice_b);
+                let x_value = composer.var_map.value_of_lt_var(choice_a);
+                let y_value = composer.var_map.value_of_lt_var(choice_b);
                 let x_value = bit_value * x_value;
                 let y_value = (F::one() - bit_value) * y_value;
                 let z_value = x_value + y_value;
 
-                composer.var_map.assign_variable(x_value);
-                composer.var_map.assign_variable(y_value);
+                x = composer.var_map.assign_variable(x_value);
+                y = composer.var_map.assign_variable(y_value);
                 z = composer.var_map.assign_variable(z_value);
+
+                composer.input_wires(bit.0, choice_a.var, x, None);
+                composer.input_wires(bit.0, choice_b.var, y, None);
+                composer.input_wires(x, y, z, None);
             }
         }
 
@@ -303,32 +324,33 @@ impl<F: Field> ConstraintSystem<F> {
     pub fn conditional_select_zero(
         &mut self,
         bit: Boolean,
-        value: Variable,
+        value: &LTVariable<F>,
     ) -> Variable {
+        // bit * value - out = 0
         let out: Variable;
-
         match &mut self.composer {
             Composer::Setup(composer) => {
-                // bit * value - out = 0
-                let sels = ArithSelectors::default()
-                    .with_mul(F::one())
-                    .with_out(-F::one());
-
                 out = composer.perm.new_variable();
 
-                composer.arith_constrain(bit.0, value, out, sels, false);
+                let sels = Selectors::new_arith()
+                    .with_mul(F::one())
+                    .with_out(-F::one())
+                    .with_right_lt(value);
+
+                composer.gate_constrain(bit.0, value.var, out, sels, false);
             }
             Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit.0);
                 assert!(bit_value.is_one() || bit_value.is_zero());
-
                 let out_value = if bit_value.is_zero() {
                     F::zero()
                 } else {
-                    composer.var_map.value_of_var(value)
+                    composer.var_map.value_of_lt_var(value)
                 };
 
                 out = composer.var_map.assign_variable(out_value);
+                
+                composer.input_wires(bit.0, value.var, out, None);
             }
         }
 
@@ -347,22 +369,22 @@ impl<F: Field> ConstraintSystem<F> {
     pub fn conditional_select_one(
         &mut self,
         bit: Boolean,
-        value: Variable,
+        value: &LTVariable<F>,
     ) -> Variable {
+        // bit * value - bit - out + 1 = 0
         let out: Variable;
-
         match &mut self.composer {
             Composer::Setup(composer) => {
-                // bit * value - bit - out + 1 = 0
-                let sels = ArithSelectors::default()
+                out = composer.perm.new_variable();
+
+                let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_left(-F::one())
                     .with_out(-F::one())
-                    .with_constant(F::one());
+                    .with_constant(F::one())
+                    .with_right_lt(value);
 
-                out = composer.perm.new_variable();
-
-                composer.arith_constrain(bit.0, value, out, sels, false);
+                composer.gate_constrain(bit.0, value.var, out, sels, false);
             }
             Composer::Proving(composer) => {
                 let bit_value = composer.var_map.value_of_var(bit.0);
@@ -371,136 +393,16 @@ impl<F: Field> ConstraintSystem<F> {
                 let out_value = if bit_value.is_zero() {
                     F::one()
                 } else {
-                    composer.var_map.value_of_var(value)
+                    composer.var_map.value_of_lt_var(value)
                 };
 
                 out = composer.var_map.assign_variable(out_value);
+
+                composer.input_wires(bit.0, value.var, out, None)
             }
         }
 
         out
-    }
-
-    // /// This function adds two dummy gates to the circuit
-    // /// description which are guaranteed to always satisfy the gate equation.
-    // /// This function is only used in benchmarking
-    // pub fn add_dummy_constraints(&mut self) {
-    //     let var_six = self.add_input(F::from(6u64));
-    //     let var_one = self.add_input(F::one());
-    //     let var_seven = self.add_input(F::from(7u64));
-    //     let var_min_twenty = self.add_input(-F::from(20u64));
-
-    //     self.q_m.push(F::from(1u64));
-    //     self.q_l.push(F::from(2u64));
-    //     self.q_r.push(F::from(3u64));
-    //     self.q_o.push(F::from(4u64));
-    //     self.q_c.push(F::from(4u64));
-    //     self.q_lookup.push(F::one());
-    //     self.w_l.push(var_six);
-    //     self.w_r.push(var_seven);
-    //     self.w_o.push(var_min_twenty);
-    //     self.perm.add_variables_to_map(
-    //         var_six,
-    //         var_seven,
-    //         var_min_twenty,
-    //         self.n,
-    //     );
-    //     self.n += 1;
-
-    //     self.q_m.push(F::one());
-    //     self.q_l.push(F::one());
-    //     self.q_r.push(F::one());
-    //     self.q_o.push(F::one());
-    //     self.q_c.push(F::from(127u64));
-    //     self.q_lookup.push(F::one());
-    //     self.w_l.push(var_min_twenty);
-    //     self.w_r.push(var_six);
-    //     self.w_o.push(var_seven);
-    //     self.perm.add_variables_to_map(
-    //         var_min_twenty,
-    //         var_six,
-    //         var_seven,
-    //         self.n,
-    //     );
-    //     self.n += 1;
-    // }
-
-    /// Utility function that checks on the "front-end"
-    /// side of the PLONK implementation if the identity polynomial
-    /// is satisfied for each of the [`ConstraintSystem`]'s gates.
-    ///
-    /// The recommended usage is to derive the std output and the std error to a
-    /// text file and analyze the gates there.
-    ///
-    /// # Panic
-    /// The function by itself will print each circuit gate info until one of
-    /// the gates does not satisfy the equation or there are no more gates. If
-    /// the cause is an unsatisfied gate equation, the function will panic.
-    #[cfg(feature = "trace")]
-    pub fn check_circuit_satisfied(&mut self) {
-        let w_l: Vec<&F> = self
-            .w_l
-            .iter()
-            .map(|w_l_i| self.var_map.get(w_l_i).unwrap())
-            .collect();
-        let w_r: Vec<&F> = self
-            .w_r
-            .iter()
-            .map(|w_r_i| self.var_map.get(w_r_i).unwrap())
-            .collect();
-        let w_o: Vec<&F> = self
-            .w_o
-            .iter()
-            .map(|w_o_i| self.var_map.get(w_o_i).unwrap())
-            .collect();
-        let pi_vec = self.public_inputs.as_evals(self.circuit_bound());
-
-        for i in 0..self.n {
-            let qm = self.q_m[i];
-            let ql = self.q_l[i];
-            let qr = self.q_r[i];
-            let qo = self.q_o[i];
-            let qc = self.q_c[i];
-            let qarith = self.q_arith[i];
-            let pi = pi_vec[i];
-
-            let a = w_l[i];
-            let a_next = w_l[(i + 1) % self.n];
-            let b = w_r[i];
-            let b_next = w_r[(i + 1) % self.n];
-            let c = w_o[i];
-
-            #[cfg(all(feature = "trace-print"))]
-            std::println!(
-                "--------------------------------------------\n
-            #Gate Index = {}
-            #Selector Polynomials:\n
-            - qm -> {:?}\n
-            - ql -> {:?}\n
-            - qr -> {:?}\n
-            - qo -> {:?}\n
-            - qc -> {:?}\n
-            - q_arith -> {:?}\n
-            # Witness polynomials:\n
-            - w_l -> {:?}\n
-            - w_r -> {:?}\n
-            - w_o -> {:?}\n",
-                i,
-                qm,
-                ql,
-                qr,
-                qo,
-                qc,
-                qarith,
-                a,
-                b,
-                c,
-            );
-
-            let k = qarith * ((qm * a * b) + (ql * a) + (qr * b) + (qo * c) + pi + qc);
-
-            assert_eq!(k, F::zero(), "Check failed at gate {}", i,);
-        }
     }
 }
 
@@ -514,38 +416,24 @@ mod test {
 
     use super::test_arith_gate;
 
-    fn test_correct_equal_constrain<F: Field>() {
-        test_arith_gate(
-            |cs| {
-                let rng = &mut test_rng();
-                let x_value = F::rand(rng);
-                let y_value = x_value;
-                let x = cs.assign_variable(x_value);
-                let y = cs.assign_variable(y_value);
-                cs.equal_constrain(x, y);
-            },
-            &[],
-        )
-    }
-
     fn test_set_variable_public<F: Field>() {
         let rng = &mut test_rng();
         let pi = F::rand(rng);
         test_arith_gate(
             |cs| {
                 let x = cs.assign_variable(pi);
-                cs.set_variable_public(x);
+                cs.set_lt_var_public(&x.into());
             },
             &[pi],
         )
     }
 
     batch_test_field!(
+        Bn254,
         [
-            test_correct_equal_constrain,
             test_set_variable_public
         ],
-        [] => (Bn254)
+        []
     );
 }
 

@@ -96,8 +96,11 @@ where
     label_polynomials.push(label_polynomial!(sigma3_poly));
 
     // 3. Compute lookup table polynomials
-    let (t1_poly, t2_poly, t3_poly, t4_poly) =
-        cs.lookup_table.to_polynomials(&domain);
+    let mut t_polys = cs.lookup_table.to_polynomials(&domain);
+    let t4_poly = t_polys.pop().unwrap();
+    let t3_poly = t_polys.pop().unwrap();
+    let t2_poly = t_polys.pop().unwrap();
+    let t1_poly = t_polys.pop().unwrap();
 
     label_polynomials.push(label_polynomial!(t1_poly));
     label_polynomials.push(label_polynomial!(t2_poly));
@@ -122,6 +125,10 @@ where
     )
     .map_err(to_pc_error::<F, PC>)?;
 
+    let lagranges = label_commitments[13..]
+        .iter()
+        .map(|lc| lc.commitment().clone())
+        .collect();
     let vk = VerifierKey::from_polynomial_commitments(
         n,
         label_commitments[0].commitment().clone(), // q_m
@@ -137,10 +144,7 @@ where
         label_commitments[10].commitment().clone(), // t2
         label_commitments[11].commitment().clone(), // t3
         label_commitments[12].commitment().clone(), // t4
-        label_commitments[13..]
-            .iter()
-            .map(|lc| lc.commitment().clone())
-            .collect(),
+        lagranges,
     );
 
     let mut polys_iter = label_polynomials

@@ -46,7 +46,13 @@ impl Permutation {
 
     /// Creates a Permutation struct with an expected capacity of `n`.
     pub(crate) fn with_capacity(expected_size: usize) -> Self {
-        Self(Vec::with_capacity(expected_size))
+        let mut perm = Self(Vec::with_capacity(expected_size));
+        // For variable zero
+        perm.0.push(Vec::with_capacity(64usize));
+        // For variable one
+        perm.0.push(Vec::with_capacity(32usize));
+
+        perm
     }
 
     /// Creates a new [`Variable`] by incrementing the index of the
@@ -54,7 +60,7 @@ impl Permutation {
     /// into the system It is always allocated in the `variable_map`.
     pub fn new_variable(&mut self) -> Variable {
         // Generate the Variable
-        let var = Variable::Var(self.0.len());
+        let var = Variable::Var(self.0.len() - 2);
 
         // Allocate space for the Variable on the variable_map
         // Each vector is initialised with a capacity of 16.
@@ -84,9 +90,12 @@ impl Permutation {
     fn add_variable_to_map(&mut self, var: Variable, wire_data: WireData) {
         // NOTE: Since we always allocate space for the Vec of WireData when a
         // `Variable` is added to the variable_map, this should never fail.
-        if let Variable::Var(i) = var {
-            self.0[i].push(wire_data);
-        }
+        let i = match var {
+            Variable::Zero => 0,
+            Variable::One => 1,
+            Variable::Var(i) => i + 2,
+        };
+        self.0[i].push(wire_data);
     }
     
     /// Performs shift by one permutation and computes `sigma1`, `sigma2` and
@@ -95,9 +104,9 @@ impl Permutation {
         &mut self,
         n: usize,
     ) -> (Vec<WireData>, Vec<WireData>, Vec<WireData>) {
-        let mut sigma1 = (0..n).map(WireData::Left).collect::<Vec<_>>();
-        let mut sigma2 = (0..n).map(WireData::Right).collect::<Vec<_>>();
-        let mut sigma3 = (0..n).map(WireData::Output).collect::<Vec<_>>();
+        let mut sigma1 = (0..n).map(WireData::Left).collect_vec();
+        let mut sigma2 = (0..n).map(WireData::Right).collect_vec();
+        let mut sigma3 = (0..n).map(WireData::Output).collect_vec();
 
         for wire_datas in self.0.iter() {
             // Gets the data for each wire assosciated with this variable
@@ -114,9 +123,9 @@ impl Permutation {
                 let next_wire = wire_datas[next_index];
                 // Map current wire to next wire
                 match current_wire {
-                    WireData::Left(index) => sigma1[*index] = next_wire,
-                    WireData::Right(index) => sigma2[*index] = next_wire,
-                    WireData::Output(index) => sigma3[*index] = next_wire,
+                    WireData::Left(i) => sigma1[*i] = next_wire,
+                    WireData::Right(i) => sigma2[*i] = next_wire,
+                    WireData::Output(i) => sigma3[*i] = next_wire,
                 };
             }
         }
