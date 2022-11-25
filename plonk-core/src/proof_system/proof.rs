@@ -139,7 +139,7 @@ where
     }
 
     /// Computes the commitment to `[r]_1`.
-    fn compute_linearisation_commitment<'a, I>(
+    fn compute_linearisation_commitment(
         &self,
         alpha: F,
         beta: F,
@@ -150,24 +150,17 @@ where
         z: F,
         l_1_eval: F,
         zh_eval: F,
-        pub_inputs: I,
+        pub_inputs: &[F],
         vk: &VerifierKey<F, PC>,
-    ) -> PC::Commitment
-    where
-        I: IntoIterator<Item = &'a F>,
-    {
-        //    6 for arithmetic
-        // +  1 for range
-        // +  1 for logic
-        // +  1 for fixed base mul
-        // +  1 for curve add
-        // +  3 for lookups
+    ) -> PC::Commitment {
+        //    5 + public input length for arithmetic
         // +  2 for permutation
-        // +  4 for each piece of the quotient poly
-        // = 19 total scalars and points
+        // +  3 for lookup
+        // +  3 for each piece of the quotient poly
+        // = 13 + public input length of scalars and points
 
-        let mut scalars = Vec::with_capacity(19);
-        let mut points = Vec::with_capacity(19);
+        let mut scalars = Vec::with_capacity(13 + pub_inputs.len());
+        let mut points = Vec::with_capacity(13 + pub_inputs.len());
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
@@ -218,16 +211,15 @@ where
     }
 
     /// Performs the verification of a [`Proof`] returning a boolean result.
-    pub(crate) fn verify_proof<'a, T, I>(
+    pub(crate) fn verify_proof<T>(
         &self,
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,
         transcript: &mut T,
-        pub_inputs: I,
+        pub_inputs: &[F],
     ) -> Result<(), Error>
     where
         T: TranscriptProtocol<F, PC::Commitment>,
-        I: IntoIterator<Item = &'a F> + Clone,
     {
         let domain = D::new(vk.n)
             .ok_or(Error::InvalidEvalDomainSize {
@@ -236,18 +228,14 @@ where
             })?;
         assert_eq!(vk.n, domain.size());
 
+        assert_eq!(
+            pub_inputs.len(),
+            vk.arith.lagranges.len(),
+            "invalid length of public inputs",
+        );
+
         // Append Public Inputs to the transcript.
-        let mut pi_num = 0usize;
-        pub_inputs.clone().into_iter().enumerate().for_each(|(i, pi)| {
-            pi_num += 1;
-            transcript.append_scalar(format!("pi_{}", i).as_str(), pi);
-        });
-        if pi_num != vk.arith.lagranges.len() {
-            return Err(Error::IncorrectPublicInputs {
-                expect: vk.arith.lagranges.len(),
-                actual: pi_num,
-            });
-        }
+        transcript.append_scalars("pi", pub_inputs);
 
         // Subgroup checks are done when the proof is deserialised.
 
@@ -265,7 +253,6 @@ where
 
         // Compute table compression challenge `zeta`.
         let zeta = transcript.challenge_scalar("zeta");
-        // transcript.append_scalar("zeta", &zeta);
 
         // Add f_poly commitment to transcript
         transcript.append_commitment("f_commit", &self.f_commit);
@@ -278,19 +265,15 @@ where
 
         // Compute permutation challenge `beta`.
         let beta = transcript.challenge_scalar("beta");
-        // transcript.append(b"beta", &beta);
 
         // Compute permutation challenge `gamma`.
         let gamma = transcript.challenge_scalar("gamma");
-        // transcript.append(b"gamma", &gamma);
 
         // Compute permutation challenge `delta`.
         let delta = transcript.challenge_scalar("delta");
-        // transcript.append(b"delta", &delta);
 
         // Compute permutation challenge `epsilon`.
         let epsilon = transcript.challenge_scalar("epsilon");
-        // transcript.append(b"epsilon", &epsilon);
 
         // Challenges must be different
         assert!(beta != gamma, "challenges must be different");
@@ -307,7 +290,6 @@ where
 
         // Compute quotient challenge
         let alpha = transcript.challenge_scalar("alpha");
-        // transcript.append(b"alpha", &alpha);
 
         // Add commitment to quotient polynomial to transcript
         transcript.append_commitment("q_lo_commit", &self.q_lo_commit);
@@ -316,7 +298,6 @@ where
 
         // Compute evaluation point challenge
         let z = transcript.challenge_scalar("z");
-        // transcript.append(b"z", &z);
 
         // Compute zero polynomial evaluated at `z_challenge`
         let zh_eval = domain.evaluate_vanishing_polynomial(z);
@@ -362,7 +343,7 @@ where
         transcript.append_scalar("h2_eval", &self.evaluations.lookup_evals.h2);
 
         // Compute linearisation commitment
-        let lin_commit = self.compute_linearisation_commitment(
+        let linear_commit = self.compute_linearisation_commitment(
             alpha,
             beta,
             gamma,
@@ -397,7 +378,7 @@ where
         let v = transcript.challenge_scalar("v");
 
         let aw_commits = [
-            label_commitment!(lin_commit),
+            label_commitment!(linear_commit),
             label_commitment!(vk.perm.sigma1),
             label_commitment!(vk.perm.sigma2),
             label_commitment!(vk.lookup.t4),

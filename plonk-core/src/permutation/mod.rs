@@ -74,16 +74,16 @@ impl Permutation {
     /// (left, right, out, fourth) with the corresponding gate index
     pub fn add_variables_to_map(
         &mut self,
-        a: Variable,
-        b: Variable,
-        c: Variable,
+        w_l: Variable,
+        w_r: Variable,
+        w_o: Variable,
         gate_index: usize,
     ) {
         // Map each variable to the wire it is associated with
         // This essentially tells us that:
-        self.add_variable_to_map(a, WireData::Left(gate_index));
-        self.add_variable_to_map(b, WireData::Right(gate_index));
-        self.add_variable_to_map(c, WireData::Output(gate_index));
+        self.add_variable_to_map(w_l, WireData::Left(gate_index));
+        self.add_variable_to_map(w_r, WireData::Right(gate_index));
+        self.add_variable_to_map(w_o, WireData::Output(gate_index));
     }
 
     ///
@@ -166,18 +166,19 @@ impl Permutation {
         D: EvaluationDomain<F>,
     {
         // Compute sigma mappings
-        let sigmas = self.compute_sigma_permutations(n);
+        let (sigma1, sigma2, sigma3) =
+            self.compute_sigma_permutations(n);
 
-        assert_eq!(sigmas.0.len(), n);
-        assert_eq!(sigmas.1.len(), n);
-        assert_eq!(sigmas.2.len(), n);
+        assert_eq!(sigma1.len(), n);
+        assert_eq!(sigma2.len(), n);
+        assert_eq!(sigma3.len(), n);
 
         let roots = domain.elements().collect_vec();
 
         // define the sigma permutations using two non quadratic residues
-        let sigma1 = self.compute_sigma_evals(&sigmas.0, &roots);
-        let sigma2 = self.compute_sigma_evals(&sigmas.1, &roots);
-        let sigma3 = self.compute_sigma_evals(&sigmas.2, &roots);
+        let sigma1 = self.compute_sigma_evals(&sigma1, &roots);
+        let sigma2 = self.compute_sigma_evals(&sigma2, &roots);
+        let sigma3 = self.compute_sigma_evals(&sigma3, &roots);
 
         (sigma1, sigma2, sigma3)
     }
@@ -235,7 +236,7 @@ where
     #[cfg(feature = "parallel")]
     let product = crate::par_izip!(roots, sigmas, wires);
 
-    let product: Vec<_> = product
+    let product = product
         .take(n - 1)
         .map(|(root, sigma, wire)| {
             let numinator = (root * beta + wire.0 + gamma)
@@ -247,7 +248,7 @@ where
             
             numinator * dominator.inverse().unwrap()
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     let mut z1_evals = Vec::with_capacity(n);
     // First element is one
@@ -334,30 +335,83 @@ where
 
 #[cfg(test)]
 mod test {
-    
-    use ark_ff::Field;
+    use ark_ff::FftField;
+    use ark_bn254::Bn254;
+    use ark_bls12_381::Bls12_381;
+    use ark_bls12_377::Bls12_377;
 
-    use crate::constraint_system::ConstraintSystem;
+    use crate::{constraint_system::ConstraintSystem, batch_test_field};
     use super::*;
 
-    fn test_compute_all_sigma_evals<F: Field>() {
-        let mut cs = ConstraintSystem::new(true);
+    fn test_compute_sigma_permutations<F: FftField>() {
+        let cs = ConstraintSystem::<F>::new(true);
         let mut composer = cs.composer.unwrap_setup();
 
         // x1 * x4 = x2
         // x1 + x3 = x2
         // x1 + x2 = 2*x3
         // x3 * x4 = 2*x2
-        let x1 = composer.perm.assign_variable(F::from(4u64));
-        let x2 = cs.assign_variable(F::from(12u64));
-        let x3 = cs.assign_variable(F::from(8u64));
-        let x4 = cs.assign_variable(F::from(3u64));
+        let x1 = composer.perm.new_variable();
+        let x2 = composer.perm.new_variable();
+        let x3 = composer.perm.new_variable();
+        let x4 = composer.perm.new_variable();
 
-        let y2 = cs.mul_gate(&x1.into(), &x4.into());
+        composer.perm.add_variables_to_map(x1, x4, x2, 0);
+        composer.perm.add_variables_to_map(x1, x3, x2, 1);
+        composer.perm.add_variables_to_map(x1, x2, x3, 2);
+        composer.perm.add_variables_to_map(x3, x4, x2, 3);
 
+        let (sigma1, sigma2, sigma3) =
+            composer.perm.compute_sigma_permutations(4);
 
+        // sigma1
+        //  l(0) -> l(1) --- x1
+        //  l(1) -> l(2) --- x1
+        //  l(2) -> l(0) --- x1
+        //  l(3) -> r(1) --- x3
+        assert_eq!(sigma1[0], WireData::Left(1));
+        assert_eq!(sigma1[1], WireData::Left(2));
+        assert_eq!(sigma1[2], WireData::Left(0));
+        assert_eq!(sigma1[3], WireData::Right(1));
+
+        // sigma2
+        //  r(0) -> r(3) --- x4
+        //  r(1) -> o(2) --- x3
+        //  r(2) -> o(3) --- x2
+        //  r(3) -> r(0) --- x4
+        assert_eq!(sigma2[0], WireData::Right(3));
+        assert_eq!(sigma2[1], WireData::Output(2));
+        assert_eq!(sigma2[2], WireData::Output(3));
+        assert_eq!(sigma2[3], WireData::Right(0));
+
+        // sigma3
+        //  o(0) -> o(1) --- x2
+        //  o(1) -> r(2) --- x2
+        //  o(2) -> l(3) --- x3
+        //  o(3) -> o(0) --- x2
+        assert_eq!(sigma3[0], WireData::Output(1));
+        assert_eq!(sigma3[1], WireData::Right(2));
+        assert_eq!(sigma3[2], WireData::Left(3));
+        assert_eq!(sigma3[3], WireData::Output(0));
     }
 
+    batch_test_field!(
+        Bn254,
+        [test_compute_sigma_permutations],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_377,
+        [test_compute_sigma_permutations],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_381,
+        [test_compute_sigma_permutations],
+        []
+    );
 }
 
 // #[cfg(test)]

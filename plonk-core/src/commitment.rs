@@ -6,7 +6,7 @@ use ark_poly_commit::{sonic_pc::SonicKZG10, PolynomialCommitment};
 
 /// A homomorphic polynomial commitment
 pub trait HomomorphicCommitment<F>:
-    PolynomialCommitment<F, DensePolynomial<F>>
+    PolynomialCommitment<F, DensePolynomial<F>> + 'static
 where
     F: Field,
     Self::VerifierKey: core::fmt::Debug,
@@ -65,7 +65,7 @@ impl<G, D> HomomorphicCommitment<<G as ark_ec::AffineCurve>::ScalarField>
     for IPA<G, D>
 where
     G: AffineCurve,
-    D: Digest,
+    D: Digest + 'static,
 {
     fn multi_scalar_mul(
         commitments: &[IPACommitment<G, D>],
@@ -90,30 +90,30 @@ where
     }
 }
 
-/// Computes a linear combination of the polynomial evaluations and polynomial
-/// commitments provided a challenge.
-// TODO: complete doc & use util::lc for eval combination
-pub fn linear_combination<F, H>(
-    evals: &[F],
-    commitments: &[H::Commitment],
-    challenge: F,
-) -> (H::Commitment, F)
-where
-    F: PrimeField,
-    H: HomomorphicCommitment<F>,
-{
-    assert_eq!(evals.len(), commitments.len());
-    let powers = crate::util::powers_of(challenge)
-        .take(evals.len())
-        .collect::<Vec<_>>();
-    let combined_eval = evals
-        .iter()
-        .zip(powers.iter())
-        .map(|(&eval, power)| eval * power)
-        .sum();
-    let combined_commitment = H::multi_scalar_mul(commitments, &powers);
-    (combined_commitment, combined_eval)
-}
+// /// Computes a linear combination of the polynomial evaluations and polynomial
+// /// commitments provided a challenge.
+// // TODO: complete doc & use util::lc for eval combination
+// pub fn linear_combination<F, H>(
+//     evals: &[F],
+//     commitments: &[H::Commitment],
+//     challenge: F,
+// ) -> (H::Commitment, F)
+// where
+//     F: PrimeField,
+//     H: HomomorphicCommitment<F>,
+// {
+//     assert_eq!(evals.len(), commitments.len());
+//     let powers = crate::util::powers_of(challenge)
+//         .take(evals.len())
+//         .collect::<Vec<_>>();
+//     let combined_eval = evals
+//         .iter()
+//         .zip(powers.iter())
+//         .map(|(&eval, power)| eval * power)
+//         .sum();
+//     let combined_commitment = H::multi_scalar_mul(commitments, &powers);
+//     (combined_commitment, combined_eval)
+// }
 
 /// Aggregate polynomials
 pub fn aggregate_polynomials<F: Field>(

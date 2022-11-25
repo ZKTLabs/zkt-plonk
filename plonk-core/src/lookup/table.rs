@@ -106,15 +106,15 @@ impl<F: Field> LookupTable<F> {
     /// a, b, c.
     fn to_multisets(self) -> Vec<MultiSet<F>> {
         let mut msets = vec![MultiSet::with_capacity(self.size()); 4];
-        self.0.into_iter().enumerate().for_each(|(i, (_, rows))| {
+        for (i, (_, rows)) in self.0.into_iter().enumerate() {
             let id = i as u64;
-            rows.into_iter().for_each(|row| {
+            for row in rows {
                 msets[0].push(row[0]);
                 msets[1].push(row[1]);
                 msets[2].push(row[2]);
                 msets[3].push(id.into());
-            });
-        });
+            }
+        }
         
         msets
     }
@@ -236,9 +236,7 @@ mod test {
 
         DummySet::collect_elements()
             .into_iter()
-            .for_each(|e| {
-                table.contains::<DummySet>(&e)
-            });
+            .for_each(|e| table.contains::<DummySet>(&e));
     }
 
     fn test_contains_failed<F: Field>() {

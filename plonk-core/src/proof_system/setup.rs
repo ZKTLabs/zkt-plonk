@@ -108,7 +108,7 @@ where
     label_polynomials.push(label_polynomial!(t4_poly));
 
     // 4. Compute Lagrange polynomials at public indexes
-    composer.pp.get_pos().for_each(|index| {
+    for index in composer.pp.get_pos() {
         let poly = ark_poly_commit::LabeledPolynomial::new(
             format!("lagrange_{}_poly", index + 1),
             compute_lagrange_poly(&domain, *index),
@@ -116,7 +116,7 @@ where
             None,
         );
         label_polynomials.push(poly);
-    });
+    }
 
     let (label_commitments, _) = PC::commit(
         ck,

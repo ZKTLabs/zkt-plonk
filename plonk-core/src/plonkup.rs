@@ -8,7 +8,7 @@
 
 use std::{marker::PhantomData, rc::Rc};
 use ark_ff::{FftField, Field};
-use ark_poly::GeneralEvaluationDomain;
+use ark_poly::EvaluationDomain;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
         plonkup_setup, plonkup_prove,
     },
     transcript::TranscriptProtocol,
-    lookup::LookupTable,
+    lookup::LookupTable, util::EvaluationDomainExt,
 };
 
 /// Trait that should be implemented for any circuit function to provide to it
@@ -167,6 +167,7 @@ use crate::{
 /// )
 /// }
 /// ```
+///
 pub trait Circuit<F: Field>: Sized {
     ///
     fn register_tables(_: &mut LookupTable<F>) {}
@@ -183,22 +184,25 @@ pub trait Circuit<F: Field>: Sized {
 
 ///
 #[derive(Debug, Default)]
-pub struct Plonkup<F, PC, T, C>
+pub struct Plonkup<F, D, PC, T, C>
 where
     F: FftField,
+    D: EvaluationDomain<F> + EvaluationDomainExt<F>,
     PC: HomomorphicCommitment<F>,
     T: TranscriptProtocol<F, PC::Commitment>,
     C: Circuit<F>,
 {
     _f: PhantomData<F>,
+    _d: PhantomData<D>,
     _pc: PhantomData<PC>,
     _t: PhantomData<T>,
     _c: PhantomData<C>,
 }
 
-impl<F, PC, T, C> Plonkup<F, PC, T, C>
+impl<F, D, PC, T, C> Plonkup<F, D, PC, T, C>
 where
     F: FftField,
+    D: EvaluationDomain<F> + EvaluationDomainExt<F>,
     PC: HomomorphicCommitment<F>,
     T: TranscriptProtocol<F, PC::Commitment>,
     C: Circuit<F>,
@@ -231,7 +235,7 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            plonkup_setup::<_, GeneralEvaluationDomain<_>, _>(&ck, cs, extend)?;
+            plonkup_setup::<_, D, _>(&ck, cs, extend)?;
 
         Ok((ck, pk, epk, vk))
     }
@@ -244,7 +248,7 @@ where
         vk: &VerifierKey<F, PC>,
         circuit: C,
         rng: &mut R,
-    ) -> Result<Proof<F, GeneralEvaluationDomain<F>, PC>, Error> {
+    ) -> Result<Proof<F, D, PC>, Error> {
         let mut cs = ConstraintSystem::new(false);
         // Generate circuit constraint
         circuit.synthesize(&mut cs)?;
@@ -256,15 +260,12 @@ where
     }
 
     ///
-    pub fn verify<'a, I>(
+    pub fn verify(
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,
-        proof: &Proof<F, GeneralEvaluationDomain<F>, PC>,
+        proof: &Proof<F, D, PC>,
         pub_inputs: &[F],
-    ) -> Result<(), Error>
-    where
-        I: IntoIterator<Item = &'a F> + Clone,
-    {
+    ) -> Result<(), Error> {
         let transcript = &mut T::new("Plonkup");
         vk.seed_transcript(transcript);
 

@@ -128,16 +128,13 @@ where
 {
     /// Computes arithmetic gate contribution to the linearisation polynomial
     /// commitment.
-    pub(crate) fn compute_linearisation_commitment<'a, I>(
+    pub(crate) fn compute_linearisation_commitment(
         &self,
         scalars: &mut Vec<F>,
         points: &mut Vec<PC::Commitment>,
         evaluations: &ProofEvaluations<F>,
-        pub_inputs: I,
-    )
-    where
-        I: IntoIterator<Item = &'a F>,
-    {
+        pub_inputs: &[F],
+    ) {
         scalars.push(evaluations.wire_evals.a * evaluations.wire_evals.b);
         points.push(self.q_m.clone());
 
@@ -153,7 +150,7 @@ where
         scalars.push(F::one());
         points.push(self.q_c.clone());
 
-        scalars.extend(pub_inputs.into_iter().map(|pi| *pi));
+        scalars.extend_from_slice(pub_inputs);
         points.extend_from_slice(&self.lagranges);
     }
 }

@@ -24,13 +24,6 @@ pub enum Error {
     // Prover/Verifier errors
     /// This error occurs when a proof verification fails.
     ProofVerificationError,
-    /// Incorrect count of public inputs.
-    IncorrectPublicInputs {
-        ///
-        expect: usize,
-        ///
-        actual: usize,
-    },
 
     /// Polynomial Commitment errors
     PCError {
@@ -107,14 +100,6 @@ impl std::fmt::Display for Error {
             ),
             Self::ProofVerificationError => {
                 write!(f, "proof verification failed")
-            }
-            Self::IncorrectPublicInputs{ expect, actual } => {
-                write!(
-                    f,
-                    "incorrect count of public inputs, expect: {:?}, actual: {:?}",
-                    expect,
-                    actual,
-                )
             }
             Self::PCError { error } => {
                 write!(f, "{:?}", error)

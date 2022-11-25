@@ -77,7 +77,10 @@ impl<F: Field> PublicInputs<F> {
     pub(crate) fn as_evals(&self, n: usize) -> Vec<F> {
         assert!(n.is_power_of_two());
         let mut pi = vec![F::zero(); n];
-        self.0.iter().for_each(|(pos, eval)| pi[*pos] = *eval);
+        for (pos, eval) in self.0.iter() {
+            pi[*pos] = *eval;
+        }
+
         pi
     }
 

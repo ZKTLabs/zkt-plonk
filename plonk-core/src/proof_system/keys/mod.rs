@@ -118,6 +118,7 @@ where
         transcript.append_commitment("q_r_commit", &self.arith.q_r);
         transcript.append_commitment("q_o_commit", &self.arith.q_o);
         transcript.append_commitment("q_c_commit", &self.arith.q_c);
+        transcript.append_commitments("lagrange_commits", &self.arith.lagranges);
         transcript.append_commitment("sigma1_commit", &self.perm.sigma1);
         transcript.append_commitment("sigma2_commit", &self.perm.sigma2);
         transcript.append_commitment("sigma3_commit", &self.perm.sigma3);

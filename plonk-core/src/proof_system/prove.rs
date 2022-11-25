@@ -114,14 +114,7 @@ where
     // Commitments
 
     // Append Public Inputs to the transcript
-    composer
-        .pi
-        .get_vals()
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, pi)| {
-            transcript.append_scalar(format!("pi_{}", i).as_str(), pi);
-        });
+    transcript.append_scalars("pi", composer.pi.get_vals());
 
     // 1. Compute witness Polynomials
     //
@@ -160,7 +153,6 @@ where
 
     // Generate table compression factor
     let zeta = transcript.challenge_scalar("zeta");
-    // transcript.append(b"zeta", &zeta);
 
     // Compress lookup table into vector of single elements
     let t = cs.lookup_table.compress_to_multiset(n, zeta);
@@ -175,17 +167,18 @@ where
     //   is an element of the compressed lookup table even when
     //   q_lookup[i] is 0 so the lookup check will pass
 
-    let mut f = MultiSet::with_capacity(n);
-    izip!(&a_evals, &b_evals, &c_evals)
+    let t_first = t.0[0];
+    let f = izip!(&a_evals, &b_evals, &c_evals)
         .enumerate()
-        .for_each(|(i, (a, b, c))| {
+        .map(|(i, (a, b, c))| {
             let q_lookup = epk.lookup.q_lookup[i];
             if q_lookup.is_zero() {
-                f.push(t.0[0]);
+                t_first
             } else {
-                f.push(lc(&[*a, *b, *c], zeta));
+                lc(&[*a, *b, *c], zeta)
             }
-        });
+        })
+        .collect::<MultiSet<_>>();
 
     // Compute query poly
     let mut f_poly = f.clone().to_polynomial(&domain);
@@ -231,19 +224,15 @@ where
     //
     // Compute permutation challenge `beta`.
     let beta = transcript.challenge_scalar("beta");
-    // transcript.append(b"beta", &beta);
 
     // Compute permutation challenge `gamma`.
     let gamma = transcript.challenge_scalar("gamma");
-    // transcript.append(b"gamma", &gamma);
 
     // Compute permutation challenge `delta`.
     let delta = transcript.challenge_scalar("delta");
-    // transcript.append(b"delta", &delta);
 
     // Compute permutation challenge `epsilon`.
     let epsilon = transcript.challenge_scalar("epsilon");
-    // transcript.append(b"epsilon", &epsilon);
 
     // Challenges must be different
     assert!(beta != gamma, "challenges must be different");
@@ -315,7 +304,6 @@ where
     // Compute quotient challenge; `alpha`, and gate-specific separation
     // challenges.
     let alpha = transcript.challenge_scalar("alpha");
-    // transcript.append(b"alpha", &alpha);
 
     let q_poly = quotient_poly::compute(
         &domain,
@@ -374,9 +362,8 @@ where
     //
     // Compute evaluation challenge; `z`.
     let z = transcript.challenge_scalar("z");
-    // transcript.append(b"z", &z);
 
-    let (lin_poly, evaluations) = linearisation_poly::compute(
+    let (linear_poly, evaluations) = linearisation_poly::compute(
         &domain,
         pk,
         &epk,
@@ -437,7 +424,7 @@ where
     // be necessary. Warrants further investigation.
     // Ditto with the out_sigma poly.
     let mut opening_polys = vec![
-        label_polynomial!(lin_poly),
+        label_polynomial!(linear_poly),
         label_polynomial!(pk.perm.sigma1.clone()),
         label_polynomial!(pk.perm.sigma2.clone()),
         label_polynomial!(epk.lookup.t4.clone()),
