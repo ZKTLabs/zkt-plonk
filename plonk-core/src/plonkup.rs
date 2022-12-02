@@ -18,10 +18,12 @@ use crate::{
     proof_system::{
         Proof,
         ProverKey, ExtendedProverKey, VerifierKey,
-        plonkup_setup, plonkup_prove,
+        setup as plonk_setup,
+        prove as plonk_prove,
     },
     transcript::TranscriptProtocol,
-    lookup::LookupTable, util::EvaluationDomainExt,
+    lookup::LookupTable,
+    util::EvaluationDomainExt,
 };
 
 /// Trait that should be implemented for any circuit function to provide to it
@@ -235,7 +237,7 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            plonkup_setup::<_, D, _>(&ck, cs, extend)?;
+            plonk_setup::<_, D, _>(&ck, cs, extend)?;
 
         Ok((ck, pk, epk, vk))
     }
@@ -256,7 +258,7 @@ where
         let transcript = &mut T::new("Plonkup");
         vk.seed_transcript(transcript);
 
-        plonkup_prove(ck, pk, epk, cs, transcript, rng)
+        plonk_prove(ck, pk, epk, cs, transcript, rng)
     }
 
     ///
@@ -269,7 +271,7 @@ where
         let transcript = &mut T::new("Plonkup");
         vk.seed_transcript(transcript);
 
-        proof.verify_proof(cvk, vk, transcript, pub_inputs)
+        proof.verify(cvk, vk, transcript, pub_inputs)
     }
 }
 

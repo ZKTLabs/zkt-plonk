@@ -1,10 +1,11 @@
 use core::marker::PhantomData;
 use alloc::vec::Vec;
-use itertools::Itertools;
-use plonk_core::constraint_system::{Variable, ConstraintSystem, Selectors, LTVariable};
 use ark_ff::Field;
+use plonk_core::constraint_system::{
+    Variable, ConstraintSystem, Selectors, LTVariable,
+};
 
-use super::{uint8::Uint8Var, Uint1to16, Uint8};
+use super::{uint8::Uint8Var, Uint1to16Var, Uint8};
 
 ///
 #[derive(Debug, Clone)]
@@ -12,17 +13,19 @@ pub struct Uint8x4<F: Field>(pub Vec<Uint8<F>>);
 
 impl<F: Field> Uint8x4<F> {
     fn constant(value: u32) -> Self {
-        let bytes = (0..4)
-            .into_iter()
-            .map(|i| {
-                Uint8::Constant((value >> (8 * i)) as u8)
-            })
-            .collect();
+        let bytes = vec![
+            Uint8::Constant(value as u8),
+            Uint8::Constant((value >> 8) as u8),
+            Uint8::Constant((value >> 16) as u8),
+            Uint8::Constant((value >> 24) as u8),
+        ];
         
         Self(bytes)
     }
 
     fn to_uint32(&self, cs: &mut ConstraintSystem<F>) -> Uint32<F> {
+        assert_eq!(self.0.len(), 4);
+
         let mut pairs = Vec::with_capacity(4);
         let constant: u32;
         match self.0[0] {
@@ -260,6 +263,9 @@ impl<F: Field> Uint8x4<F> {
     }
 
     fn and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        assert_eq!(self.0.len(), 4);
+        assert_eq!(other.0.len(), 4);
+
         let bytes = self
             .0
             .iter()
@@ -271,6 +277,9 @@ impl<F: Field> Uint8x4<F> {
     }
 
     fn xor(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        assert_eq!(self.0.len(), 4);
+        assert_eq!(other.0.len(), 4);
+
         let bytes = self
             .0
             .iter()
@@ -282,6 +291,9 @@ impl<F: Field> Uint8x4<F> {
     }
 
     fn not_and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        assert_eq!(self.0.len(), 4);
+        assert_eq!(other.0.len(), 4);
+
         let bytes = self
             .0
             .iter()
@@ -302,6 +314,17 @@ pub struct Uint32Var<F: Field> {
 }
 
 impl<F: Field> Uint32Var<F> {
+    #[cfg(test)]
+    fn assign_laxly(cs: &mut ConstraintSystem<F>, value: u32) -> Self {
+        // Assign uint32 variable without bits constrain
+        let var = cs.assign_variable(value.into());
+        Self {
+            value,
+            lt_var: var.into(),
+            _p: Default::default(),
+        }
+    }
+
     fn shr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
         assert!(n > 0 && n < 32);
 
@@ -312,7 +335,7 @@ impl<F: Field> Uint32Var<F> {
         let (lo_var, hi_var): (Variable, Variable);
         if n <= 16 {
             // lo is N bits range
-            let lo = Uint1to16::assign(cs, n, lo_value as u16);
+            let lo = Uint1to16Var::assign(cs, n, lo_value as u16);
             let hi = cs.assign_variable(hi_value.into());
 
             lo_var = lo.var;
@@ -320,7 +343,7 @@ impl<F: Field> Uint32Var<F> {
         } else {
             // hi is (32-N) bits range
             let lo = cs.assign_variable(lo_value.into());
-            let hi = Uint1to16::assign(cs, 32 - n, hi_value as u16);
+            let hi = Uint1to16Var::assign(cs, 32 - n, hi_value as u16);
 
             lo_var = lo;
             hi_var = hi.var;
@@ -357,7 +380,7 @@ impl<F: Field> Uint32Var<F> {
         let (lo_var, hi_var): (Variable, Variable);
         if n <= 16 {
             // lo is in N bits range
-            let lo = Uint1to16::assign(cs, n, lo_value as u16);
+            let lo = Uint1to16Var::assign(cs, n, lo_value as u16);
             let hi = cs.assign_variable(hi_value.into());
 
             lo_var = lo.var;
@@ -365,7 +388,7 @@ impl<F: Field> Uint32Var<F> {
         } else {
             // hi is (32-N) bits range
             let lo = cs.assign_variable(lo_value.into());
-            let hi = Uint1to16::assign(cs, 32 - n, hi_value as u16);
+            let hi = Uint1to16Var::assign(cs, 32 - n, hi_value as u16);
 
             lo_var = lo;
             hi_var = hi.var;
@@ -428,18 +451,17 @@ impl<F: Field> Uint32Var<F> {
             &op_sum,
             &hi.into(),
             F::one(),
-            F::from(1u64 << 32),
+            -F::from(1u64 << 32),
             constant.into(),
         );
 
         // mod_sum = mid * 2^16 + lo
         // lo and mid are 16 bit range.
-        let mod_sum_value = sum_value as u32;
-        let lo_value = mod_sum_value as u16;
-        let mid_value = (mod_sum_value >> 16) as u16;
+        let lo_value = sum_value as u16;
+        let mid_value = (sum_value >> 16) as u16;
 
-        let lo = Uint1to16::assign(cs, 16, lo_value);
-        let mid = Uint1to16::assign(cs, 16, mid_value);
+        let lo = Uint1to16Var::assign(cs, 16, lo_value);
+        let mid = Uint1to16Var::assign(cs, 16, mid_value);
 
         let sels = Selectors::new_arith()
             .with_left(F::one())
@@ -455,7 +477,7 @@ impl<F: Field> Uint32Var<F> {
         );
 
         Self {
-            value: mod_sum_value,
+            value: sum_value as u32,
             lt_var: mod_sum.into(),
             _p: Default::default(),
         }
@@ -538,7 +560,7 @@ impl<F: Field> Uint32<F> {
             match op {
                 Self::Variable(var) => ops.push(var),
                 Self::Constant(v) => {
-                    constant = constant.saturating_add(v);
+                    constant = constant.wrapping_add(v);
                 }
             }
         }
@@ -667,7 +689,7 @@ impl<F: Field> Uint8x4or32<F> {
                     Self::Uint32(var) => var,
                 }
             })
-            .collect_vec();
+            .collect();
 
         Self::Uint32(Uint32::mod_add(cs, operands))
     }
@@ -678,4 +700,360 @@ impl<F: Field> Uint8x4or32<F> {
             Self::Uint32(var) => var.to_uint8x4(cs),
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use assert_matches::assert_matches;
+    use ark_ff::Field;
+    use ark_std::{UniformRand, test_rng};
+    use ark_bn254::Bn254;
+    use ark_bls12_381::Bls12_381;
+    use plonk_core::{batch_test_field, constraint_system::test_arith_constraints};
+
+    use super::*;
+
+    fn test_constant_uint8x4_to_uint32<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        let bytes = Uint8x4::constant(value);
+        test_arith_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let result = bytes.to_uint32(cs);
+                assert_matches!(result, Uint32::Constant(v) => {
+                    assert_eq!(v, value);
+                });
+            },
+            &[],
+        );
+    }
+
+    macro_rules! impl_uint8x4_to_uint32_processor {
+        ($value:expr, $(|$cs:ident, $val:ident| $alloc:block),+) => {
+            |cs: &mut ConstraintSystem<F>| {
+                $(
+                    let allocate = |$cs: &mut ConstraintSystem<F>, $val: u32| $alloc;
+                    let bytes = allocate(cs, $value);
+                    let result = bytes.to_uint32(cs);
+                    assert_matches!(result, Uint32::Variable(u32_var) => {
+                        let expect = cs.assign_variable($value.into());
+                        cs.equal_constrain(&u32_var.lt_var, &expect.into());
+                    });
+                )+
+            }
+        };
+    }
+
+    fn test_uint8x4_with_1_var_to_uint32<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            impl_uint8x4_to_uint32_processor!(
+                value,
+                // case 1: [variable, constant, constant, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 2: [constant, variable, constant, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 3: [constant, constant, variable, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 4: [constant, constant, constant, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                }
+            ),
+            &[],
+        )
+    }
+
+    fn test_uint8x4_with_2_vars_to_uint32<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            impl_uint8x4_to_uint32_processor!(
+                value,
+                // case 1: [variable, variable, constant, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 2: [variable, constant, variable, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 3: [variable, constant, constant, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                },
+                // case 4: [constant, variable, variable, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 5: [constant, variable, constant, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                },
+                // case 6: [constant, constant, variable, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                }
+            ),
+            &[],
+        )
+    }
+
+    fn test_uint8x4_with_3_vars_to_uint32<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            impl_uint8x4_to_uint32_processor!(
+                value,
+                // case 1: [variable, variable, variable, constant]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Constant((val >> 24) as u8),
+                    ])
+                },
+                // case 2: [variable, variable, constant, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Constant((val >> 16) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                },
+                // case 3: [variable, constant, variable, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Constant((val >> 8) as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                },
+                // case 4: [constant, variable, variable, variable]
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Constant(val as u8),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                }
+            ),
+            &[],
+        )
+    }
+
+    fn test_uint8x4_with_4_vars_to_uint32<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            impl_uint8x4_to_uint32_processor!(
+                value,
+                |cs, val| {
+                    Uint8x4(vec![
+                        Uint8::Variable(Uint8Var::assign(cs, val as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 8) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 16) as u8)),
+                        Uint8::Variable(Uint8Var::assign(cs, (val >> 24) as u8)),
+                    ])
+                }
+            ),
+            &[],
+        );
+    }
+
+    fn test_uint32_var_shr<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let var = Uint32Var::assign_laxly(cs, value);
+
+                // case 1
+                let expect = Uint32Var::assign_laxly(cs, (value >> 1).into());
+                let result = var.shr(cs, 1);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 2
+                let expect = Uint32Var::assign_laxly(cs, (value >> 16).into());
+                let result = var.shr(cs, 16);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 3
+                let expect = Uint32Var::assign_laxly(cs, (value >> 31).into());
+                let result = var.shr(cs, 31);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+            },
+            &[],
+        )
+    }
+
+    fn test_uint32_var_rotr<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        test_arith_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let var = Uint32Var::assign_laxly(cs, value);
+                
+                // case 1
+                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(1).into());
+                let result = var.rotr(cs, 1);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 2
+                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(16).into());
+                let result = var.rotr(cs, 16);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 3
+                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(31).into());
+                let result = var.rotr(cs, 31);
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+            },
+            &[],
+        )
+    }
+
+    fn test_uint32_var_mod_add<F: Field>() {
+        let rng = &mut test_rng();
+        let constant = u32::rand(rng);
+        let operands = [u32::rand(rng), u32::rand(rng), u32::rand(rng)];
+        
+        test_arith_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                // case 1
+                let operand_vars = [
+                    Uint32Var::assign_laxly(cs, operands[0].into()),
+                ];
+                let result = Uint32Var::mod_add(cs, constant, &operand_vars);
+                let expect = constant.wrapping_add(operands[0]);
+                let expect = Uint32Var::assign_laxly(cs, expect.into());
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 2
+                let operand_vars = [
+                    Uint32Var::assign_laxly(cs, operands[0].into()),
+                    Uint32Var::assign_laxly(cs, operands[1].into()),
+                ];
+                let result = Uint32Var::mod_add(cs, constant, &operand_vars);
+                let expect = constant
+                    .wrapping_add(operands[0])
+                    .wrapping_add(operands[1]);
+                let expect = Uint32Var::assign_laxly(cs, expect.into());
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+
+                // case 3
+                let operand_vars = [
+                    Uint32Var::assign_laxly(cs, operands[0].into()),
+                    Uint32Var::assign_laxly(cs, operands[1].into()),
+                    Uint32Var::assign_laxly(cs, operands[2].into()),
+                ];
+                let result = Uint32Var::mod_add(cs, constant, &operand_vars);
+                let expect = constant
+                    .wrapping_add(operands[0])
+                    .wrapping_add(operands[1])
+                    .wrapping_add(operands[2]);
+                let expect = Uint32Var::assign_laxly(cs, expect.into());
+                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+            },
+            &[],
+        )
+    }
+
+    batch_test_field!(
+        Bn254,
+        [
+            test_constant_uint8x4_to_uint32,
+            test_uint8x4_with_1_var_to_uint32,
+            test_uint8x4_with_2_vars_to_uint32,
+            test_uint8x4_with_3_vars_to_uint32,
+            test_uint8x4_with_4_vars_to_uint32,
+            test_uint32_var_shr,
+            test_uint32_var_rotr,
+            test_uint32_var_mod_add
+        ],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_381,
+        [
+            test_constant_uint8x4_to_uint32,
+            test_uint8x4_with_1_var_to_uint32,
+            test_uint8x4_with_2_vars_to_uint32,
+            test_uint8x4_with_3_vars_to_uint32,
+            test_uint8x4_with_4_vars_to_uint32,
+            test_uint32_var_shr,
+            test_uint32_var_rotr,
+            test_uint32_var_mod_add
+        ],
+        []
+    );
 }

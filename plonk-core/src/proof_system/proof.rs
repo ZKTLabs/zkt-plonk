@@ -14,8 +14,8 @@ use std::marker::PhantomData;
 use ark_ff::FftField;
 use ark_poly::EvaluationDomain;
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize,
-    Read, SerializationError, Write,
+    Read, Write,
+    CanonicalDeserialize, CanonicalSerialize, SerializationError,
 };
 
 use crate::{
@@ -211,7 +211,7 @@ where
     }
 
     /// Performs the verification of a [`Proof`] returning a boolean result.
-    pub(crate) fn verify_proof<T>(
+    pub(crate) fn verify<T>(
         &self,
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,

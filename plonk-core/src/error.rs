@@ -52,9 +52,6 @@ pub enum Error {
     /// Identity point.
     PairingCheckFailure,
 
-    /// This error occurs when there are not enough bytes to read out of a
-    /// slice during deserialization.
-    NotEnoughBytes,
     /// This error occurs when a malformed point is decoded from a byte array.
     PointMalformed,
     /// This error occurs when a malformed scalar is decoded from a byte
@@ -122,7 +119,6 @@ impl std::fmt::Display for Error {
                 write!(f, "cannot commit to polynomial of zero degree")
             }
             Self::PairingCheckFailure => write!(f, "pairing check failed"),
-            Self::NotEnoughBytes => write!(f, "not enough bytes left to read"),
             Self::PointMalformed => write!(f, "point bytes malformed"),
             Self::ScalarMalformed => write!(f, "scalar bytes malformed"),
             Self::ElementNotIndexed => {

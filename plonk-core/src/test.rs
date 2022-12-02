@@ -11,6 +11,7 @@
 /// The set of tests is split in two. The first set between `[]` is for regular
 /// tests that should not panic. The second set is for tests that should panic.
 
+///
 #[macro_export]
 macro_rules! batch_test_field {
     ($engine:ty, [$($test_set:ident),*], [$($test_panic_set:ident),*]) => {
@@ -57,6 +58,7 @@ macro_rules! batch_test_field {
 //     }
 // }
 
+///
 #[macro_export]
 macro_rules! batch_test_kzg {
     ( [$($test_set:ident),*], [$($test_panic_set:ident),*] => ($engine:ty, $params:ty) ) => {
@@ -80,6 +82,7 @@ macro_rules! batch_test_kzg {
     }
 }
 
+///
 #[macro_export]
 macro_rules! batch_test {
     ( [$($test_set:ident),*], [$($test_panic_set:ident),*] => ($engine:ty, $params:ty) ) => {

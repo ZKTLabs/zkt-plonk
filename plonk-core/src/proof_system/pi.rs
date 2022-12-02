@@ -75,7 +75,6 @@ impl<F: Field> PublicInputs<F> {
     /// Returns the public inputs as a vector of `n` evaluations.
     /// The provided `n` must be a power of 2.
     pub(crate) fn as_evals(&self, n: usize) -> Vec<F> {
-        assert!(n.is_power_of_two());
         let mut pi = vec![F::zero(); n];
         for (pos, eval) in self.0.iter() {
             pi[*pos] = *eval;
@@ -86,7 +85,7 @@ impl<F: Field> PublicInputs<F> {
 
     /// Returns the public inputs as a vector of `n` evaluations.
     /// The provided `n` must be a power of 2.
-    pub(crate) fn into_dense_poly<D>(&self, domain: &D) -> DensePolynomial<F>
+    pub(crate) fn to_dense_poly<D>(&self, domain: &D) -> DensePolynomial<F>
     where
         F: FftField,
         D: EvaluationDomain<F>,
@@ -95,23 +94,6 @@ impl<F: Field> PublicInputs<F> {
         let evals = self.as_evals(n);
         poly_from_evals(domain, evals)
     }
-
-    // /// Constructs [`PublicInputs`] from a positions and a values.
-    // ///
-    // /// Panics if the positions and values have different lenghts or if
-    // /// several values try to be inserted in the same position.
-    // pub fn from_val_pos<I>(iter: I) -> Result<Self, Error>
-    // where
-    //     I: IntoIterator<Item = (usize, F)>,
-    // {
-    //     let mut pi = Self::new();
-    //     iter.into_iter().try_for_each(|(p, v)| -> Result<(), Error> {
-    //         pi.add_input(p, v)?;
-    //         Ok(())
-    //     })?;
-
-    //     Ok(pi)
-    // }
 
     /// Returns the position of non-zero PI values.
     pub fn get_pos(&self) -> impl Iterator<Item = &usize> {

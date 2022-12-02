@@ -22,6 +22,7 @@ impl<F: Field> ConstraintSystem<F> {
     /// Note that using this constraint with whatever [`Variable`] that is not
     /// representing a value equalling 0 or 1, will always force the equation to
     /// fail.
+    /// x * (x - 1) = 0 => x * x - x = 0
     pub fn boolean_gate(&mut self, x: Variable) -> Boolean {
         let sels = Selectors::new_arith()
             .with_mul(F::one())
@@ -123,16 +124,16 @@ impl<F: Field> ConstraintSystem<F> {
         Boolean(z)
     }
 
-    /// Calculates `a AND (NOT b)`.
-    /// a * (1 - b) - c = 0 => -ab + a - c = 0
-    pub fn and_not_gate(&mut self, x: Boolean, y: Boolean) -> Boolean {
+    /// Calculates `(NOT x) AND y`.
+    /// (1 - x) * y - z = 0 => -xy + y - z = 0
+    pub fn not_and_gate(&mut self, x: Boolean, y: Boolean) -> Boolean {
         let z: Variable;
 
         match &mut self.composer {
             Composer::Setup(composer) => {
                 let sels = Selectors::new_arith()
                     .with_mul(-F::one())
-                    .with_left(F::one())
+                    .with_right(F::one())
                     .with_out(-F::one());
 
                 z = composer.perm.new_variable();
@@ -142,7 +143,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Proving(composer) => {
                 let x_value = composer.var_map.value_of_var(x.0);
                 let y_value = composer.var_map.value_of_var(y.0);
-                let z_value = x_value * (F::one() - y_value);
+                let z_value = y_value * (F::one() - x_value);
                 
                 z = composer.var_map.assign_variable(z_value);
 

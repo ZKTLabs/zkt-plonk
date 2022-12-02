@@ -39,22 +39,20 @@ impl<F: Field> LookupTable<F> {
     }
 
     ///
-    pub fn add_custom_table<T: CustomTable<F>>(&mut self) -> &mut Self {
+    pub fn contains_table<T: CustomTable<F>>(&mut self) -> bool {
         let name = std::any::type_name::<T>();
-        let rows = T::collect_rows();
-        assert!(
-            self.0.insert(name, rows).is_none(),
-            "{} is already registered",
-            name,
-        );
-
-        self
+        self.0.contains_key(name)
     }
 
     ///
-    pub fn contains_table<T>(&mut self) -> bool {
+    pub fn register_table<T: CustomTable<F>>(&mut self) -> &mut Self {
         let name = std::any::type_name::<T>();
-        self.0.contains_key(name)
+        if !self.contains_table::<T>() {
+            let rows = T::collect_rows();
+            self.0.insert(name, rows);
+        }
+
+        self
     }
 
     ///
@@ -63,10 +61,10 @@ impl<F: Field> LookupTable<F> {
         self
             .0
             .get(name)
-            .expect(format!("{} is not registered", name).as_str())
+            .unwrap_or_else(|| panic!("{} is not registered", name))
             .iter()
             .find(|row| &row[0] == x)
-            .expect(format!("element not found in {}", name).as_str());
+            .unwrap_or_else(|| panic!("element not found in {}", name));
     }
 
     ///
@@ -75,10 +73,10 @@ impl<F: Field> LookupTable<F> {
         let row = self
             .0
             .get(name)
-            .expect(format!("{} is not registered", name).as_str())
+            .unwrap_or_else(|| panic!("{} is not registered", name))
             .iter()
             .find(|row| &row[0] == x)
-            .expect(format!("element not found in {}", name).as_str());
+            .unwrap_or_else(|| panic!("element not found in {}", name));
 
         row[1]
     }
@@ -93,10 +91,10 @@ impl<F: Field> LookupTable<F> {
         let row = self
             .0
             .get(name)
-            .expect(format!("{} is not registered", name).as_str())
+            .unwrap_or_else(|| panic!("{} is not registered", name))
             .iter()
             .find(|row| &row[0] == x && &row[1] == y)
-            .expect(format!("elements not found in {}", name).as_str());
+            .unwrap_or_else(|| panic!("elements not found in {}", name));
 
         row[2]
     }
@@ -104,7 +102,7 @@ impl<F: Field> LookupTable<F> {
     /// Takes in a table, which is a vector of slices containing
     /// 4 elements, and turns them into 3 distinct multisets for
     /// a, b, c.
-    fn to_multisets(self) -> Vec<MultiSet<F>> {
+    fn into_multisets(self) -> Vec<MultiSet<F>> {
         let mut msets = vec![MultiSet::with_capacity(self.size()); 4];
         for (i, (_, rows)) in self.0.into_iter().enumerate() {
             let id = i as u64;
@@ -121,7 +119,7 @@ impl<F: Field> LookupTable<F> {
 
     ///
     pub(crate) fn compress_to_multiset(self, n: usize, zeta: F) -> MultiSet<F> {
-        let msets = self.to_multisets();
+        let msets = self.into_multisets();
         let mut t = lc(&msets, zeta);
         t.pad(n);
         
@@ -135,11 +133,11 @@ impl<F: Field> LookupTable<F> {
         D: EvaluationDomain<F>,
     {
         let sel: MultiSet<F> = (0..self.tables() as u64).into_iter().map(F::from).collect();
-        sel.to_polynomial(domain)
+        sel.into_polynomial(domain)
     }
 
     ///
-    pub(crate) fn to_polynomials<D>(
+    pub(crate) fn into_polynomials<D>(
         self,
         domain: &D,
     ) -> Vec<DensePolynomial<F>>
@@ -147,9 +145,9 @@ impl<F: Field> LookupTable<F> {
         F: FftField,
         D: EvaluationDomain<F>,
     {
-        self.to_multisets()
+        self.into_multisets()
             .into_iter()
-            .map(|t| t.to_polynomial(domain))
+            .map(|t| t.into_polynomial(domain))
             .collect()
     }
 }
@@ -219,12 +217,12 @@ mod test {
 
     impl_custom_table!(Dummy2DMap, Custom2DMap);
 
-    fn test_add_custom_tables<F: Field>() {
+    fn test_register_tables<F: Field>() {
         let mut table = LookupTable::<F>::new();
     
-        table.add_custom_table::<DummySet>();
-        table.add_custom_table::<Dummy1DMap>();
-        table.add_custom_table::<Dummy2DMap>();
+        table.register_table::<DummySet>();
+        table.register_table::<Dummy1DMap>();
+        table.register_table::<Dummy2DMap>();
 
         assert_eq!(table.tables(), 3);
         assert_eq!(table.size(), 8 + 8 + 64);
@@ -232,7 +230,7 @@ mod test {
 
     fn test_contains<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<DummySet>();
+        table.register_table::<DummySet>();
 
         DummySet::collect_elements()
             .into_iter()
@@ -241,14 +239,14 @@ mod test {
 
     fn test_contains_failed<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<DummySet>();
+        table.register_table::<DummySet>();
 
         table.contains::<DummySet>(&F::zero());
     }
 
     fn test_lookup_1d<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<Dummy1DMap>();
+        table.register_table::<Dummy1DMap>();
 
         Dummy1DMap::collect_x_axis()
             .into_iter()
@@ -259,14 +257,14 @@ mod test {
 
     fn test_lookup_1d_failed<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<Dummy1DMap>();
+        table.register_table::<Dummy1DMap>();
 
         table.lookup_1d::<Dummy1DMap>(&F::zero());
     }
 
     fn test_lookup_2d<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<Dummy2DMap>();
+        table.register_table::<Dummy2DMap>();
 
         Dummy2DMap::collect_x_axis()
             .into_iter()
@@ -278,7 +276,7 @@ mod test {
 
     fn test_lookup_2d_failed<F: Field>() {
         let mut table = LookupTable::<F>::new();
-        table.add_custom_table::<Dummy2DMap>();
+        table.register_table::<Dummy2DMap>();
 
         table.lookup_2d::<Dummy2DMap>(&F::zero(), &F::zero());
     }
@@ -286,7 +284,7 @@ mod test {
     batch_test_field!(
         Bn254,
         [
-            test_add_custom_tables,
+            test_register_tables,
             test_contains,
             test_lookup_1d,
             test_lookup_2d

@@ -74,7 +74,7 @@ impl<F: Field> ConstraintSystem<F> {
     }
 
     ///
-    pub fn new_with_capacity(
+    pub fn with_capacity(
         setup: bool,
         constraint_size: usize,
         variable_size: usize,
@@ -94,6 +94,38 @@ impl<F: Field> ConstraintSystem<F> {
             lookup_table: LookupTable::new(),
         }
     }
+
+    // ///
+    // pub fn setup_composer(&self) -> &SetupComposer<F> {
+    //     match &self.composer {
+    //         Composer::Setup(composer) => composer,
+    //         _ => panic!("constraint system is not in setup mode"),
+    //     }
+    // }
+
+    // ///
+    // pub fn mut_setup_composer(&mut self) -> &mut SetupComposer<F> {
+    //     match &mut self.composer {
+    //         Composer::Setup(composer) => composer,
+    //         _ => panic!("constraint system is not in setup mode"),
+    //     }
+    // }
+
+    // ///
+    // pub fn proving_composer(&self) -> &ProvingComposer<F> {
+    //     match &self.composer {
+    //         Composer::Proving(composer) => composer,
+    //         _ => panic!("constraint system is not in proving mode"),
+    //     }
+    // }
+
+    // ///
+    // pub fn mut_proving_composer(&mut self) -> &mut ProvingComposer<F> {
+    //     match &mut self.composer {
+    //         Composer::Proving(composer) => composer,
+    //         _ => panic!("constraint system is not in proving mode"),
+    //     }
+    // }
 
     /// Returns the length of the circuit that can accomodate the lookup table.
     fn total_size(&self) -> usize {
@@ -166,7 +198,7 @@ impl<F: Field> ConstraintSystem<F> {
     }
 
     /// x = public input
-    pub fn set_lt_var_public(&mut self, x: &LTVariable<F>) {
+    pub fn set_variable_public(&mut self, x: &LTVariable<F>) {
         match &mut self.composer {
             Composer::Setup(composer) => {
                 let sels = Selectors::new_arith()
@@ -413,16 +445,15 @@ mod test {
     use ark_bn254::Bn254;
 
     use crate::batch_test_field;
-
-    use super::test_arith_gate;
+    use super::test_arith_constraints;
 
     fn test_set_variable_public<F: Field>() {
         let rng = &mut test_rng();
         let pi = F::rand(rng);
-        test_arith_gate(
+        test_arith_constraints(
             |cs| {
                 let x = cs.assign_variable(pi);
-                cs.set_lt_var_public(&x.into());
+                cs.set_variable_public(&x.into());
             },
             &[pi],
         )

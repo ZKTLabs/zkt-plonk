@@ -204,12 +204,12 @@ mod test {
     use ark_bls12_381::Bls12_381;
     use ark_bls12_377::Bls12_377;
 
-    use crate::{batch_test_field, constraint_system::test_arith_gate};
+    use crate::{batch_test_field, constraint_system::test_arith_constraints};
 
     use super::ConstraintSystem;
 
     fn test_add_gate<F: Field>() {
-        test_arith_gate(
+        test_arith_constraints(
             |cs: &mut ConstraintSystem<F>| {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
@@ -226,7 +226,7 @@ mod test {
     }
 
     fn test_sub_gate<F: Field>() {
-        test_arith_gate(
+        test_arith_constraints(
             |cs: &mut ConstraintSystem<F>| {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
@@ -243,7 +243,7 @@ mod test {
     }
 
     fn test_mul_gate<F: Field>() {
-        test_arith_gate(
+        test_arith_constraints(
             |cs: &mut ConstraintSystem<F>| {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
@@ -260,7 +260,7 @@ mod test {
     }
 
     fn test_div_gate<F: Field>() {
-        test_arith_gate(
+        test_arith_constraints(
             |cs: &mut ConstraintSystem<F>| {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);

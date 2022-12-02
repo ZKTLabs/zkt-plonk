@@ -4,15 +4,17 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use ark_ff::{Field, FftField};
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
+use ark_serialize::{
+    Read, Write,
+    CanonicalDeserialize, CanonicalSerialize, SerializationError,
+};
+
 use crate::{
     error::Error,
     proof_system::ProverKey,
     util::{EvaluationDomainExt, compute_first_lagrange_evaluation},
-};
-use ark_ff::{Field, FftField};
-use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
 };
 
 use super::ExtendedProverKey;

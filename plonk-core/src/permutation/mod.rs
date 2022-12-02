@@ -340,12 +340,15 @@ mod test {
     use ark_bls12_381::Bls12_381;
     use ark_bls12_377::Bls12_377;
 
-    use crate::{constraint_system::ConstraintSystem, batch_test_field};
+    use crate::{
+        constraint_system::{ConstraintSystem, SetupComposer},
+        batch_test_field,
+    };
     use super::*;
 
     fn test_compute_sigma_permutations<F: FftField>() {
         let cs = ConstraintSystem::<F>::new(true);
-        let mut composer = cs.composer.unwrap_setup();
+        let mut composer: SetupComposer<_> = cs.composer.into();
 
         // x1 * x4 = x2
         // x1 + x3 = x2

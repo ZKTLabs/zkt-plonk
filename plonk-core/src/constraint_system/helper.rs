@@ -4,6 +4,8 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
+use std::borrow::Borrow;
+
 use ark_ff::Field;
 use itertools::izip;
 
@@ -16,11 +18,8 @@ pub fn check_arith_gate<F: Field>(
     pub_inputs: &[F],
 ) {
     assert_eq!(setup.n, proving.n, "circuit size in setup not equals to proving");
-
     assert_eq!(setup.pp.size(), pub_inputs.len(), "arity of public inputs in setup is not correct");
-
     assert_eq!(proving.pi.size(), pub_inputs.len(), "arity of public inputs in proving is not correct");
-
     for (i, (x, y)) in proving.pi.get_vals().zip(pub_inputs.iter()).enumerate() {
         assert_eq!(x, y, "public input value at {:?} is not correct", i);
     }
@@ -47,7 +46,7 @@ pub fn check_arith_gate<F: Field>(
 }
 
 ///
-pub fn test_arith_gate<F, Fn>(mut synthesize: Fn, pub_inputs: &[F])
+pub fn test_arith_constraints<F, Fn>(mut process: Fn, pub_inputs: &[F])
 where
     F: Field,
     Fn: FnMut(&mut ConstraintSystem<F>),
@@ -55,12 +54,12 @@ where
     let mut setup = ConstraintSystem::new(true);
     let mut proving = ConstraintSystem::new(false);
 
-    synthesize(&mut setup);
-    synthesize(&mut proving);
+    process(&mut setup);
+    process(&mut proving);
 
     check_arith_gate(
-        setup.composer.setup_ref(),
-        proving.composer.proving_ref(),
+        setup.composer.borrow(),
+        proving.composer.borrow(),
         pub_inputs,
     )
 }

@@ -41,24 +41,6 @@ impl<F: Field> MultiSet<F> {
         MultiSet(Vec::with_capacity(len))
     }
 
-    /// Creates a `MultiSet` of length `len` filled with zeros
-    pub fn with_len(len: usize) -> Self {
-        MultiSet(vec![F::zero(); len])
-    }
-
-    /// Given a [`MultiSet`], return it in it's bytes representation element by
-    /// element.
-    pub fn to_var_bytes(&self) -> Vec<u8> {
-        self.0
-            .iter()
-            .flat_map(|item| {
-                let mut bytes = vec![];
-                item.write(&mut bytes).expect("This never fails.");
-                bytes
-            })
-            .collect()
-    }
-
     /// Extends the length of the multiset to n elements The `n` will be the
     /// size of the arithmetic circuit. This will extend the vectors to the
     /// size
@@ -148,18 +130,18 @@ impl<F: Field> MultiSet<F> {
         let half_len = n_elems / 2;
         let mut evens = Vec::with_capacity(half_len + (n_elems % 2));
         let mut odds = Vec::with_capacity(half_len);
-        let mut parity = 0;
+        let mut parity = false;
         for (elem, count) in counters {
             let half_count = count / 2;
             evens.extend(vec![elem; half_count]);
             odds.extend(vec![elem; half_count]);
             if count % 2 == 1 {
-                if parity == 1 {
+                if parity {
                     odds.push(elem);
-                    parity = 0;
+                    parity = false;
                 } else {
                     evens.push(elem);
-                    parity = 1;
+                    parity = true;
                 }
             }
         }
@@ -185,7 +167,7 @@ impl<F: Field> MultiSet<F> {
     /// Treats each element in the multiset as evaluation points
     /// Computes IFFT of the set of evaluation points
     /// and returns the coefficients as a Polynomial data structure
-    pub(crate) fn to_polynomial<D>(mut self, domain: &D) -> DensePolynomial<F>
+    pub(crate) fn into_polynomial<D>(mut self, domain: &D) -> DensePolynomial<F>
     where
         F: FftField,
         D: EvaluationDomain<F>,
@@ -230,7 +212,6 @@ impl<F: Field> DerefMut for MultiSet<F> {
     }
 }
 
-
 impl<F> FromIterator<F> for MultiSet<F>
 where
     F: Field,
@@ -254,7 +235,7 @@ where
     fn add(self, other: Self) -> Self::Output {
         self.0
             .into_iter()
-            .zip(other.0.iter())
+            .zip(other.0)
             .map(|(x, y)| x + y)
             .collect()
     }
@@ -270,7 +251,7 @@ where
     fn mul(self, other: Self) -> Self::Output {
         self.0
             .into_iter()
-            .zip(other.0.iter())
+            .zip(other.0)
             .map(|(x, y)| x * y)
             .collect()
     }
@@ -287,170 +268,89 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::batch_field_test;
-//     use crate::lookup::WitnessTable;
-//     use ark_bls12_377::Fr as Bls12_377_scalar_field;
-//     use ark_bls12_381::Fr as Bls12_381_scalar_field;
-//     use ark_poly::EvaluationDomain;
-//     use ark_poly::Polynomial;
+#[cfg(test)]
+mod test {
+    use ark_bn254::Bn254;
+    use ark_bls12_377::Bls12_377;
+    use ark_bls12_381::Bls12_381;
 
-//     fn test_to_polynomial<F>()
-//     where
-//         F: PrimeField,
-//     {
-//         let mut s = MultiSet::new();
-//         s.push(F::from(1u32));
-//         s.push(F::from(2u32));
-//         s.push(F::from(3u32));
-//         s.push(F::from(4u32));
-//         s.push(F::from(5u32));
-//         s.push(F::from(6u32));
-//         s.push(F::from(7u32));
+    use crate::batch_test_field;
+    use super::*;
 
-//         let domain = EvaluationDomain::new(s.len() + 1).unwrap();
-//         let s_poly = s.to_polynomial(&domain);
+    fn test_combine_split<F: Field>() {
+        // t = {0, 1, 2, 3, 4, 5, 6}
+        let mut t = MultiSet::new();
+        t.push(F::zero());
+        t.push(F::one());
+        t.push(F::from(2u32));
+        t.push(F::from(3u32));
+        t.push(F::from(4u32));
+        t.push(F::from(5u32));
+        t.push(F::from(6u32));
 
-//         assert_eq!(s_poly.degree(), 7)
-//     }
+        // f = {3, 6, 0, 5, 4, 3, 2, 0, 0, 1, 2}
+        let mut f = MultiSet::new();
+        f.push(F::from(3u32));
+        f.push(F::from(6u32));
+        f.push(F::from(0u32));
+        f.push(F::from(5u32));
+        f.push(F::from(4u32));
+        f.push(F::from(3u32));
+        f.push(F::from(2u32));
+        f.push(F::from(0u32));
+        f.push(F::from(0u32));
+        f.push(F::from(1u32));
+        f.push(F::from(2u32));
 
-//     fn test_is_subset<F>()
-//     where
-//         F: Field,
-//     {
-//         let mut t = MultiSet::new();
-//         t.push(F::from(1u32));
-//         t.push(F::from(2u32));
-//         t.push(F::from(3u32));
-//         t.push(F::from(4u32));
-//         t.push(F::from(5u32));
-//         t.push(F::from(6u32));
-//         t.push(F::from(7u32));
+        assert!(t.contains_all(&f));
 
-//         let mut f = MultiSet::new();
-//         f.push(F::from(1u32));
-//         f.push(F::from(2u32));
+        // combined: {0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6}
+        // evens:    {0,    0,    1,    2,    2,    3,    4,    5,    6,  }
+        // odds:     {   0,    0,    1,    2,    3,    3,    4,    5,    6}
+        let (h1, h2) = t.combine_split(&f).unwrap();
 
-//         let mut n = MultiSet::new();
-//         n.push(F::from(8u32));
+        let evens = MultiSet(vec![
+            F::zero(),
+            F::zero(),
+            F::one(),
+            F::from(2u32),
+            F::from(2u32),
+            F::from(3u32),
+            F::from(4u32),
+            F::from(5u32),
+            F::from(6u32),
+        ]);
+        let odds = MultiSet(vec![
+            F::zero(),
+            F::zero(),
+            F::one(),
+            F::from(2u32),
+            F::from(3u32),
+            F::from(3u32),
+            F::from(4u32),
+            F::from(5u32),
+            F::from(6u32),
+        ]);
 
-//         assert!(t.contains_all(&f));
-//         assert!(!t.contains_all(&n));
-//     }
+        assert_eq!(evens, h1);
+        assert_eq!(odds, h2);
+    }
 
-//     fn test_combine_split<F>()
-//     where
-//         F: Field,
-//     {
-//         let mut t = MultiSet::new();
-//         t.push(F::zero());
-//         t.push(F::one());
-//         t.push(F::from(2u32));
-//         t.push(F::from(3u32));
-//         t.push(F::from(4u32));
-//         t.push(F::from(5u32));
-//         t.push(F::from(6u32));
+    batch_test_field!(
+        Bn254,
+        [test_combine_split],
+        []
+    );
 
-//         let mut f = MultiSet::new();
-//         f.push(F::from(3u32));
-//         f.push(F::from(6u32));
-//         f.push(F::from(0u32));
-//         f.push(F::from(5u32));
-//         f.push(F::from(4u32));
-//         f.push(F::from(3u32));
-//         f.push(F::from(2u32));
-//         f.push(F::from(0u32));
-//         f.push(F::from(0u32));
-//         f.push(F::from(1u32));
-//         f.push(F::from(2u32));
+    batch_test_field!(
+        Bls12_377,
+        [test_combine_split],
+        []
+    );
 
-//         assert!(t.contains_all(&f));
-//         assert!(t.contains(&F::from(2u32)));
-
-//         let (h1, h2) = t.combine_split(&f).unwrap();
-
-//         let evens = MultiSet(vec![
-//             F::zero(),
-//             F::zero(),
-//             F::one(),
-//             F::from(2u32),
-//             F::from(2u32),
-//             F::from(3u32),
-//             F::from(4u32),
-//             F::from(5u32),
-//             F::from(6u32),
-//         ]);
-//         let odds = MultiSet(vec![
-//             F::zero(),
-//             F::zero(),
-//             F::one(),
-//             F::from(2u32),
-//             F::from(3u32),
-//             F::from(3u32),
-//             F::from(4u32),
-//             F::from(5u32),
-//             F::from(6u32),
-//         ]);
-
-//         assert_eq!(evens, h1);
-//         assert_eq!(odds, h2);
-//     }
-
-//     // TODO Delete if not used
-//     fn _multiset_compression_input<F>()
-//     where
-//         F: Field,
-//     {
-//         // Alpha is a random challenge from
-//         // the transcript
-//         let alpha = F::from(2u32);
-//         let alpha_squared = alpha * alpha;
-
-//         let mut table = WitnessTable::default();
-
-//         // Fill in wires directly, no need to use a
-//         // plookup table as this will not be going
-//         // into a proof
-//         table.from_wire_values(vec![
-//             F::from(1u32),
-//             F::from(2u32),
-//             F::from(3u32),
-//             F::from(3u32),
-//         ]);
-
-//         // Computed expected result
-//         let compressed_element = MultiSet::compress(&table.f, alpha);
-
-//         let actual_element = F::from(1u32)
-//             + (F::from(2u32) * alpha)
-//             + (F::from(3u32) * alpha_squared);
-
-//         let mut actual_set = MultiSet::new();
-
-//         actual_set.push(actual_element);
-
-//         assert_eq!(actual_set, compressed_element);
-//     }
-
-//     // Bls12-381 tests
-//     batch_field_test!(
-//         [
-//             test_to_polynomial,
-//             test_is_subset,
-//             test_combine_split
-//         ],
-//         [] => Bls12_381_scalar_field
-//     );
-
-//     // Bls12-377 tests
-//     batch_field_test!(
-//         [
-//             test_to_polynomial,
-//             test_is_subset,
-//             test_combine_split
-//         ],
-//         [] => Bls12_377_scalar_field
-//     );
-// }
+    batch_test_field!(
+        Bls12_381,
+        [test_combine_split],
+        []
+    );
+}

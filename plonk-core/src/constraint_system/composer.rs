@@ -14,6 +14,8 @@
 //! It allows us not only to build Add and Mul constraints but also to build
 //! ECC op. gates, Range checks, Logical gates (Bitwise ops) etc.
 
+use std::borrow::{Borrow, BorrowMut};
+
 use ark_ff::Field;
 
 use crate::{
@@ -150,6 +152,7 @@ pub struct SetupComposer<F: Field> {
 
 impl<F: Field> SetupComposer<F> {
     ///
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             n: 0,
@@ -246,6 +249,7 @@ impl<F: Field> ProvingComposer<F> {
     /// The usage of this may cause lots of re-allocations since the `Composer`
     /// holds `Vec` for every polynomial, and these will need to be re-allocated
     /// each time the circuit grows considerably.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             n: 0,
@@ -305,33 +309,53 @@ pub enum Composer<F: Field> {
     Proving(ProvingComposer<F>),
 }
 
-impl<F: Field> Composer<F> {
-    ///
-    pub fn unwrap_setup(self) -> SetupComposer<F> {
+impl<F: Field> Into<SetupComposer<F>> for Composer<F> {
+    fn into(self) -> SetupComposer<F> {
         match self {
             Self::Setup(composer) => composer,
             _ => panic!("constraint system is not in setup mode"),
         }
     }
+}
 
-    ///
-    pub fn setup_ref(&self) -> &SetupComposer<F> {
+impl<F: Field> Borrow<SetupComposer<F>> for Composer<F> {
+    fn borrow(&self) -> &SetupComposer<F> {
         match self {
             Self::Setup(composer) => composer,
             _ => panic!("constraint system is not in setup mode"),
         }
     }
+}
 
-    ///
-    pub fn unwrap_proving(self) -> ProvingComposer<F> {
+impl<F: Field> BorrowMut<SetupComposer<F>> for Composer<F> {
+    fn borrow_mut(&mut self) -> &mut SetupComposer<F> {
+        match self {
+            Self::Setup(composer) => composer,
+            _ => panic!("constraint system is not in setup mode"),
+        }
+    }
+}
+
+impl<F: Field> Into<ProvingComposer<F>> for Composer<F> {
+    fn into(self) -> ProvingComposer<F> {
         match self {
             Self::Proving(composer) => composer,
             _ => panic!("constraint system is not in proving mode"),
         }
     }
+}
 
-    ///
-    pub fn proving_ref(&self) -> &ProvingComposer<F> {
+impl<F: Field> Borrow<ProvingComposer<F>> for Composer<F> {
+    fn borrow(&self) -> &ProvingComposer<F> {
+        match self {
+            Self::Proving(composer) => composer,
+            _ => panic!("constraint system is not in proving mode"),
+        }
+    }
+}
+
+impl<F: Field> BorrowMut<ProvingComposer<F>> for Composer<F> {
+    fn borrow_mut(&mut self) -> &mut ProvingComposer<F> {
         match self {
             Self::Proving(composer) => composer,
             _ => panic!("constraint system is not in proving mode"),

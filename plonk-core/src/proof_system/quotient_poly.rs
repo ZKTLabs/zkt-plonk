@@ -5,10 +5,7 @@
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
 use ark_ff::FftField;
-use ark_poly::{
-    univariate::DensePolynomial,
-    EvaluationDomain,
-};
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 

@@ -16,9 +16,18 @@ edition = "2021"
 all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
-[features]
-
 [dependencies]
 plonk-core = { path = "../plonk-core" }
-ark-ff = "0.3.0"
+ark-ff = "0.3"
+ark-std = { version = "0.3", features = ["std"] }
+ark-ec = { version = "0.3", default-features = false }
 itertools = "0.10.5"
+
+[dev-dependencies]
+ark-bn254 = "0.3"
+ark-bls12-377 = "0.3"
+ark-bls12-381 = "0.3"
+paste = "1.0.6"
+assert_matches = "1.5"
+
+[features]

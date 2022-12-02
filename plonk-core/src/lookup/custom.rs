@@ -194,6 +194,11 @@ impl_uint_operation_table!(@withvar U8XorTable, u8, |x, y| -> { x ^ y });
 impl_uint_operation_table!(@withvar U8AndTable, u8, |x, y| -> { x & y });
 impl_uint_operation_table!(@withvar U8NotAndTable, u8, |x, y| -> { (!x) & y });
 
+impl_uint_operation_table!(@withvar U16OrTable, u16, |x, y| -> { x | y });
+impl_uint_operation_table!(@withvar U16XorTable, u16, |x, y| -> { x ^ y });
+impl_uint_operation_table!(@withvar U16AndTable, u16, |x, y| -> { x & y });
+impl_uint_operation_table!(@withvar U16NotAndTable, u16, |x, y| -> { (!x) & y });
+
 impl_uint_operation_table!(@withconst U8OrWithConstTable, u8, |x, y| -> { x | y });
 impl_uint_operation_table!(@withconst U8XorWithConstTable, u8, |x, y| -> { x ^ y });
 impl_uint_operation_table!(@withconst U8AndWithConstTable, u8, |x, y| -> { x & y });

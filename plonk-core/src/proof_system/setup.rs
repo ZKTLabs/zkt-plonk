@@ -37,7 +37,8 @@ impl<F: Field> SetupComposer<F> {
 }
 
 ///
-pub(crate) fn plonkup_setup<F, D, PC>(
+#[allow(clippy::type_complexity)]
+pub(crate) fn setup<F, D, PC>(
     ck: &PC::CommitterKey,
     cs: ConstraintSystem<F>,
     extend: bool,
@@ -63,7 +64,7 @@ where
         })?;
     assert_eq!(domain.size(), n);
 
-    let mut composer = cs.composer.unwrap_setup();
+    let mut composer: SetupComposer<F> = cs.composer.into();
     // Pad composer
     composer.pad_to(n);
 
@@ -96,7 +97,7 @@ where
     label_polynomials.push(label_polynomial!(sigma3_poly));
 
     // 3. Compute lookup table polynomials
-    let mut t_polys = cs.lookup_table.to_polynomials(&domain);
+    let mut t_polys = cs.lookup_table.into_polynomials(&domain);
     let t4_poly = t_polys.pop().unwrap();
     let t3_poly = t_polys.pop().unwrap();
     let t2_poly = t_polys.pop().unwrap();
@@ -109,9 +110,10 @@ where
 
     // 4. Compute Lagrange polynomials at public indexes
     for index in composer.pp.get_pos() {
+        let lagrange = compute_lagrange_poly(&domain, *index);
         let poly = ark_poly_commit::LabeledPolynomial::new(
             format!("lagrange_{}_poly", index + 1),
-            compute_lagrange_poly(&domain, *index),
+            lagrange,
             None,
             None,
         );

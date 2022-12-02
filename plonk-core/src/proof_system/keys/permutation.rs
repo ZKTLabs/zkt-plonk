@@ -6,19 +6,18 @@
 
 //! PLONK Permutation Prover and Verifier Data
 
-use crate::{
-    error::Error,
-    permutation::constants::{K1, K2},
-    proof_system::linearisation_poly::{
-        ProofEvaluations,
-        WireEvaluations,
-        PermutationEvaluations,
-    },
-};
 use ark_ff::{FftField, Field};
 use ark_poly::polynomial::univariate::DensePolynomial;
 use ark_poly_commit::PCCommitment;
 use ark_serialize::*;
+
+use crate::{
+    error::Error,
+    permutation::constants::{K1, K2},
+    proof_system::linearisation_poly::{
+        ProofEvaluations, WireEvaluations, PermutationEvaluations,
+    },
+};
 
 /// Permutation Prover Key
 #[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]

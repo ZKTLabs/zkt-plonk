@@ -24,7 +24,11 @@ pub enum Variable {
 
 impl Variable {
     ///
-    pub fn linear_transform<F: Field>(self, coeff: F, offset: F) -> LTVariable<F> {
+    pub fn linear_transform<F: Field>(
+        self,
+        coeff: F,
+        offset: F,
+    ) -> LTVariable<F> {
         LTVariable {
             var: self,
             coeff,
@@ -34,7 +38,7 @@ impl Variable {
 }
 
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LTVariable<F: Field> {
     ///
     pub var: Variable,

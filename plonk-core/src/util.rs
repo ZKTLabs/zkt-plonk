@@ -92,6 +92,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn poly_from_evals<F, D>(
     domain: &D,
     mut evals: Vec<F>,
@@ -105,6 +106,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn poly_from_evals_ref<F, D>(
     domain: &D,
     evals: &[F],
@@ -117,6 +119,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn poly_from_coset_evals<F, D>(
     domain: &D,
     mut evals: Vec<F>,
@@ -130,6 +133,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn evals_from_poly_ref<F, D>(
     domain: &D,
     poly: &DensePolynomial<F>,
@@ -142,6 +146,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn coset_evals_from_poly<F, D>(
     domain: &D,
     mut poly: DensePolynomial<F>,
@@ -155,6 +160,7 @@ where
 }
 
 ///
+#[inline]
 pub(crate) fn coset_evals_from_poly_ref<F, D>(
     domain: &D,
     poly: &DensePolynomial<F>,

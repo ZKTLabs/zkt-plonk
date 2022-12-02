@@ -25,10 +25,17 @@ use crate::{
     lookup::MultiSet,
     permutation::{compute_z1_poly, compute_z2_poly},
     transcript::TranscriptProtocol,
-    util::{lc, EvaluationDomainExt, compute_lagrange_poly, poly_from_evals_ref, evals_from_poly_ref},
+    util::{
+        EvaluationDomainExt,
+        lc, compute_lagrange_poly, poly_from_evals_ref, evals_from_poly_ref,
+    },
 };
 
-use super::{linearisation_poly, proof::Proof, quotient_poly, ProverKey, ExtendedProverKey};
+use super::{
+    linearisation_poly, quotient_poly,
+    ProverKey, ExtendedProverKey,
+    proof::Proof,
+};
 
 impl<F: Field> ProvingComposer<F> {
     /// Pads the circuit to the next power of two.
@@ -55,7 +62,7 @@ impl<F: Field> ProvingComposer<F> {
 }
 
 ///
-pub(crate) fn plonkup_prove<F, D, PC, T, R>(
+pub(crate) fn prove<F, D, PC, T, R>(
     ck: &PC::CommitterKey,
     pk: &ProverKey<F>,
     epk: Option<Rc<ExtendedProverKey<F>>>,
@@ -79,7 +86,7 @@ where
         })?;
     assert_eq!(domain.size(), n);
 
-    let mut composer = cs.composer.unwrap_proving();
+    let mut composer: ProvingComposer<_> = cs.composer.into();
     // Pad composer
     composer.pad_to(n);
 
@@ -157,7 +164,7 @@ where
     // Compress lookup table into vector of single elements
     let t = cs.lookup_table.compress_to_multiset(n, zeta);
     // Compute table poly
-    let t_poly = t.clone().to_polynomial(&domain);
+    let t_poly = t.clone().into_polynomial(&domain);
 
     // Compute query table f
     // When q_lookup[i] is zero the wire value is replaced with a dummy
@@ -181,7 +188,7 @@ where
         .collect::<MultiSet<_>>();
 
     // Compute query poly
-    let mut f_poly = f.clone().to_polynomial(&domain);
+    let mut f_poly = f.clone().into_polynomial(&domain);
 
     // Add blinding factors
     add_blinders_to_poly(rng, &mut f_poly, n, 2);
@@ -199,8 +206,8 @@ where
     let (h1, h2) = t.combine_split(&f)?;
 
     // Compute h polys
-    let mut h1_poly = h1.clone().to_polynomial(&domain);
-    let mut h2_poly = h2.clone().to_polynomial(&domain);
+    let mut h1_poly = h1.clone().into_polynomial(&domain);
+    let mut h2_poly = h2.clone().into_polynomial(&domain);
 
     // Add blinding factors
     add_blinders_to_poly(rng, &mut h1_poly, n, 3);
@@ -297,7 +304,7 @@ where
     transcript.append_commitment("z2_commit", z2_commit[0].commitment());
 
     // 3. Compute public inputs polynomial.
-    let pi_poly = composer.pi.into_dense_poly(&domain);
+    let pi_poly = composer.pi.to_dense_poly(&domain);
 
     // 4. Compute quotient polynomial
     //
@@ -434,7 +441,7 @@ where
     ];
 
     let (aw_commits, aw_rands) =
-        PC::commit(&ck, &opening_polys, None)
+        PC::commit(ck, &opening_polys, None)
             .map_err(to_pc_error::<F, PC>)?;
 
     let aw_opening = PC::open(

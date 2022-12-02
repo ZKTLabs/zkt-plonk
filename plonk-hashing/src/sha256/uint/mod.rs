@@ -14,12 +14,12 @@ use plonk_core::{
 
 ///
 #[derive(Debug, Clone, Copy)]
-pub struct Uint1to16<F: Field> {
+pub struct Uint1to16Var<F: Field> {
     var: Variable,
     _p: PhantomData<F>,
 }
 
-impl<F: Field> Uint1to16<F> {
+impl<F: Field> Uint1to16Var<F> {
     pub fn assign(cs: &mut ConstraintSystem<F>, bits: u32, value: u16) -> Self {
         let var = cs.assign_variable(value.into());
         match bits {

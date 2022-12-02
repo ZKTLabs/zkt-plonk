@@ -12,9 +12,7 @@ use ark_serialize::*;
 use crate::{
     util::lc,
     proof_system::linearisation_poly::{
-        ProofEvaluations,
-        WireEvaluations,
-        LookupEvaluations,
+        ProofEvaluations, WireEvaluations, LookupEvaluations,
     },
     commitment::HomomorphicCommitment,
 };

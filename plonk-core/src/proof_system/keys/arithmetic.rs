@@ -10,8 +10,10 @@ use ark_ff::{FftField, Field};
 use ark_poly::{polynomial::univariate::DensePolynomial};
 use ark_serialize::*;
 
-use crate::proof_system::linearisation_poly::{ProofEvaluations, WireEvaluations};
-use crate::commitment::HomomorphicCommitment;
+use crate::{
+    commitment::HomomorphicCommitment,
+    proof_system::linearisation_poly::{ProofEvaluations, WireEvaluations},
+};
 
 /// Arithmetic Gates Prover Key
 #[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]

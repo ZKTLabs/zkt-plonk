@@ -12,8 +12,11 @@ use super::{Composer, Variable, ConstraintSystem, Selectors};
 
 impl<F: Field> ConstraintSystem<F> {
     ///
-    pub fn contains_gate<T: CustomSet<F>>(&mut self, x: Variable) {
-        assert!(self.lookup_table.contains_table::<T>());
+    pub fn contains_gate<T>(&mut self, x: Variable)
+    where
+        T: CustomTable<F> + CustomSet<F>,
+    {
+        self.lookup_table.register_table::<T>();
         
         match &mut self.composer {
             Composer::Setup(composer) => {
@@ -30,8 +33,11 @@ impl<F: Field> ConstraintSystem<F> {
         }
     }
     ///
-    pub fn lookup_1d_gate<T: Custom1DMap<F>>(&mut self, x: Variable) -> Variable {
-        assert!(self.lookup_table.contains_table::<T>());
+    pub fn lookup_1d_gate<T>(&mut self, x: Variable) -> Variable
+    where
+        T: CustomTable<F> + Custom1DMap<F>,
+    {
+        self.lookup_table.register_table::<T>();
 
         let y: Variable;
         match &mut self.composer {
@@ -56,12 +62,11 @@ impl<F: Field> ConstraintSystem<F> {
     }
     /// Adds a plookup gate to the circuit with its corresponding
     /// constraints.
-    pub fn lookup_2d_gate<T: Custom2DMap<F>>(
-        &mut self,
-        x: Variable,
-        y: Variable,
-    ) -> Variable {
-        assert!(self.lookup_table.contains_table::<T>());
+    pub fn lookup_2d_gate<T>(&mut self, x: Variable, y: Variable) -> Variable
+    where
+        T: CustomTable<F> + Custom2DMap<F>,
+    {
+        self.lookup_table.register_table::<T>();
 
         let z: Variable;
         match &mut self.composer {
