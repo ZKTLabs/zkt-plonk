@@ -4,12 +4,10 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::borrow::Borrow;
-
 use ark_ff::Field;
 use itertools::izip;
 
-use super::{ConstraintSystem, SetupComposer, ProvingComposer};
+use super::*;
 
 ///
 pub fn check_arith_gate<F: Field>(
@@ -36,7 +34,20 @@ pub fn check_arith_gate<F: Field>(
         proving.pi.as_evals(proving.n),
     );
 
-    for (i, (&q_m, &q_l, &q_r, &q_o, &q_c, &w_l, &w_r, &w_o, pi)) in gates.enumerate() {
+    for (
+        i,
+        (
+            &q_m,
+            &q_l,
+            &q_r,
+            &q_o,
+            &q_c,
+            &w_l,
+            &w_r,
+            &w_o,
+            pi,
+        ),
+    ) in gates.enumerate() {
         let a = proving.var_map.value_of_var(w_l);
         let b = proving.var_map.value_of_var(w_r);
         let c = proving.var_map.value_of_var(w_o);
@@ -46,20 +57,27 @@ pub fn check_arith_gate<F: Field>(
 }
 
 ///
-pub fn test_arith_constraints<F, Fn>(mut process: Fn, pub_inputs: &[F])
+pub fn test_gate_constraints<F, P>(mut process: P, pub_inputs: &[F])
 where
     F: Field,
-    Fn: FnMut(&mut ConstraintSystem<F>),
+    P: FnMut(&mut ConstraintSystem<F>) -> Vec<(LTVariable<F>, F)>,
 {
     let mut setup = ConstraintSystem::new(true);
     let mut proving = ConstraintSystem::new(false);
 
     process(&mut setup);
-    process(&mut proving);
+    let setup: SetupComposer<F> = setup.composer.into();
+
+    let var_map = process(&mut proving);
+    let proving: ProvingComposer<F> = proving.composer.into();
+    for (var, expect) in var_map {
+        let actual = proving.var_map.value_of_lt_var(&var);
+        assert_eq!(expect, actual, "value of variable is incorrect");
+    }
 
     check_arith_gate(
-        setup.composer.borrow(),
-        proving.composer.borrow(),
+        &setup,
+        &proving,
         pub_inputs,
     )
 }

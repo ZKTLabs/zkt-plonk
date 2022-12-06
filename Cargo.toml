@@ -27,13 +27,13 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 [workspace]
 resolver = "2"
 members = [
-    "plonk-core",
-    "plonk-hashing",
+    "plonkup-core",
+    "plonkup-hashing",
 ]
 
 [dependencies]
-plonk-core = { path = "plonk-core" }
-plonk-hashing = { path = "plonk-hashing" }
+plonkup-core = { path = "plonkup-core" }
+plonkup-hashing = { path = "plonkup-hashing" }
 
 [dev-dependencies]
 ark-ff = "0.3"

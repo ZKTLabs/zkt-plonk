@@ -95,45 +95,9 @@ impl<F: Field> ConstraintSystem<F> {
         }
     }
 
-    // ///
-    // pub fn setup_composer(&self) -> &SetupComposer<F> {
-    //     match &self.composer {
-    //         Composer::Setup(composer) => composer,
-    //         _ => panic!("constraint system is not in setup mode"),
-    //     }
-    // }
-
-    // ///
-    // pub fn mut_setup_composer(&mut self) -> &mut SetupComposer<F> {
-    //     match &mut self.composer {
-    //         Composer::Setup(composer) => composer,
-    //         _ => panic!("constraint system is not in setup mode"),
-    //     }
-    // }
-
-    // ///
-    // pub fn proving_composer(&self) -> &ProvingComposer<F> {
-    //     match &self.composer {
-    //         Composer::Proving(composer) => composer,
-    //         _ => panic!("constraint system is not in proving mode"),
-    //     }
-    // }
-
-    // ///
-    // pub fn mut_proving_composer(&mut self) -> &mut ProvingComposer<F> {
-    //     match &mut self.composer {
-    //         Composer::Proving(composer) => composer,
-    //         _ => panic!("constraint system is not in proving mode"),
-    //     }
-    // }
-
     /// Returns the length of the circuit that can accomodate the lookup table.
     fn total_size(&self) -> usize {
-        let circuit_size = match &self.composer {
-            Composer::Setup(composer) => composer.n,
-            Composer::Proving(composer) => composer.n,
-        };
-        std::cmp::max(circuit_size, self.lookup_table.size())
+        std::cmp::max(self.composer.size(), self.lookup_table.size())
     }
 
     /// Returns the smallest power of two needed for the curcuit.
@@ -445,15 +409,17 @@ mod test {
     use ark_bn254::Bn254;
 
     use crate::batch_test_field;
-    use super::test_arith_constraints;
+    use super::test_gate_constraints;
 
     fn test_set_variable_public<F: Field>() {
         let rng = &mut test_rng();
         let pi = F::rand(rng);
-        test_arith_constraints(
-            |cs| {
+        test_gate_constraints(
+            |cs| -> Vec<_> {
                 let x = cs.assign_variable(pi);
                 cs.set_variable_public(&x.into());
+
+                vec![]
             },
             &[pi],
         )

@@ -12,7 +12,7 @@
 #![forbid(missing_docs)]
 
 #[doc(inline)]
-pub use plonk_core::*;
+pub use plonkup_core::*;
 
 #[doc(inline)]
-pub use plonk_hashing as hashing;
+pub use plonkup_hashing as hashing;

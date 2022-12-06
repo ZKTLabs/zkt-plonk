@@ -2,12 +2,12 @@
 mod uint8;
 mod uint32;
 
-pub(crate) use uint8::Uint8;
-pub(crate) use uint32::{Uint8x4, Uint32, Uint8x4or32};
+pub(crate) use uint8::*;
+pub(crate) use uint32::*;
 
 use core::marker::PhantomData;
 use ark_ff::Field;
-use plonk_core::{
+use plonkup_core::{
     lookup::UintRangeTable,
     constraint_system::{Variable, ConstraintSystem},
 };

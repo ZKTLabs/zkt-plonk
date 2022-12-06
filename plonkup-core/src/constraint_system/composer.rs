@@ -309,6 +309,16 @@ pub enum Composer<F: Field> {
     Proving(ProvingComposer<F>),
 }
 
+impl<F: Field> Composer<F> {
+    ///
+    pub fn size(&self) -> usize {
+        match self {
+            Composer::Setup(composer) => composer.n,
+            Composer::Proving(composer) => composer.n,
+        }
+    }
+}
+
 impl<F: Field> Into<SetupComposer<F>> for Composer<F> {
     fn into(self) -> SetupComposer<F> {
         match self {

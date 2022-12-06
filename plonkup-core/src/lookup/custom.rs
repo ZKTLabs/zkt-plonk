@@ -186,8 +186,10 @@ macro_rules! impl_uint_operation_table {
 impl_uint_range_table!(UintRangeTable);
 
 impl_uint_operation_table!(U8NotTable, u8, |x| -> { !x });
+impl_uint_operation_table!(U8BitsRevTable, u8, |x| -> { x.reverse_bits() });
 
 impl_uint_operation_table!(U16NotTable, u16, |x| -> { !x });
+impl_uint_operation_table!(U16BitsRevTable, u8, |x| -> { x.reverse_bits() });
 
 impl_uint_operation_table!(@withvar U8OrTable, u8, |x, y| -> { x | y });
 impl_uint_operation_table!(@withvar U8XorTable, u8, |x, y| -> { x ^ y });

@@ -204,73 +204,79 @@ mod test {
     use ark_bls12_381::Bls12_381;
     use ark_bls12_377::Bls12_377;
 
-    use crate::{batch_test_field, constraint_system::test_arith_constraints};
-
-    use super::ConstraintSystem;
+    use crate::{batch_test_field, constraint_system::test_gate_constraints};
 
     fn test_add_gate<F: Field>() {
-        test_arith_constraints(
-            |cs: &mut ConstraintSystem<F>| {
+        test_gate_constraints(
+            |cs| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
+                let z_value = x_value + y_value;
                 let x = cs.assign_variable(x_value);
                 let y = cs.assign_variable(y_value);
                 let lt_x = x.linear_transform(F::rand(rng), F::rand(rng));
                 let lt_y = y.linear_transform(F::rand(rng), F::rand(rng));
+                let lt_z = cs.add_gate(&lt_x, &lt_y).into();
 
-                cs.add_gate(&lt_x, &lt_y);
+                vec![(lt_z, z_value)]
             },
             &[],
         )
     }
 
     fn test_sub_gate<F: Field>() {
-        test_arith_constraints(
-            |cs: &mut ConstraintSystem<F>| {
+        test_gate_constraints(
+            |cs| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
+                let z_value = x_value - y_value;
                 let x = cs.assign_variable(x_value);
                 let y = cs.assign_variable(y_value);
                 let lt_x = x.linear_transform(F::rand(rng), F::rand(rng));
                 let lt_y = y.linear_transform(F::rand(rng), F::rand(rng));
+                let lt_z = cs.sub_gate(&lt_x, &lt_y).into();
 
-                cs.sub_gate(&lt_x, &lt_y);
+                vec![(lt_z, z_value)]
             },
             &[],
         )
     }
 
     fn test_mul_gate<F: Field>() {
-        test_arith_constraints(
-            |cs: &mut ConstraintSystem<F>| {
+        test_gate_constraints(
+            |cs| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
+                let z_value = x_value * y_value;
                 let x = cs.assign_variable(x_value);
                 let y = cs.assign_variable(y_value);
                 let lt_x = x.linear_transform(F::rand(rng), F::rand(rng));
                 let lt_y = y.linear_transform(F::rand(rng), F::rand(rng));
+                let lt_z = cs.mul_gate(&lt_x, &lt_y).into();
 
-                cs.mul_gate(&lt_x, &lt_y);
+                vec![(lt_z, z_value)]
             },
             &[],
         )
     }
 
     fn test_div_gate<F: Field>() {
-        test_arith_constraints(
-            |cs: &mut ConstraintSystem<F>| {
+        test_gate_constraints(
+            |cs| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
+                let z_value = x_value / y_value;
                 let x = cs.assign_variable(x_value);
                 let y = cs.assign_variable(y_value);
                 let lt_x = x.linear_transform(F::rand(rng), F::rand(rng));
                 let lt_y = y.linear_transform(F::rand(rng), F::rand(rng));
+                let lt_z = cs.div_gate(&lt_x, &lt_y).into();
 
-                cs.div_gate(&lt_x, &lt_y);
+                vec![(lt_z, z_value)]
             },
             &[],
         )

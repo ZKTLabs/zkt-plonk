@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 use alloc::vec::Vec;
 use ark_ff::Field;
-use plonk_core::constraint_system::{
+use plonkup_core::constraint_system::{
     Variable, ConstraintSystem, Selectors, LTVariable,
 };
 
@@ -307,15 +307,15 @@ impl<F: Field> Uint8x4<F> {
 
 ///
 #[derive(Debug, Clone)]
-pub struct Uint32Var<F: Field> {
-    value: u32,
-    lt_var: LTVariable<F>,
+pub(crate) struct Uint32Var<F: Field> {
+    pub value: u32,
+    pub lt_var: LTVariable<F>,
     _p: PhantomData<F>,
 }
 
 impl<F: Field> Uint32Var<F> {
     #[cfg(test)]
-    fn assign_laxly(cs: &mut ConstraintSystem<F>, value: u32) -> Self {
+    pub fn assign_laxly(cs: &mut ConstraintSystem<F>, value: u32) -> Self {
         // Assign uint32 variable without bits constrain
         let var = cs.assign_variable(value.into());
         Self {
@@ -486,7 +486,7 @@ impl<F: Field> Uint32Var<F> {
 
 ///
 #[derive(Debug, Clone)]
-pub enum Uint32<F: Field> {
+pub(crate) enum Uint32<F: Field> {
     Variable(Uint32Var<F>),
     Constant(u32),
 }
@@ -576,7 +576,7 @@ impl<F: Field> Uint32<F> {
 
 ///
 #[derive(Debug, Clone)]
-pub enum Uint8x4or32<F: Field> {
+pub(crate) enum Uint8x4or32<F: Field> {
     Uint8x4(Uint8x4<F>),
     Uint32(Uint32<F>),
 }
@@ -709,7 +709,7 @@ mod test {
     use ark_std::{UniformRand, test_rng};
     use ark_bn254::Bn254;
     use ark_bls12_381::Bls12_381;
-    use plonk_core::{batch_test_field, constraint_system::test_arith_constraints};
+    use plonkup_core::{batch_test_field, constraint_system::test_gate_constraints};
 
     use super::*;
 
@@ -718,12 +718,14 @@ mod test {
         let value = u32::rand(rng);
 
         let bytes = Uint8x4::constant(value);
-        test_arith_constraints(
-            |cs: &mut ConstraintSystem<F>| {
+        test_gate_constraints(
+            |cs: &mut ConstraintSystem<F>| -> Vec<_> {
                 let result = bytes.to_uint32(cs);
                 assert_matches!(result, Uint32::Constant(v) => {
                     assert_eq!(v, value);
                 });
+
+                vec![]
             },
             &[],
         );
@@ -731,16 +733,18 @@ mod test {
 
     macro_rules! impl_uint8x4_to_uint32_processor {
         ($value:expr, $(|$cs:ident, $val:ident| $alloc:block),+) => {
-            |cs: &mut ConstraintSystem<F>| {
+            |cs: &mut ConstraintSystem<F>| -> Vec<_> {
+                let mut checking = Vec::new();
                 $(
                     let allocate = |$cs: &mut ConstraintSystem<F>, $val: u32| $alloc;
                     let bytes = allocate(cs, $value);
                     let result = bytes.to_uint32(cs);
                     assert_matches!(result, Uint32::Variable(u32_var) => {
-                        let expect = cs.assign_variable($value.into());
-                        cs.equal_constrain(&u32_var.lt_var, &expect.into());
+                        checking.push((u32_var.lt_var, $value.into()));
                     });
                 )+
+
+                checking
             }
         };
     }
@@ -749,7 +753,7 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             impl_uint8x4_to_uint32_processor!(
                 value,
                 // case 1: [variable, constant, constant, constant]
@@ -797,7 +801,7 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             impl_uint8x4_to_uint32_processor!(
                 value,
                 // case 1: [variable, variable, constant, constant]
@@ -863,7 +867,7 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             impl_uint8x4_to_uint32_processor!(
                 value,
                 // case 1: [variable, variable, variable, constant]
@@ -911,7 +915,7 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             impl_uint8x4_to_uint32_processor!(
                 value,
                 |cs, val| {
@@ -931,24 +935,24 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             |cs: &mut ConstraintSystem<F>| {
-                let var = Uint32Var::assign_laxly(cs, value);
+                let mut checking = Vec::new();
 
+                let var = Uint32Var::assign_laxly(cs, value);
                 // case 1
-                let expect = Uint32Var::assign_laxly(cs, (value >> 1).into());
                 let result = var.shr(cs, 1);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, (value >> 1).into()));
 
                 // case 2
-                let expect = Uint32Var::assign_laxly(cs, (value >> 16).into());
                 let result = var.shr(cs, 16);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, (value >> 16).into()));
 
                 // case 3
-                let expect = Uint32Var::assign_laxly(cs, (value >> 31).into());
                 let result = var.shr(cs, 31);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, (value >> 31).into()));
+
+                checking
             },
             &[],
         )
@@ -958,24 +962,24 @@ mod test {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
-        test_arith_constraints(
+        test_gate_constraints(
             |cs: &mut ConstraintSystem<F>| {
+                let mut checking = Vec::new();
+
                 let var = Uint32Var::assign_laxly(cs, value);
-                
                 // case 1
-                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(1).into());
                 let result = var.rotr(cs, 1);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, value.rotate_right(1).into()));
 
                 // case 2
-                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(16).into());
                 let result = var.rotr(cs, 16);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, value.rotate_right(16).into()));
 
                 // case 3
-                let expect = Uint32Var::assign_laxly(cs, value.rotate_right(31).into());
                 let result = var.rotr(cs, 31);
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, value.rotate_right(31).into()));
+
+                checking
             },
             &[],
         )
@@ -986,16 +990,16 @@ mod test {
         let constant = u32::rand(rng);
         let operands = [u32::rand(rng), u32::rand(rng), u32::rand(rng)];
         
-        test_arith_constraints(
+        test_gate_constraints(
             |cs: &mut ConstraintSystem<F>| {
+                let mut checking = Vec::new();
+
                 // case 1
                 let operand_vars = [
                     Uint32Var::assign_laxly(cs, operands[0].into()),
                 ];
                 let result = Uint32Var::mod_add(cs, constant, &operand_vars);
-                let expect = constant.wrapping_add(operands[0]);
-                let expect = Uint32Var::assign_laxly(cs, expect.into());
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((result.lt_var, constant.wrapping_add(operands[0]).into()));
 
                 // case 2
                 let operand_vars = [
@@ -1003,11 +1007,13 @@ mod test {
                     Uint32Var::assign_laxly(cs, operands[1].into()),
                 ];
                 let result = Uint32Var::mod_add(cs, constant, &operand_vars);
-                let expect = constant
-                    .wrapping_add(operands[0])
-                    .wrapping_add(operands[1]);
-                let expect = Uint32Var::assign_laxly(cs, expect.into());
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((
+                    result.lt_var,
+                    constant
+                        .wrapping_add(operands[0])
+                        .wrapping_add(operands[1])
+                        .into(),
+                ));
 
                 // case 3
                 let operand_vars = [
@@ -1016,15 +1022,58 @@ mod test {
                     Uint32Var::assign_laxly(cs, operands[2].into()),
                 ];
                 let result = Uint32Var::mod_add(cs, constant, &operand_vars);
-                let expect = constant
-                    .wrapping_add(operands[0])
-                    .wrapping_add(operands[1])
-                    .wrapping_add(operands[2]);
-                let expect = Uint32Var::assign_laxly(cs, expect.into());
-                cs.equal_constrain(&expect.lt_var, &result.lt_var);
+                checking.push((
+                    result.lt_var,
+                    constant
+                        .wrapping_add(operands[0])
+                        .wrapping_add(operands[1])
+                        .wrapping_add(operands[2])
+                        .into(),
+                ));
+
+                checking
             },
             &[],
         )
+    }
+
+    fn test_uint32_to_uint8x4<F: Field>() {
+        let rng = &mut test_rng();
+        let value = u32::rand(rng);
+
+        // case 1
+        test_gate_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let bytes = Uint32::Constant(value).to_uint8x4(cs); 
+                for (i, byte) in bytes.0.into_iter().enumerate() {
+                    assert_matches!(byte, Uint8::Constant(v) => {
+                        assert_eq!(v, (value >> (i * 8)) as u8);
+                    });
+                }
+
+                vec![]
+            },
+            &[],
+        );
+
+        // case 2
+        test_gate_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let mut checking = Vec::new(); 
+
+                let var = Uint32Var::assign_laxly(cs, value);
+                let bytes = Uint32::Variable(var).to_uint8x4(cs); 
+                for (i, byte) in bytes.0.into_iter().enumerate() {
+                    assert_matches!(byte, Uint8::Variable(u8_var) => {
+                        checking.push((u8_var.var.into(), ((value >> (i * 8)) as u8).into()));
+                    });
+                }
+
+                checking
+            },
+            &[],
+        )
+
     }
 
     batch_test_field!(
@@ -1037,7 +1086,8 @@ mod test {
             test_uint8x4_with_4_vars_to_uint32,
             test_uint32_var_shr,
             test_uint32_var_rotr,
-            test_uint32_var_mod_add
+            test_uint32_var_mod_add,
+            test_uint32_to_uint8x4
         ],
         []
     );
@@ -1052,7 +1102,8 @@ mod test {
             test_uint8x4_with_4_vars_to_uint32,
             test_uint32_var_shr,
             test_uint32_var_rotr,
-            test_uint32_var_mod_add
+            test_uint32_var_mod_add,
+            test_uint32_to_uint8x4
         ],
         []
     );

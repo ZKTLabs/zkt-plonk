@@ -1,5 +1,5 @@
 [package]
-name = "plonk-core"
+name = "plonkup-core"
 version = "0.1.0"
 authors = ["Lone G"]
 readme = "README.md"

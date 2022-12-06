@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use plonk_core::constraint_system::{ConstraintSystem, Variable};
-use plonk_core::lookup::*;
+use plonkup_core::constraint_system::{ConstraintSystem, Variable};
+use plonkup_core::lookup::*;
 use ark_ff::Field;
 
 ///
@@ -20,6 +20,14 @@ impl<F: Field> Uint8Var<F> {
         Self {
             var,
             value,
+            _p: Default::default(),
+        }
+    }
+
+    pub fn reverse_bits(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        Self {
+            var: cs.lookup_1d_gate::<U8BitsRevTable>(self.var),
+            value: self.value.reverse_bits(),
             _p: Default::default(),
         }
     }
@@ -52,18 +60,6 @@ impl<F: Field> Uint8Var<F> {
 macro_rules! impl_u8_var_operation_with_const {
     ($($op:literal),+) => {
         impl<F: Field> Uint8Var<F> {
-            // pub fn register_tables(table: &mut LookupTable<F>) {
-            //     table.add_custom_table::<UintRangeTable<8>>();
-            //     table.add_custom_table::<U8AndTable>();
-            //     table.add_custom_table::<U8XorTable>();
-            //     table.add_custom_table::<U8NotAndTable>();
-            //     $(
-            //         table.add_custom_table::<U8AndWithConstTable<$op>>();
-            //         table.add_custom_table::<U8XorWithConstTable<$op>>();
-            //         table.add_custom_table::<U8NotAndWithConstTable<$op>>();
-            //     )+
-            // }
-
             pub fn and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
                 let var = match y {
                     $($op => cs.lookup_1d_gate::<U8AndWithConstTable<$op>>(self.var),)+
@@ -133,6 +129,13 @@ impl<F: Field> Uint8<F> {
         match self {
             Self::Variable(var) => var.value,
             Self::Constant(v) => *v,
+        }
+    }
+
+    pub fn reverse_bits(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        match self {
+            Self::Variable(var) => Self::Variable(var.reverse_bits(cs)),
+            Self::Constant(v) => Self::Constant(v.reverse_bits()),
         }
     }
 
