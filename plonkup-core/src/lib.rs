@@ -32,6 +32,7 @@
 #![allow(clippy::too_many_arguments)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
+#![feature(const_type_name)]
 
 extern crate alloc;
 

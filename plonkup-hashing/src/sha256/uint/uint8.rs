@@ -24,34 +24,46 @@ impl<F: Field> Uint8Var<F> {
         }
     }
 
-    pub fn reverse_bits(&self, cs: &mut ConstraintSystem<F>) -> Self {
+    pub fn assign_laxly(cs: &mut ConstraintSystem<F>, value: u8) -> Self {
         Self {
-            var: cs.lookup_1d_gate::<U8BitsRevTable>(self.var),
-            value: self.value.reverse_bits(),
+            var: cs.assign_variable(value.into()),
+            value,
             _p: Default::default(),
         }
     }
 
     pub fn and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        let value = <U8AndTable as Custom2DMap<F>>::lookup(self.value, other.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_2d_gate::<U8AndTable>(self.var, other.var, var);
+
         Self {
-            var: cs.lookup_2d_gate::<U8AndTable>(self.var, other.var),
-            value: self.value & other.value,
+            var,
+            value,
             _p: Default::default(),
         }
     }
 
     pub fn xor(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        let value = <U8XorTable as Custom2DMap<F>>::lookup(self.value, other.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_2d_gate::<U8XorTable>(self.var, other.var, var);
+
         Self {
-            var: cs.lookup_2d_gate::<U8XorTable>(self.var, other.var),
-            value: self.value ^ other.value,
+            var,
+            value,
             _p: Default::default(),
         }
     }
 
     pub fn not_and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+        let value = <U8NotAndTable as Custom2DMap<F>>::lookup(self.value, other.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_2d_gate::<U8NotAndTable>(self.var, other.var, var);
+
         Self {
-            var: cs.lookup_2d_gate::<U8NotAndTable>(self.var, other.var),
-            value: (!self.value) & other.value,
+            var,
+            value,
             _p: Default::default(),
         }
     }
@@ -61,37 +73,58 @@ macro_rules! impl_u8_var_operation_with_const {
     ($($op:literal),+) => {
         impl<F: Field> Uint8Var<F> {
             pub fn and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
-                let var = match y {
-                    $($op => cs.lookup_1d_gate::<U8AndWithConstTable<$op>>(self.var),)+
+                let (value, var): (u8, Variable);
+                match y {
+                    $(
+                        $op => {
+                            value = <U8AndWithConstTable<$op> as Custom1DMap<F>>::lookup(self.value);
+                            var = cs.assign_variable(value.into());
+                            cs.lookup_1d_gate::<U8AndWithConstTable<$op>>(self.var, var);
+                        }
+                    )+
                 };
 
                 Self {
                     var,
-                    value: self.value & y,
+                    value,
                     _p: Default::default(),
                 }
             }
 
             pub fn xor_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
-                let var = match y {
-                    $($op => cs.lookup_1d_gate::<U8XorWithConstTable<$op>>(self.var),)+
+                let (value, var): (u8, Variable);
+                match y {
+                    $(
+                        $op => {
+                            value = <U8XorWithConstTable<$op> as Custom1DMap<F>>::lookup(self.value);
+                            var = cs.assign_variable(value.into());
+                            cs.lookup_1d_gate::<U8XorWithConstTable<$op>>(self.var, var);
+                        }
+                    )+
                 };
 
                 Self {
                     var,
-                    value: self.value ^ y,
+                    value,
                     _p: Default::default(),
                 }
             }
 
             pub fn not_and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
-                let var = match y {
-                    $($op => cs.lookup_1d_gate::<U8NotAndWithConstTable<$op>>(self.var),)+
+                let (value, var): (u8, Variable);
+                match y {
+                    $(
+                        $op => {
+                            value = <U8NotAndWithConstTable<$op> as Custom1DMap<F>>::lookup(self.value);
+                            var = cs.assign_variable(value.into());
+                            cs.lookup_1d_gate::<U8NotAndWithConstTable<$op>>(self.var, var);
+                        }
+                    )+
                 };
 
                 Self {
                     var,
-                    value: (!self.value) & y,
+                    value,
                     _p: Default::default(),
                 }
             }
@@ -129,13 +162,6 @@ impl<F: Field> Uint8<F> {
         match self {
             Self::Variable(var) => var.value,
             Self::Constant(v) => *v,
-        }
-    }
-
-    pub fn reverse_bits(&self, cs: &mut ConstraintSystem<F>) -> Self {
-        match self {
-            Self::Variable(var) => Self::Variable(var.reverse_bits(cs)),
-            Self::Constant(v) => Self::Constant(v.reverse_bits()),
         }
     }
 

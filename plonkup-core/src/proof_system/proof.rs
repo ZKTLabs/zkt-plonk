@@ -157,10 +157,10 @@ where
         // +  2 for permutation
         // +  3 for lookup
         // +  3 for each piece of the quotient poly
-        // = 13 + public input length of scalars and points
+        // = 14 + public input length of scalars and points
 
-        let mut scalars = Vec::with_capacity(13 + pub_inputs.len());
-        let mut points = Vec::with_capacity(13 + pub_inputs.len());
+        let mut scalars = Vec::with_capacity(14 + pub_inputs.len());
+        let mut points = Vec::with_capacity(14 + pub_inputs.len());
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
@@ -334,7 +334,7 @@ where
         transcript.append_scalar("sigma2_eval", &self.evaluations.perm_evals.sigma2);
         transcript.append_scalar("z1_next_eval", &self.evaluations.perm_evals.z1_next);
 
-        transcript.append_scalar("t4_eval", &self.evaluations.lookup_evals.t4);
+        transcript.append_scalar("t_tag_eval", &self.evaluations.lookup_evals.t_tag);
         transcript.append_scalar("f_eval", &self.evaluations.lookup_evals.f);
         transcript.append_scalar("t_eval", &self.evaluations.lookup_evals.t);
         transcript.append_scalar("t_next_eval", &self.evaluations.lookup_evals.t_next);
@@ -381,7 +381,7 @@ where
             label_commitment!(linear_commit),
             label_commitment!(vk.perm.sigma1),
             label_commitment!(vk.perm.sigma2),
-            label_commitment!(vk.lookup.t4),
+            label_commitment!(vk.lookup.t_tag),
             label_commitment!(self.f_commit),
             label_commitment!(self.h2_commit),
             label_commitment!(t_commit),
@@ -394,7 +394,7 @@ where
             r0,
             self.evaluations.perm_evals.sigma1,
             self.evaluations.perm_evals.sigma2,
-            self.evaluations.lookup_evals.t4,
+            self.evaluations.lookup_evals.t_tag,
             self.evaluations.lookup_evals.f,
             self.evaluations.lookup_evals.h2,
             self.evaluations.lookup_evals.t,

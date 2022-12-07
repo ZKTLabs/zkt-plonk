@@ -69,7 +69,8 @@ pub struct LookupEvaluations<F: Field> {
     /// root of unity
     pub h2: F,
 
-    pub t4: F,
+    /// Evaluations of the table tag polynomial at `z`
+    pub t_tag: F,
 
     /// Evaluations of the table polynomial at `z`
     pub t: F,
@@ -156,7 +157,7 @@ where
         z2_next: z2_poly.evaluate(&shifted_z),
         h1_next: h1_poly.evaluate(&shifted_z),
         h2: h2_poly.evaluate(&z),
-        t4: epk.lookup.t4.evaluate(&z),
+        t_tag: pk.lookup.t_tag.evaluate(&z),
         t: t_poly.evaluate(&z),
         t_next: t_poly.evaluate(&shifted_z),
     };

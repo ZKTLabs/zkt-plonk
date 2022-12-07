@@ -3,7 +3,6 @@ mod uint;
 
 use std::vec::Vec;
 use ark_ff::Field;
-use itertools::Itertools;
 use plonkup_core::constraint_system::ConstraintSystem;
 use uint::{Uint8, Uint8x4, Uint32, Uint8x4or32};
 
@@ -144,14 +143,14 @@ fn sha256_compress<F: Field>(
         h6 = h6 + g
         h7 = h7 + h
     */
-    state[0] = Uint8x4or32::mod_add(cs, vec![state[0].clone(), a.clone()]);
-    state[1] = Uint8x4or32::mod_add(cs, vec![state[1].clone(), b.clone()]);
-    state[2] = Uint8x4or32::mod_add(cs, vec![state[2].clone(), c.clone()]);
-    state[3] = Uint8x4or32::mod_add(cs, vec![state[3].clone(), d.clone()]);
-    state[4] = Uint8x4or32::mod_add(cs, vec![state[4].clone(), e.clone()]);
-    state[5] = Uint8x4or32::mod_add(cs, vec![state[5].clone(), f.clone()]);
-    state[6] = Uint8x4or32::mod_add(cs, vec![state[6].clone(), g.clone()]);
-    state[7] = Uint8x4or32::mod_add(cs, vec![state[7].clone(), h.clone()]);
+    state[0] = Uint8x4or32::mod_add(cs, vec![state[0].clone(), a]);
+    state[1] = Uint8x4or32::mod_add(cs, vec![state[1].clone(), b]);
+    state[2] = Uint8x4or32::mod_add(cs, vec![state[2].clone(), c]);
+    state[3] = Uint8x4or32::mod_add(cs, vec![state[3].clone(), d]);
+    state[4] = Uint8x4or32::mod_add(cs, vec![state[4].clone(), e]);
+    state[5] = Uint8x4or32::mod_add(cs, vec![state[5].clone(), f]);
+    state[6] = Uint8x4or32::mod_add(cs, vec![state[6].clone(), g]);
+    state[7] = Uint8x4or32::mod_add(cs, vec![state[7].clone(), h]);
 }
 
 ///
@@ -182,7 +181,7 @@ pub fn sha256<F: Field>(
     state
         .into_iter()
         .flat_map(|hash| {
-            let mut bytes = hash.to_uint8x4(cs);
+            let mut bytes = hash.into_uint8x4(cs);
             bytes.0.reverse();
             bytes.0
         })
@@ -197,12 +196,11 @@ mod test {
     use ark_bls12_381::Bls12_381;
     use assert_matches::assert_matches;
     use sha2::{
-        compress256,
+        compress256, Sha256,
         digest::{
             generic_array::{GenericArray, sequence::GenericSequence},
             typenum::U64, Digest,
         },
-        Sha256,
     };
     use itertools::Itertools;
     use plonkup_core::{batch_test_field, constraint_system::test_gate_constraints};
@@ -313,6 +311,12 @@ mod test {
 
     batch_test_field!(
         Bn254,
+        [test_blank_hash, test_full_block, test_sha256],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_381,
         [test_blank_hash, test_full_block, test_sha256],
         []
     );

@@ -34,6 +34,7 @@ pub struct Selectors<F: Field> {
     q_o: F,
     q_c: F,
     q_lookup: F,
+    t_tag: F,
 }
 
 impl<F: Field> Selectors<F> {
@@ -46,11 +47,12 @@ impl<F: Field> Selectors<F> {
             q_o: F::zero(),
             q_c: F::zero(),
             q_lookup: F::zero(),
+            t_tag: F::zero(),
         }
     }
 
     ///
-    pub fn new_lookup() -> Self {
+    pub fn new_lookup(tag: F) -> Self {
         Self {
             q_m: F::zero(),
             q_l: F::zero(),
@@ -58,6 +60,7 @@ impl<F: Field> Selectors<F> {
             q_o: F::zero(),
             q_c: F::zero(),
             q_lookup: F::one(),
+            t_tag: tag,
         }
     }
 
@@ -143,6 +146,8 @@ pub struct SetupComposer<F: Field> {
     pub(crate) q_c: Vec<F>,
     /// Lookup gate selector
     pub(crate) q_lookup: Vec<F>,
+    /// Tag of lookup table
+    pub(crate) t_tag: Vec<F>,
 
     /// Permutation argument.
     pub perm: Permutation,
@@ -162,6 +167,7 @@ impl<F: Field> SetupComposer<F> {
             q_o: Vec::new(),
             q_c: Vec::new(),
             q_lookup: Vec::new(),
+            t_tag: Vec::new(),
             perm: Permutation::new(),
             pp: PublicPositions::new(),
         }
@@ -177,6 +183,7 @@ impl<F: Field> SetupComposer<F> {
             q_o: Vec::with_capacity(constraint_size),
             q_c: Vec::with_capacity(constraint_size),
             q_lookup: Vec::with_capacity(constraint_size),
+            t_tag: Vec::with_capacity(constraint_size),
             perm: Permutation::with_capacity(variable_size),
             pp: PublicPositions::new(),
         }
@@ -206,6 +213,7 @@ impl<F: Field> SetupComposer<F> {
         self.q_o.push(sels.q_o);
         self.q_c.push(sels.q_c);
         self.q_lookup.push(sels.q_lookup);
+        self.t_tag.push(sels.t_tag);
 
         self.perm.add_variables_to_map(w_l, w_r, w_o, self.n);
 

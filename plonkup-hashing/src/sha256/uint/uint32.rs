@@ -694,7 +694,7 @@ impl<F: Field> Uint8x4or32<F> {
         Self::Uint32(Uint32::mod_add(cs, operands))
     }
 
-    pub fn to_uint8x4(self, cs: &mut ConstraintSystem<F>) -> Uint8x4<F> {
+    pub fn into_uint8x4(self, cs: &mut ConstraintSystem<F>) -> Uint8x4<F> {
         match self {
             Self::Uint8x4(bytes) => bytes,
             Self::Uint32(var) => var.to_uint8x4(cs),
@@ -1037,7 +1037,7 @@ mod test {
         )
     }
 
-    fn test_uint32_to_uint8x4<F: Field>() {
+    fn test_uint32_into_uint8x4<F: Field>() {
         let rng = &mut test_rng();
         let value = u32::rand(rng);
 
@@ -1087,7 +1087,7 @@ mod test {
             test_uint32_var_shr,
             test_uint32_var_rotr,
             test_uint32_var_mod_add,
-            test_uint32_to_uint8x4
+            test_uint32_into_uint8x4
         ],
         []
     );
@@ -1103,7 +1103,7 @@ mod test {
             test_uint32_var_shr,
             test_uint32_var_rotr,
             test_uint32_var_mod_add,
-            test_uint32_to_uint8x4
+            test_uint32_into_uint8x4
         ],
         []
     );

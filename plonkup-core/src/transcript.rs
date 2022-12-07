@@ -100,9 +100,10 @@ where
     }
 
     fn challenge_scalar(&mut self, label: &'static str) -> F {
-        let mut bytes = Vec::new();
+        let num_bytes = (F::size_in_bits() + 7) / 8 - 1;
+        let mut bytes = vec![0u8; num_bytes as usize];
         self.0.challenge_bytes(label.as_bytes(), &mut bytes);
 
-        F::from_be_bytes_mod_order(&bytes)
+        F::from_random_bytes(&bytes).unwrap()
     }
 } 

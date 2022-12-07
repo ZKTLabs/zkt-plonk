@@ -4,6 +4,8 @@ use ark_ff::Field;
 ///
 pub trait CustomTable<F: Field> {
     ///
+    const NAME: &'static str = std::any::type_name::<Self>();
+    ///
     fn collect_rows() -> Vec<[F; 3]>;
 }
 
@@ -11,6 +13,8 @@ pub trait CustomTable<F: Field> {
 pub trait CustomSet<F: Field> {
     ///
     type Element: Into<F> + Copy;
+    ///
+    fn contains(_element: Self::Element) -> bool;
     ///
     fn collect_elements() -> Vec<Self::Element>;
     ///
@@ -85,14 +89,14 @@ pub trait Custom2DMap<F: Field> {
 #[macro_export]
 macro_rules! impl_custom_table {
     ($table:ident, $inner:ident) => {
-        impl<F: Field> CustomTable<F> for $table {
+        impl<F: ark_ff::Field> CustomTable<F> for $table {
             fn collect_rows() -> Vec<[F; 3]> {
                 <$table as $inner<F>>::collect_rows()
             }
         }
     };
     ($table:ident, $inner:ident, $id:ident, $tp:ty) => {
-        impl<F: Field, const $id: $tp> CustomTable<F> for $table<$id> {
+        impl<F: ark_ff::Field, const $id: $tp> CustomTable<F> for $table<$id> {
             fn collect_rows() -> Vec<[F; 3]> {
                 <$table<$id> as $inner<F>>::collect_rows()
             }
@@ -107,8 +111,12 @@ macro_rules! impl_uint_range_table {
         ///
         pub struct $table<const BITS: u32>;
 
-        impl<F: Field, const BITS: u32> CustomSet<F> for $table<BITS> {
+        impl<F: ark_ff::Field, const BITS: u32> CustomSet<F> for $table<BITS> {
             type Element = u128;
+
+            fn contains(element: Self::Element) -> bool {
+                element < (1 << BITS)
+            }
 
             fn collect_elements() -> Vec<Self::Element> {
                 (0..(1 << BITS)).collect()
@@ -122,91 +130,101 @@ macro_rules! impl_uint_range_table {
 ///
 #[macro_export]
 macro_rules! impl_uint_operation_table {
-    ($table:ident, $tp:ty, |$x:ident| -> $body:block) => {
+    ($table:ident, $tpx:ty, $tpy:ty, |$x:ident| -> $body:block) => {
         ///
         pub struct $table;
 
-        impl<F: Field> Custom1DMap<F> for $table {
-            type X = $tp;
-            type Y = $tp;
+        impl<F: ark_ff::Field> Custom1DMap<F> for $table {
+            type X = $tpx;
+            type Y = $tpy;
 
             fn lookup($x: Self::X) -> Self::Y $body
 
             fn collect_x_axis() -> Vec<Self::X> {
-                (0..=<$tp>::MAX).collect()
+                (0..=<$tpx>::MAX).collect()
             }
         }
 
         impl_custom_table!($table, Custom1DMap);
     };
-    (@withvar $table:ident, $tp:ty, |$x:ident, $y:ident| -> $body:block) => {
+    (@withvar $table:ident, $tpx:ty, $tpy:ty, $tpz:ty, |$x:ident, $y:ident| -> $body:block) => {
         ///
         pub struct $table;
 
-        impl<F: Field> Custom2DMap<F> for $table {
-            type X = $tp;
-            type Y = $tp;
-            type Z = $tp;
+        impl<F: ark_ff::Field> Custom2DMap<F> for $table {
+            type X = $tpx;
+            type Y = $tpy;
+            type Z = $tpz;
 
             fn lookup($x: Self::X, $y: Self::Y) -> Self::Z $body
 
             fn collect_x_axis() -> Vec<Self::X> {
-                (0..=<$tp>::MAX).collect()
+                (0..=<$tpx>::MAX).collect()
             }
 
             fn collect_y_axis() -> Vec<Self::Y> {
-                (0..=<$tp>::MAX).collect()
+                (0..=<$tpy>::MAX).collect()
             }
         }
 
         impl_custom_table!($table, Custom2DMap);
     };
-    (@withconst $table:ident, $tp:ty, |$a:ident, $b:ident| -> $body:block) => {
+    (@withconst $table:ident, $tpx:ty, $tpop:ty, $tpy:ty, |$a:ident, $b:ident| -> $body:block) => {
         ///
-        pub struct $table<const OP: $tp>;
+        pub struct $table<const OP: $tpop>;
 
-        impl<F: Field, const OP: $tp> Custom1DMap<F> for $table<OP> {
-            type X = $tp;
-            type Y = $tp;
+        impl<F: ark_ff::Field, const OP: $tpop> Custom1DMap<F> for $table<OP> {
+            type X = $tpx;
+            type Y = $tpy;
 
             fn lookup(x: Self::X) -> Self::Y {
-                let func = |$a: $tp, $b: $tp| $body;
+                let func = |$a: $tpx, $b: $tpop| $body;
                 func(x, OP)
             }
 
             fn collect_x_axis() -> Vec<Self::X> {
-                (0..=<$tp>::MAX).collect()
+                (0..=<$tpx>::MAX).collect()
             }
         }
 
-        impl_custom_table!($table, Custom1DMap, OP, $tp);
+        impl_custom_table!($table, Custom1DMap, OP, $tpop);
     };
 }
 
 impl_uint_range_table!(UintRangeTable);
 
-impl_uint_operation_table!(U8NotTable, u8, |x| -> { !x });
-impl_uint_operation_table!(U8BitsRevTable, u8, |x| -> { x.reverse_bits() });
+impl_uint_operation_table!(U8NotTable, u8, u8, |x| -> { !x });
+impl_uint_operation_table!(U8BitsRevTable, u8, u8, |x| -> { x.reverse_bits() });
 
-impl_uint_operation_table!(U16NotTable, u16, |x| -> { !x });
-impl_uint_operation_table!(U16BitsRevTable, u8, |x| -> { x.reverse_bits() });
+impl_uint_operation_table!(U16NotTable, u16, u16, |x| -> { !x });
+impl_uint_operation_table!(U16BitsRevTable, u16, u16, |x| -> { x.reverse_bits() });
 
-impl_uint_operation_table!(@withvar U8OrTable, u8, |x, y| -> { x | y });
-impl_uint_operation_table!(@withvar U8XorTable, u8, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withvar U8AndTable, u8, |x, y| -> { x & y });
-impl_uint_operation_table!(@withvar U8NotAndTable, u8, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withvar U8OrTable, u8, u8, u8, |x, y| -> { x | y });
+impl_uint_operation_table!(@withvar U8XorTable, u8, u8, u8, |x, y| -> { x ^ y });
+impl_uint_operation_table!(@withvar U8AndTable, u8, u8, u8, |x, y| -> { x & y });
+impl_uint_operation_table!(@withvar U8NotAndTable, u8, u8, u8, |x, y| -> { (!x) & y });
 
-impl_uint_operation_table!(@withvar U16OrTable, u16, |x, y| -> { x | y });
-impl_uint_operation_table!(@withvar U16XorTable, u16, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withvar U16AndTable, u16, |x, y| -> { x & y });
-impl_uint_operation_table!(@withvar U16NotAndTable, u16, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withvar U16OrTable, u16, u16, u16, |x, y| -> { x | y });
+impl_uint_operation_table!(@withvar U16XorTable, u16, u16, u16, |x, y| -> { x ^ y });
+impl_uint_operation_table!(@withvar U16AndTable, u16, u16, u16, |x, y| -> { x & y });
+impl_uint_operation_table!(@withvar U16NotAndTable, u16, u16, u16, |x, y| -> { (!x) & y });
 
-impl_uint_operation_table!(@withconst U8OrWithConstTable, u8, |x, y| -> { x | y });
-impl_uint_operation_table!(@withconst U8XorWithConstTable, u8, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withconst U8AndWithConstTable, u8, |x, y| -> { x & y });
-impl_uint_operation_table!(@withconst U8NotAndWithConstTable, u8, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withconst U8OrWithConstTable, u8, u8, u8, |x, y| -> { x | y });
+impl_uint_operation_table!(@withconst U8XorWithConstTable, u8, u8, u8, |x, y| -> { x ^ y });
+impl_uint_operation_table!(@withconst U8AndWithConstTable, u8, u8, u8, |x, y| -> { x & y });
+impl_uint_operation_table!(@withconst U8NotAndWithConstTable, u8, u8, u8, |x, y| -> { (!x) & y });
 
-impl_uint_operation_table!(@withconst U16OrWithConstTable, u16, |x, y| -> { x | y });
-impl_uint_operation_table!(@withconst U16XorWithConstTable, u16, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withconst U16AndWithConstTable, u16, |x, y| -> { x & y });
-impl_uint_operation_table!(@withconst U16NotAndWithConstTable, u16, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withconst U16OrWithConstTable, u16, u16, u16, |x, y| -> { x | y });
+impl_uint_operation_table!(@withconst U16XorWithConstTable, u16, u16, u16, |x, y| -> { x ^ y });
+impl_uint_operation_table!(@withconst U16AndWithConstTable, u16, u16, u16, |x, y| -> { x & y });
+impl_uint_operation_table!(@withconst U16NotAndWithConstTable, u16, u16, u16, |x, y| -> { (!x) & y });
+
+impl_uint_operation_table!(@withconst U8ShiftLeftTable, u8, u32, u8, |x, n| -> { x << n });
+impl_uint_operation_table!(@withconst U8ShiftRightTable, u8, u32, u8, |x, n| -> { x >> n });
+impl_uint_operation_table!(@withconst U8RotateLeftTable, u8, u32, u8, |x, n| -> { x.rotate_left(n) });
+impl_uint_operation_table!(@withconst U8RotateRightTable, u8, u32, u8, |x, n| -> { x.rotate_right(n) });
+
+impl_uint_operation_table!(@withconst U16ShiftLeftTable, u16, u32, u16, |x, n| -> { x << n });
+impl_uint_operation_table!(@withconst U16ShiftRightTable, u16, u32, u16, |x, n| -> { x >> n });
+impl_uint_operation_table!(@withconst U16RotateLeftTable, u16, u32, u16, |x, n| -> { x.rotate_left(n) });
+impl_uint_operation_table!(@withconst U16RotateRightTable, u16, u32, u16, |x, n| -> { x.rotate_right(n) });

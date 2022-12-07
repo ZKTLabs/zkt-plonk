@@ -4,13 +4,12 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use alloc::collections::BTreeMap;
+use std::collections::HashMap;
 use ark_ff::{Field, FftField};
 use ark_poly::EvaluationDomain;
 use ark_poly::univariate::DensePolynomial;
 
 use crate::util::lc;
-
 use super::*;
 
 /// This struct is a table, contaning a vector, of arity 4 where each of the
@@ -20,7 +19,7 @@ use super::*;
 /// This struct will be used to determine the outputs of gates within arithmetic
 /// circuits.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LookupTable<F: Field>(BTreeMap<&'static str, Vec<[F; 3]>>);
+pub struct LookupTable<F: Field>(HashMap<&'static str, (F, Vec<[F; 3]>)>);
 
 impl<F: Field> LookupTable<F> {
     /// Create a new, empty Plookup table, with arity 4.
@@ -35,48 +34,55 @@ impl<F: Field> LookupTable<F> {
 
     /// Returns the length of the `LookupTable` vector.
     pub fn size(&self) -> usize {
-        self.0.iter().map(|(_, r)| r.len()).sum()
+        self.0.iter().map(|(_, (_, r))| r.len()).sum()
     }
 
     ///
-    pub fn contains_table<T: CustomTable<F>>(&mut self) -> bool {
-        let name = std::any::type_name::<T>();
-        self.0.contains_key(name)
+    pub fn contains_table<T: CustomTable<F>>(&self) -> bool {
+        self.0.contains_key(T::NAME)
     }
 
     ///
-    pub fn register_table<T: CustomTable<F>>(&mut self) -> &mut Self {
-        let name = std::any::type_name::<T>();
-        if !self.contains_table::<T>() {
-            let rows = T::collect_rows();
-            self.0.insert(name, rows);
-        }
-
-        self
-    }
-
-    ///
-    pub fn contains<T: CustomSet<F>>(&self, x: &F) {
-        let name = std::any::type_name::<T>();
+    pub fn table_tag<T: CustomTable<F>>(&self) -> F {
         self
             .0
-            .get(name)
-            .unwrap_or_else(|| panic!("{} is not registered", name))
-            .iter()
-            .find(|row| &row[0] == x)
-            .unwrap_or_else(|| panic!("element not found in {}", name));
+            .get(T::NAME)
+            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
+            .0
     }
 
     ///
-    pub fn lookup_1d<T: Custom1DMap<F>>(&self, x: &F) -> F {
-        let name = std::any::type_name::<T>();
+    pub fn register_table<T: CustomTable<F>>(&mut self) {
+        if !self.contains_table::<T>() {
+            // tag is the number of inserted tables
+            let tag = self.tables() as u64;
+            let rows = T::collect_rows();
+            self.0.insert(T::NAME, (tag.into(), rows));
+        }
+    }
+
+    ///
+    pub fn contains<T: CustomTable<F> + CustomSet<F>>(&self, x: &F) {
+        self
+            .0
+            .get(T::NAME)
+            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
+            .1
+            .iter()
+            .find(|row| &row[0] == x)
+            .unwrap_or_else(|| panic!("element not found in {}", T::NAME));
+    }
+
+    ///
+    pub fn lookup_1d<T: CustomTable<F> + Custom1DMap<F>>(&self, x: &F) -> F {
         let row = self
             .0
-            .get(name)
-            .unwrap_or_else(|| panic!("{} is not registered", name))
+            .get(T::NAME)
+            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
+            .1
             .iter()
             .find(|row| &row[0] == x)
-            .unwrap_or_else(|| panic!("element not found in {}", name));
+            .unwrap_or_else(|| panic!("element not found in {}", T::NAME));
 
         row[1]
     }
@@ -86,15 +92,15 @@ impl<F: Field> LookupTable<F> {
     /// element must be predetermined to be between -1 and 2 depending on
     /// the type of table used. If the element does not exist, it will
     /// return an error.
-    pub fn lookup_2d<T: Custom2DMap<F>>(&self, x: &F, y: &F) -> F {
-        let name = std::any::type_name::<T>();
+    pub fn lookup_2d<T: CustomTable<F> + Custom2DMap<F>>(&self, x: &F, y: &F) -> F {
         let row = self
             .0
-            .get(name)
-            .unwrap_or_else(|| panic!("{} is not registered", name))
+            .get(T::NAME)
+            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
+            .1
             .iter()
             .find(|row| &row[0] == x && &row[1] == y)
-            .unwrap_or_else(|| panic!("elements not found in {}", name));
+            .unwrap_or_else(|| panic!("elements not found in {}", T::NAME));
 
         row[2]
     }
@@ -104,13 +110,12 @@ impl<F: Field> LookupTable<F> {
     /// a, b, c.
     fn into_multisets(self) -> Vec<MultiSet<F>> {
         let mut msets = vec![MultiSet::with_capacity(self.size()); 4];
-        for (i, (_, rows)) in self.0.into_iter().enumerate() {
-            let id = i as u64;
+        for (_, (tag, rows)) in self.0 {
             for row in rows {
                 msets[0].push(row[0]);
                 msets[1].push(row[1]);
                 msets[2].push(row[2]);
-                msets[3].push(id.into());
+                msets[3].push(tag);
             }
         }
         
@@ -124,16 +129,6 @@ impl<F: Field> LookupTable<F> {
         t.pad(n);
         
         t
-    }
-
-    ///
-    pub(crate) fn selector_polynomial<D>(&self, domain: &D) -> DensePolynomial<F>
-    where
-        F: FftField,
-        D: EvaluationDomain<F>,
-    {
-        let sel: MultiSet<F> = (0..self.tables() as u64).into_iter().map(F::from).collect();
-        sel.into_polynomial(domain)
     }
 
     ///
@@ -159,13 +154,16 @@ mod test {
     use ark_bn254::Bn254;
 
     use crate::{batch_test_field, impl_custom_table};
-
     use super::*;
 
     pub struct DummySet;
 
     impl<F: Field> CustomSet<F> for DummySet {
         type Element = F;
+
+        fn contains(_element: Self::Element) -> bool {
+            unimplemented!("not needed for testing")
+        }
 
         fn collect_elements() -> Vec<Self::Element> {
             let rng = &mut test_rng();

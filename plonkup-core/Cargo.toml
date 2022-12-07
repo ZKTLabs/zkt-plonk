@@ -18,6 +18,7 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
 blake2 = "0.9"
+md5 = "0.7"
 ark-std = { version = "0.3", features = ["std"] }
 ark-ec = { version = "0.3", default-features = false }
 ark-ff = { version = "0.3", default-features = false }
@@ -43,7 +44,11 @@ cfg-if = "0.1"
 
 [features]
 # Default Features
-default = ["asm", "itertools/default", "parallel"]
+default = [
+    "asm",
+    "itertools/default",
+    "parallel",
+]
 
 # Raw Assembly
 asm = ["ark-ff/asm"]
@@ -58,10 +63,22 @@ parallel = [
 ]
 
 # Enable Standard Library
-std = ["ark-ec/std", "ark-ff/std"]
+std = [
+    "ark-ec/std",
+    "ark-ff/std",
+]
 
-# Minimal Tracing Features
-trace = []
+# Check if Elements Exist in Lookup Table
+# Enbale this feature will cost a lot of time
+check-lookup = [
+    "check-contains",
+    "check-lookup-1d",
+    "check-lookup-2d",
+]
 
-# Tracing Printing Features
-trace-print = ["trace", "std"]
+#
+check-contains = []
+#
+check-lookup-1d = []
+#
+check-lookup-2d = []

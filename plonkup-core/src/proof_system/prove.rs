@@ -97,7 +97,7 @@ where
         let sigma2 = evals_from_poly_ref(&domain, &pk.perm.sigma2);
         let sigma3 = evals_from_poly_ref(&domain, &pk.perm.sigma3);
         let q_lookup = evals_from_poly_ref(&domain, &pk.lookup.q_lookup);
-        let t4 = cs.lookup_table.selector_polynomial(&domain);
+        let t_tag = evals_from_poly_ref(&domain, &pk.lookup.t_tag);
         let lagranges = composer
             .pi
             .get_pos()
@@ -110,7 +110,7 @@ where
             sigma2,
             sigma3,
             q_lookup,
-            t4,
+            t_tag,
             lagranges,
         )?;
         Rc::new(epk)
@@ -175,14 +175,19 @@ where
     //   q_lookup[i] is 0 so the lookup check will pass
 
     let t_first = t.0[0];
-    let f = izip!(&a_evals, &b_evals, &c_evals)
-        .enumerate()
-        .map(|(i, (a, b, c))| {
-            let q_lookup = epk.lookup.q_lookup[i];
+    let f_args = izip!(
+        &a_evals,
+        &b_evals,
+        &c_evals,
+        &epk.lookup.q_lookup,
+        &epk.lookup.t_tag,
+    );
+    let f = f_args
+        .map(|(a, b, c, q_lookup, t_tag)| {
             if q_lookup.is_zero() {
                 t_first
             } else {
-                lc(&[*a, *b, *c], zeta)
+                lc(&[*a, *b, *c, *t_tag], zeta)
             }
         })
         .collect::<MultiSet<_>>();
@@ -409,7 +414,7 @@ where
     transcript.append_scalar("z1_next_eval", &evaluations.perm_evals.z1_next);
 
     // Third lookup evals
-    transcript.append_scalar("t4_eval", &evaluations.lookup_evals.t4);
+    transcript.append_scalar("t_tag_eval", &evaluations.lookup_evals.t_tag);
     transcript.append_scalar("f_eval", &evaluations.lookup_evals.f);
     transcript.append_scalar("t_eval", &evaluations.lookup_evals.t);
     transcript.append_scalar("t_next_eval", &evaluations.lookup_evals.t_next);
@@ -434,7 +439,7 @@ where
         label_polynomial!(linear_poly),
         label_polynomial!(pk.perm.sigma1.clone()),
         label_polynomial!(pk.perm.sigma2.clone()),
-        label_polynomial!(epk.lookup.t4.clone()),
+        label_polynomial!(pk.lookup.t_tag.clone()),
         f_poly.pop().unwrap(),
         h2_poly.pop().unwrap(),
         label_polynomial!(t_poly),

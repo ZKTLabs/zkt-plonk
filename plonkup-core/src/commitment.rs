@@ -60,12 +60,12 @@ pub type IPACommitment<G, D> = <IPA<G, D> as PolynomialCommitment<
     DensePolynomial<<G as AffineCurve>::ScalarField>,
 >>::Commitment;
 
-use blake2::digest::Digest;
+use blake2::digest::{Digest, Update};
 impl<G, D> HomomorphicCommitment<<G as ark_ec::AffineCurve>::ScalarField>
     for IPA<G, D>
 where
     G: AffineCurve,
-    D: Digest + 'static,
+    D: Digest + Update + 'static,
 {
     fn multi_scalar_mul(
         commitments: &[IPACommitment<G, D>],

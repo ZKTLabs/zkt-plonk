@@ -66,6 +66,7 @@ where
         q_o: PC::Commitment,
         q_c: PC::Commitment,
         q_lookup: PC::Commitment,
+        t_tag: PC::Commitment,
         sigma1: PC::Commitment,
         sigma2: PC::Commitment,
         sigma3: PC::Commitment,
@@ -93,6 +94,7 @@ where
             },
             lookup: lookup::VerifierKey {
                 q_lookup,
+                t_tag,
                 t1,
                 t2,
                 t3,
@@ -123,6 +125,7 @@ where
         transcript.append_commitment("sigma2_commit", &self.perm.sigma2);
         transcript.append_commitment("sigma3_commit", &self.perm.sigma3);
         transcript.append_commitment("q_lookup_commit", &self.lookup.q_lookup);
+        transcript.append_commitment("t_tag_commit", &self.lookup.t_tag);
         transcript.append_commitment("t1_commit", &self.lookup.t1);
         transcript.append_commitment("t2_commit", &self.lookup.t2);
         transcript.append_commitment("t3_commit", &self.lookup.t3);
@@ -163,6 +166,7 @@ impl<F: Field> ProverKey<F> {
         q_o: DensePolynomial<F>,
         q_c: DensePolynomial<F>,
         q_lookup: DensePolynomial<F>,
+        t_tag: DensePolynomial<F>,
         sigma1: DensePolynomial<F>,
         sigma2: DensePolynomial<F>,
         sigma3: DensePolynomial<F>,
@@ -177,6 +181,7 @@ impl<F: Field> ProverKey<F> {
             },
             lookup: lookup::ProverKey {
                 q_lookup,
+                t_tag,
             },
             perm: permutation::ProverKey {
                 sigma1,
@@ -194,7 +199,7 @@ impl<F: Field> ProverKey<F> {
         sigma2: Vec<F>,
         sigma3: Vec<F>,
         q_lookup: Vec<F>,
-        t4: DensePolynomial<F>,
+        t_tag: Vec<F>,
         lagranges: Vec<DensePolynomial<F>>,
     ) -> Result<ExtendedProverKey<F>, Error>
     where
@@ -214,8 +219,7 @@ impl<F: Field> ProverKey<F> {
         let q_c_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_c);
 
         let q_lookup_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.q_lookup);
-
-        let t4_coset = coset_evals_from_poly_ref(&domain_4n, &t4);
+        let t_tag_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.t_tag);
 
         let sigma1_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma1);
         let sigma2_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma2);
@@ -245,8 +249,8 @@ impl<F: Field> ProverKey<F> {
             lookup: lookup::ExtendedProverKey {
                 q_lookup,
                 q_lookup_coset,
-                t4,
-                t4_coset,
+                t_tag,
+                t_tag_coset,
             },
             perm: permutation::ExtendedProverKey {
                 sigma1,

@@ -23,6 +23,8 @@ use crate::{
 pub struct ProverKey<F: Field> {
     /// Lookup selector
     pub q_lookup: DensePolynomial<F>,
+    /// Table tag selector
+    pub t_tag: DensePolynomial<F>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -48,27 +50,27 @@ impl<F: Field> ProverKey<F> {
             let a = wire_evals.a;
             let b = wire_evals.b;
             let c = wire_evals.c;
-            let d = lookup_evals.t4;
+            let d = lookup_evals.t_tag;
             &self.q_lookup * (
                 alpha_sq * alpha
-                * (lc(&[a, b, c, d], zeta) - lookup_evals.f)
+                    * (lc(&[a, b, c, d], zeta) - lookup_evals.f)
             )
         };
 
         // z2(X) * [(1 + δ) * (ε + f_bar) * (ε(1+δ) + t_bar + δ*t_ω_bar) * α^4 + l1_bar * α^5]
         let part_2 = z2_poly * (
             alpha_qu
-            * one_plus_delta
-            * (epsilon + lookup_evals.f)
-            * (delta * lookup_evals.t_next + epsilon_one_plus_delta + lookup_evals.t)
-            + (l_1_eval * alpha_qu * alpha)
+                * one_plus_delta
+                * (epsilon + lookup_evals.f)
+                * (delta * lookup_evals.t_next + epsilon_one_plus_delta + lookup_evals.t)
+                + (l_1_eval * alpha_qu * alpha)
         );
 
         // h1(X) * (−z2_ω_bar) * (ε(1+δ) + h2_bar  + δ*h1_ω_bar) * α^4
         let part_3 = h1_poly * (
             -alpha_qu
-            * lookup_evals.z2_next
-            * (delta * lookup_evals.h1_next + epsilon_one_plus_delta + lookup_evals.h2)
+                * lookup_evals.z2_next
+                * (delta * lookup_evals.h1_next + epsilon_one_plus_delta + lookup_evals.h2)
         );
 
         part_1 + part_2 + part_3
@@ -84,9 +86,9 @@ pub struct ExtendedProverKey<F: FftField> {
     ///
     pub q_lookup_coset: Vec<F>,
     ///
-    pub t4: DensePolynomial<F>,
+    pub t_tag: Vec<F>,
     ///
-    pub t4_coset: Vec<F>,
+    pub t_tag_coset: Vec<F>,
 }
 
 impl<F: FftField> ExtendedProverKey<F> {
@@ -120,10 +122,10 @@ impl<F: FftField> ExtendedProverKey<F> {
         // - f(X))) * α^3
         let part_1 = {
             let q_lookup_i = self.q_lookup_coset[i];
-            let t4_i = self.t4_coset[i];
+            let t_tag_i = self.t_tag_coset[i];
             alpha_sq * alpha
-            * (lc(&[a_i, b_i, c_i, t4_i], zeta) - f_i)
-            * q_lookup_i
+                * (lc(&[a_i, b_i, c_i, t_tag_i], zeta) - f_i)
+                * q_lookup_i
         };
 
         // z2(X) * (1+δ) * (ε+f(X)) * (ε*(1+δ) + t(X) + δt(Xω)) * α^4
@@ -161,6 +163,8 @@ where
 {
     /// Lookup Selector Commitment
     pub q_lookup: PC::Commitment,
+    /// Lookup Table Tag Commitment
+    pub t_tag: PC::Commitment,
     /// Commitment to first table column
     pub t1: PC::Commitment,
     /// Commitment to second table column
@@ -199,10 +203,10 @@ where
             let a = evaluations.wire_evals.a;
             let b = evaluations.wire_evals.b;
             let c = evaluations.wire_evals.c;
-            let d = evaluations.lookup_evals.t4;
+            let d = evaluations.lookup_evals.t_tag;
             alpha_sq * alpha
-            * lc(&[a, b, c, d], zeta)
-            - evaluations.lookup_evals.f
+                * lc(&[a, b, c, d], zeta)
+                - evaluations.lookup_evals.f
         };
         scalars.push(scalar);
         points.push(self.q_lookup.clone());

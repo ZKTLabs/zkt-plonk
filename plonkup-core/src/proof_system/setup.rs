@@ -33,6 +33,7 @@ impl<F: Field> SetupComposer<F> {
         self.q_o.resize(n, F::zero());
         self.q_c.resize(n, F::zero());
         self.q_lookup.resize(n, F::zero());
+        self.t_tag.resize(n, F::zero());
     }
 }
 
@@ -68,7 +69,7 @@ where
     // Pad composer
     composer.pad_to(n);
 
-    let mut label_polynomials = Vec::with_capacity(13 + composer.pp.size());
+    let mut label_polynomials = Vec::with_capacity(14 + composer.pp.size());
 
     let q_m_poly = poly_from_evals(&domain, composer.q_m);
     let q_l_poly = poly_from_evals(&domain, composer.q_l);
@@ -76,6 +77,7 @@ where
     let q_o_poly = poly_from_evals(&domain, composer.q_o);
     let q_c_poly = poly_from_evals(&domain, composer.q_c);
     let q_lookup_poly = poly_from_evals_ref(&domain, &composer.q_lookup);
+    let t_tag_poly = poly_from_evals_ref(&domain, &composer.t_tag);
 
     label_polynomials.push(label_polynomial!(q_m_poly));
     label_polynomials.push(label_polynomial!(q_l_poly));
@@ -83,6 +85,7 @@ where
     label_polynomials.push(label_polynomial!(q_o_poly));
     label_polynomials.push(label_polynomial!(q_c_poly));
     label_polynomials.push(label_polynomial!(q_lookup_poly));
+    label_polynomials.push(label_polynomial!(t_tag_poly));
 
     // 2. Compute the sigma polynomials
     let (sigma1_evals, sigma2_evals, sigma3_evals) =
@@ -127,7 +130,7 @@ where
     )
     .map_err(to_pc_error::<F, PC>)?;
 
-    let lagranges = label_commitments[13..]
+    let lagranges = label_commitments[14..]
         .iter()
         .map(|lc| lc.commitment().clone())
         .collect();
@@ -139,13 +142,14 @@ where
         label_commitments[3].commitment().clone(), // q_o
         label_commitments[4].commitment().clone(), // q_c
         label_commitments[5].commitment().clone(), // q_lookup
-        label_commitments[6].commitment().clone(), // sigma1
-        label_commitments[7].commitment().clone(), // sigma2
-        label_commitments[8].commitment().clone(), // sigma3
-        label_commitments[9].commitment().clone(), // t1
-        label_commitments[10].commitment().clone(), // t2
-        label_commitments[11].commitment().clone(), // t3
-        label_commitments[12].commitment().clone(), // t4
+        label_commitments[6].commitment().clone(), // t_tag
+        label_commitments[7].commitment().clone(), // sigma1
+        label_commitments[8].commitment().clone(), // sigma2
+        label_commitments[9].commitment().clone(), // sigma3
+        label_commitments[10].commitment().clone(), // t1
+        label_commitments[11].commitment().clone(), // t2
+        label_commitments[12].commitment().clone(), // t3
+        label_commitments[13].commitment().clone(), // t4
         lagranges,
     );
 
@@ -163,19 +167,18 @@ where
         polys_iter.next().unwrap(),
         polys_iter.next().unwrap(),
         polys_iter.next().unwrap(),
+        polys_iter.next().unwrap(),
     );
 
     let epk = if extend {
-        let mut polys_iter = polys_iter.skip(3);
-        let t4 = polys_iter.next().unwrap();
-        let lagranges = polys_iter.collect();
+        let lagranges = polys_iter.skip(4).collect();
         let epk = pk.extend_prover_key(
             &domain,
             sigma1_evals,
             sigma2_evals,
             sigma3_evals,
             composer.q_lookup,
-            t4,
+            composer.t_tag,
             lagranges,
         )?;
         Some(epk)
