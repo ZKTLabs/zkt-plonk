@@ -26,7 +26,7 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.gate_constrain(x, Variable::Zero, Variable::Zero, sels, false);
             }
             Composer::Proving(composer) => {
-                #[cfg(feature = "check-contains")]
+                #[cfg(feature = "check-lookup")]
                 {
                     let x_value = composer.var_map.value_of_var(x);
                     self.lookup_table.contains::<T>(&x_value);
@@ -51,7 +51,7 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.gate_constrain(x, y, Variable::Zero, sels, false);
             }
             Composer::Proving(composer) => {
-                #[cfg(feature = "check-lookup-1d")]
+                #[cfg(feature = "check-lookup")]
                 {
                     let x_value = composer.var_map.value_of_var(x);
                     let expect_y_value = self.lookup_table.lookup_1d::<T>(&x_value);
@@ -79,7 +79,7 @@ impl<F: Field> ConstraintSystem<F> {
                 composer.gate_constrain(x, y, z, sels, false);
             }
             Composer::Proving(composer) => {
-                #[cfg(feature = "check-lookup-2d")]
+                #[cfg(feature = "check-lookup")]
                 {
                     let x_value = composer.var_map.value_of_var(x);
                     let y_value = composer.var_map.value_of_var(y);

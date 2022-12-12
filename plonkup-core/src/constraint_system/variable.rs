@@ -75,17 +75,29 @@ impl<F: Field> LTVariable<F> {
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 ///
-pub struct VariableMap<F: Field>(Vec<F>);
+pub struct VariableMap<F: Field> {
+    map: Vec<F>,
+    #[cfg(feature = "trace")]
+    backtrace: Vec<backtrace::Backtrace>,
+}
 
 impl<F: Field> VariableMap<F> {
     ///
     pub(crate) fn new() -> Self {
-        Self(Vec::new())
+        Self {
+            map: Vec::new(),
+            #[cfg(feature = "trace")]
+            backtrace: Vec::new(),
+        }
     }
 
     ///
     pub(crate) fn with_capacity(size: usize) -> Self {
-        Self(Vec::with_capacity(size))
+        Self {
+            map: Vec::with_capacity(size),
+            #[cfg(feature = "trace")]
+            backtrace: Vec::with_capacity(size),
+        }
     }
 
     ///
@@ -95,8 +107,13 @@ impl<F: Field> VariableMap<F> {
         } else if value.is_one() {
             Variable::One
         } else {
-            let var = Variable::Var(self.0.len());
-            self.0.push(value);
+            let var = Variable::Var(self.map.len());
+            self.map.push(value);
+            #[cfg(feature = "trace")]
+            {
+                let backtrace = backtrace::Backtrace::new_unresolved();
+                self.backtrace.push(backtrace);
+            }
 
             var
         }
@@ -105,7 +122,7 @@ impl<F: Field> VariableMap<F> {
     ///
     pub fn value_of_var(&self, var: Variable) -> F {
         match var {
-            Variable::Var(i) => self.0[i],
+            Variable::Var(i) => self.map[i],
             Variable::Zero => F::zero(),
             Variable::One => F::one(),
         }
@@ -114,11 +131,20 @@ impl<F: Field> VariableMap<F> {
     ///
     pub fn value_of_lt_var(&self, lt_var: &LTVariable<F>) -> F {
         let value = match lt_var.var {
-            Variable::Var(i) => self.0[i],
+            Variable::Var(i) => self.map[i],
             Variable::Zero => F::zero(),
             Variable::One => F::one(),
         };
 
         value * lt_var.coeff + lt_var.offset
+    }
+
+    #[cfg(feature = "trace")]
+    pub(super) fn backtrace_of_var(&self, var: Variable) -> Option<backtrace::Backtrace> {
+        match var {
+            Variable::Var(i) => Some(self.backtrace[i].clone()),
+            Variable::Zero => None,
+            Variable::One => None,
+        }
     }
 }

@@ -1,19 +1,62 @@
 use std::marker::PhantomData;
 
-use plonkup_core::constraint_system::{ConstraintSystem, Variable};
-use plonkup_core::lookup::*;
+use plonkup_core::{
+    lookup::*,
+    impl_uint_operation_table,
+    constraint_system::{ConstraintSystem, Variable},
+};
 use ark_ff::Field;
+
+// (x rotr 1) xor x
+impl_uint_operation_table!(
+    U8Rotr1XorTable,
+    u8,
+    u8,
+    |x| { x.rotate_right(1) ^ x }
+);
+
+// (x rotr 2) xor (x >> 1)
+impl_uint_operation_table!(
+    U8Rotr2XorShr1Table,
+    u8,
+    u8,
+    |x| { x.rotate_right(2) ^ (x >> 1) }
+);
+
+// (x rotr 5) xor x
+impl_uint_operation_table!(
+    U8Rotr5XorTable,
+    u8,
+    u8,
+    |x| { x.rotate_right(5) ^ x }
+);
+
+// (x rotr 1) xor (x rotr 6)
+impl_uint_operation_table!(
+    U8Rotr1XorRotr6Table,
+    u8,
+    u8,
+    |x| { x.rotate_right(1) ^ x.rotate_right(6) }
+);
 
 ///
 #[derive(Debug, Clone, Copy)]
 pub struct Uint8Var<F: Field> {
     pub var: Variable,
     pub value: u8,
-    _p: PhantomData<F>,
+    pub(super) _p: PhantomData<F>,
 }
 
 impl<F: Field> Uint8Var<F> {
     pub fn assign(cs: &mut ConstraintSystem<F>, value: u8) -> Self {
+        Self {
+            var: cs.assign_variable(value.into()),
+            value,
+            _p: Default::default(),
+        }
+    }
+
+    pub fn assign_strictly(cs: &mut ConstraintSystem<F>, value: u8) -> Self {
         let var = cs.assign_variable(value.into());
         cs.contains_gate::<UintRangeTable<8>>(var);
 
@@ -24,15 +67,7 @@ impl<F: Field> Uint8Var<F> {
         }
     }
 
-    pub fn assign_laxly(cs: &mut ConstraintSystem<F>, value: u8) -> Self {
-        Self {
-            var: cs.assign_variable(value.into()),
-            value,
-            _p: Default::default(),
-        }
-    }
-
-    pub fn and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+    fn and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
         let value = <U8AndTable as Custom2DMap<F>>::lookup(self.value, other.value);
         let var = cs.assign_variable(value.into());
         cs.lookup_2d_gate::<U8AndTable>(self.var, other.var, var);
@@ -44,7 +79,7 @@ impl<F: Field> Uint8Var<F> {
         }
     }
 
-    pub fn xor(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+    fn xor(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
         let value = <U8XorTable as Custom2DMap<F>>::lookup(self.value, other.value);
         let var = cs.assign_variable(value.into());
         cs.lookup_2d_gate::<U8XorTable>(self.var, other.var, var);
@@ -56,7 +91,7 @@ impl<F: Field> Uint8Var<F> {
         }
     }
 
-    pub fn not_and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
+    fn not_and(&self, cs: &mut ConstraintSystem<F>, other: &Self) -> Self {
         let value = <U8NotAndTable as Custom2DMap<F>>::lookup(self.value, other.value);
         let var = cs.assign_variable(value.into());
         cs.lookup_2d_gate::<U8NotAndTable>(self.var, other.var, var);
@@ -67,6 +102,100 @@ impl<F: Field> Uint8Var<F> {
             _p: Default::default(),
         }
     }
+
+    fn rotr_1_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        let value = <U8Rotr1XorTable as Custom1DMap<F>>::lookup(self.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_1d_gate::<U8Rotr1XorTable>(self.var, var);
+
+        Self {
+            var,
+            value,
+            _p: Default::default(),
+        }
+    }
+
+    fn rotr_2_xor_shr_1(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        let value = <U8Rotr2XorShr1Table as Custom1DMap<F>>::lookup(self.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_1d_gate::<U8Rotr2XorShr1Table>(self.var, var);
+
+        Self {
+            var,
+            value,
+            _p: Default::default(),
+        }
+    }
+
+    fn rotr_5_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        let value = <U8Rotr5XorTable as Custom1DMap<F>>::lookup(self.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_1d_gate::<U8Rotr5XorTable>(self.var, var);
+
+        Self {
+            var,
+            value,
+            _p: Default::default(),
+        }
+    }
+
+    fn rotr_1_xor_rotr_6(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        let value = <U8Rotr1XorRotr6Table as Custom1DMap<F>>::lookup(self.value);
+        let var = cs.assign_variable(value.into());
+        cs.lookup_1d_gate::<U8Rotr1XorRotr6Table>(self.var, var);
+
+        Self {
+            var,
+            value,
+            _p: Default::default(),
+        }
+    }
+}
+
+macro_rules! impl_u8_var_self_operation {
+    ($($op:literal),+) => {
+        impl<F: Field> Uint8Var<F> {
+            pub fn rotr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+                let (value, var): (u8, Variable);
+                match n {
+                    $(
+                        $op => {
+                            value = <U8RotrTable<$op> as Custom1DMap<F>>::lookup(self.value);
+                            var = cs.assign_variable(value.into());
+                            cs.lookup_1d_gate::<U8RotrTable<$op>>(self.var, var);
+                        }
+                    )+
+                    _ => panic!("invalid bits: {}", n)
+                };
+
+                Self {
+                    var,
+                    value,
+                    _p: Default::default(),
+                }
+            }
+
+            pub fn shr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+                let (value, var): (u8, Variable);
+                match n {
+                    $(
+                        $op => {
+                            value = <U8ShrTable<$op> as Custom1DMap<F>>::lookup(self.value);
+                            var = cs.assign_variable(value.into());
+                            cs.lookup_1d_gate::<U8ShrTable<$op>>(self.var, var);
+                        }
+                    )+
+                    _ => panic!("invalid bits: {}", n)
+                };
+
+                Self {
+                    var,
+                    value,
+                    _p: Default::default(),
+                }
+            }
+        }
+    };
 }
 
 macro_rules! impl_u8_var_operation_with_const {
@@ -131,6 +260,8 @@ macro_rules! impl_u8_var_operation_with_const {
         }
     };
 }
+
+impl_u8_var_self_operation!(1, 2, 3, 4, 5, 6, 7);
 
 impl_u8_var_operation_with_const![
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -213,6 +344,48 @@ impl<F: Field> Uint8<F> {
                     Self::Constant(y) => Self::Constant((!x) & y),
                 }
             }
+        }
+    }
+
+    pub fn rotr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+        match self {
+            Self::Variable(x) => Self::Variable(x.rotr(cs, n)),
+            Self::Constant(x) => Self::Constant(x.rotate_right(n)),
+        }
+    }
+
+    pub fn shr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+        match self {
+            Self::Variable(x) => Self::Variable(x.shr(cs, n)),
+            Self::Constant(x) => Self::Constant(x >> n),
+        }
+    }
+
+    pub fn rotr_1_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        match self {
+            Self::Constant(x) => Self::Constant(x.rotate_right(1) ^ x),
+            Self::Variable(x) => Self::Variable(x.rotr_1_xor(cs)),
+        }
+    }
+
+    pub fn rotr_2_xor_shr_1(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        match self {
+            Self::Constant(x) => Self::Constant(x.rotate_right(2) ^ (x >> 1)),
+            Self::Variable(x) => Self::Variable(x.rotr_2_xor_shr_1(cs)),
+        }
+    }
+
+    pub fn rotr_5_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        match self {
+            Self::Constant(x) => Self::Constant(x.rotate_right(5) ^ x),
+            Self::Variable(x) => Self::Variable(x.rotr_5_xor(cs)),
+        }
+    }
+
+    pub fn rotr_1_xor_rotr_6(&self, cs: &mut ConstraintSystem<F>) -> Self {
+        match self {
+            Self::Constant(x) => Self::Constant(x.rotate_right(1) ^ x.rotate_right(6)),
+            Self::Variable(x) => Self::Variable(x.rotr_1_xor_rotr_6(cs)),
         }
     }
 }

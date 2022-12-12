@@ -52,7 +52,15 @@ pub fn check_arith_gate<F: Field>(
         let b = proving.var_map.value_of_var(w_r);
         let c = proving.var_map.value_of_var(w_o);
         let out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
-        assert!(out.is_zero(), "arithmetic gate at {:?} is not satisfied", i);
+        if !out.is_zero() {
+            #[cfg(feature = "trace")]
+            {
+                let mut backtrace = setup.backtrace[i].clone();
+                backtrace.resolve();
+                println!("{:?}", backtrace);
+            }
+            panic!("arithmetic gate at {:?} is not satisfied", i);
+        }
     }
 }
 
@@ -70,9 +78,19 @@ where
 
     let var_map = process(&mut proving);
     let proving: ProvingComposer<F> = proving.composer.into();
-    for (var, expect) in var_map {
-        let actual = proving.var_map.value_of_lt_var(&var);
-        assert_eq!(expect, actual, "value of variable is incorrect");
+    for (lt_var, expect) in var_map {
+        let actual = proving.var_map.value_of_lt_var(&lt_var);
+        if actual != expect {
+            #[cfg(feature = "trace")]
+            {
+                let backtrace = proving.var_map.backtrace_of_var(lt_var.var);
+                if let Some(mut backtrace) = backtrace {
+                    backtrace.resolve();
+                    println!("{:?}", backtrace);
+                }
+            }
+            panic!("value of variable {:?} is incorrect", lt_var.var);
+        }
     }
 
     check_arith_gate(

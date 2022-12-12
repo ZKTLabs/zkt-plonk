@@ -1,10 +1,10 @@
 
 mod uint;
 
-use std::vec::Vec;
+use std::{vec::Vec, collections::HashMap};
 use ark_ff::Field;
 use plonkup_core::constraint_system::ConstraintSystem;
-use uint::{Uint8, Uint8x4, Uint32, Uint8x4or32};
+use uint::{Uint8, Uint8x4, Uint32};
 
 #[allow(clippy::unreadable_literal)]
 const ROUND_CONSTANTS: [u32; 64] = [
@@ -23,94 +23,109 @@ const IV: [u32; 8] = [
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ];
 
-fn get_sha256_iv<F: Field>() -> Vec<Uint8x4or32<F>> {
-    IV.iter().map(|v| Uint8x4or32::Uint32(Uint32::Constant(*v))).collect()
+fn get_sha256_iv<F: Field>() -> [Uint32<F>; 8] {
+    [
+        Uint32::Constant(IV[0]),
+        Uint32::Constant(IV[1]),
+        Uint32::Constant(IV[2]),
+        Uint32::Constant(IV[3]),
+        Uint32::Constant(IV[4]),
+        Uint32::Constant(IV[5]),
+        Uint32::Constant(IV[6]),
+        Uint32::Constant(IV[7]),
+    ]
+}
+
+fn lookup_u8x4<F: Field>(
+    cs: &mut ConstraintSystem<F>,
+    index: usize,
+    w_u8x4: &mut HashMap<usize, Uint8x4<F>>,
+    w_u32: &HashMap<usize, Uint32<F>>,
+) -> Uint8x4<F> {
+    w_u8x4
+        .get(&index)
+        .map(|v| v.clone())
+        .unwrap_or_else(|| {
+            let v = w_u32.get(&index).unwrap().to_uint8x4(cs);
+            w_u8x4.insert(index, v.clone());
+            v
+        })
+}
+
+fn lookup_u32<F: Field>(
+    cs: &mut ConstraintSystem<F>,
+    index: usize,
+    w_u32: &mut HashMap<usize, Uint32<F>>,
+    w_u8x4: &HashMap<usize, Uint8x4<F>>,
+) -> Uint32<F> {
+    w_u32
+        .get(&index)
+        .map(|v| v.clone())
+        .unwrap_or_else(|| {
+            let v = w_u8x4.get(&index).unwrap().to_uint32(cs);
+            w_u32.insert(index, v.clone());
+            v
+        })
 }
 
 fn sha256_compress<F: Field>(
     cs: &mut ConstraintSystem<F>,
     block: &[Uint8<F>],
-    state: &mut [Uint8x4or32<F>],
+    state: &mut [Uint32<F>],
 ) {
     assert_eq!(block.len(), 64);
     assert_eq!(state.len(), 8);
 
-    let mut w = Vec::with_capacity(64);
-    for bytes in block.chunks(4) {
-        let mut bytes = bytes.to_vec();
-        bytes.reverse();
-        w.push(Uint8x4or32::Uint8x4(Uint8x4(bytes)));
+    let mut w_u8x4 = HashMap::with_capacity(64);
+    let mut w_u32 = HashMap::<usize, Uint32<F>>::with_capacity(64);
+    for (i, bytes) in block.chunks(4).enumerate() {
+        w_u32.insert(i, Uint32::from_bytes_be(cs, bytes));
     }
 
     for i in 16..64 {
-        // s0 = (w[i-15] rotr 7) xor (w[i-15] rotr 18) xor (w[i-15] >> 3)
-        let x = w[i - 15].rotr(cs, 7);
-        let y = w[i - 15].rotr(cs, 18);
-        let z = w[i - 15].shr(cs, 3);
-        let s0 = x.xor(cs, &y).xor(cs, &z);
-
-        // s1 = (w[i-2] rotr 17) xor (w[i-2] rotr 19) xor (w[i-2] >> 10)
-        let x = w[i - 2].rotr(cs, 17);
-        let y = w[i - 2].rotr(cs, 19);
-        let z = w[i - 2].shr(cs, 10);
-        let s1 = x.xor(cs, &y).xor(cs, &z);
+        let s0 = lookup_u8x4(cs, i - 15, &mut w_u8x4, &w_u32)
+            .sha256_block_s0(cs);
+        let s1 = lookup_u8x4(cs, i - 2, &mut w_u8x4, &w_u32)
+            .sha256_block_s1(cs);
 
         // w[i] = w[i-16] + s0 + w[i-7] + s1
-        let w_i = Uint8x4or32::mod_add(
-            cs,
-            vec![w[i - 16].clone(), s0, w[i - 7].clone(), s1],
-        );
-        w.push(w_i);
+        let operands = vec![
+            lookup_u32(cs, i - 16, &mut w_u32, &w_u8x4),
+            s0.to_uint32(cs),
+            lookup_u32(cs, i - 7, &mut w_u32, &w_u8x4),
+            s1.to_uint32(cs),
+        ];
+        let w_i = Uint32::mod_add(cs, operands);
+        w_u32.insert(i, w_i);
     }
 
-    assert_eq!(w.len(), 64);
-
-    let mut a = state[0].clone();
-    let mut b = state[1].clone();
-    let mut c = state[2].clone();
+    let mut a = state[0].to_uint8x4(cs);
+    let mut b = state[1].to_uint8x4(cs);
+    let mut c = state[2].to_uint8x4(cs);
     let mut d = state[3].clone();
-    let mut e = state[4].clone();
-    let mut f = state[5].clone();
-    let mut g = state[6].clone();
+    let mut e = state[4].to_uint8x4(cs);
+    let mut f = state[5].to_uint8x4(cs);
+    let mut g = state[6].to_uint8x4(cs);
     let mut h = state[7].clone();
 
     for i in 0..64 {
-        // s1 = (e rotr 6) xor (e rotr 11) xor (e rotr 25)
-        let x = e.rotr(cs, 6);
-        let y = e.rotr(cs, 11);
-        let z = e.rotr(cs, 25);
-        let s1 = x.xor(cs, &y).xor(cs, &z);
+        let s0 = e.sha256_compress_s0(cs);
+        let ch = Uint8x4::sha256_compress_ch(cs, &e, &f, &g);
 
-        // ch = (e and f) xor ((not e) and g)
-        let x = e.and(cs, &f);
-        let y = e.not_and(cs, &g);
-        let ch = x.xor(cs, &y);
+        // tmp1 = h + s0 + ch + k[i] + w[i]
+        let operands = vec![
+            h.clone(),
+            s0.to_uint32(cs),
+            ch.to_uint32(cs),
+            Uint32::Constant(ROUND_CONSTANTS[i]),
+            lookup_u32(cs, i,&mut w_u32, &w_u8x4),
+        ];
+        let tmp1 = Uint32::mod_add(cs, operands);
 
-        // tmp1 = h + s1 + ch + k[i] + w[i]
-        let tmp1 = Uint8x4or32::mod_add(
-            cs,
-            vec![
-                h.clone(),
-                s1,
-                ch,
-                Uint8x4or32::Uint32(Uint32::Constant(ROUND_CONSTANTS[i])),
-                w[i].clone(),
-            ],
-        );
-
-        // s0 = (a rotr 2) xor (a rotr 13) xor (a rotr 22)
-        let x = a.rotr(cs, 2);
-        let y = a.rotr(cs, 13);
-        let z = a.rotr(cs, 22);
-        let s0 = x.xor(cs, &y).xor(cs, &z);
-        
-        // maj = (a and b) xor (a and c) xor (b and c)
-        let x = a.and(cs, &b);
-        let y = a.and(cs, &c);
-        let z = b.and(cs, &c);
-        let maj = x.xor(cs, &y).xor(cs, &z);
-
-        let tmp2 = Uint8x4or32::mod_add(cs, vec![s0, maj]);
+        let s1 = a.sha256_compress_s1(cs);
+        let maj = Uint8x4::sha256_compress_maj(cs, &a, &b, &c);
+        let operands = vec![s1.to_uint32(cs), maj.to_uint32(cs)];
+        let tmp2 = Uint32::mod_add(cs, operands);
 
         /*
             h = g
@@ -122,35 +137,46 @@ fn sha256_compress<F: Field>(
             b = a
             a = tmp1 + tmp2
         */
-        h = g.clone();
-        g = f.clone();
-        f = e.clone();
-        e = Uint8x4or32::mod_add(cs, vec![d.clone(), tmp1.clone()]);
-        d = c.clone();
-        c = b.clone();
-        b = a.clone();
-        a = Uint8x4or32::mod_add(cs, vec![tmp1.clone(), tmp2.clone()]);
-    }
+        if i < 63 {
+            h = g.to_uint32(cs);
+            g = f.clone();
+            f = e.clone();
+            e = Uint32::mod_add(cs, vec![d.clone(), tmp1.clone()]).to_uint8x4(cs);
+            d = c.to_uint32(cs);
+            c = b.clone();
+            b = a.clone();
+            a = Uint32::mod_add(cs, vec![tmp1, tmp2]).to_uint8x4(cs);
+        } else {
+            let h = g.to_uint32(cs);
+            let g = f.to_uint32(cs);
+            let f = e.to_uint32(cs);
+            let e = Uint32::mod_add(cs, vec![d.clone(), tmp1.clone()]);
+            let d = c.to_uint32(cs);
+            let c = b.to_uint32(cs);
+            let b = a.to_uint32(cs);
+            let a = Uint32::mod_add(cs, vec![tmp1, tmp2]);
 
-    /*
-        Add the compressed chunk to the current hash value:
-        h0 = h0 + a
-        h1 = h1 + b
-        h2 = h2 + c
-        h3 = h3 + d
-        h4 = h4 + e
-        h5 = h5 + f
-        h6 = h6 + g
-        h7 = h7 + h
-    */
-    state[0] = Uint8x4or32::mod_add(cs, vec![state[0].clone(), a]);
-    state[1] = Uint8x4or32::mod_add(cs, vec![state[1].clone(), b]);
-    state[2] = Uint8x4or32::mod_add(cs, vec![state[2].clone(), c]);
-    state[3] = Uint8x4or32::mod_add(cs, vec![state[3].clone(), d]);
-    state[4] = Uint8x4or32::mod_add(cs, vec![state[4].clone(), e]);
-    state[5] = Uint8x4or32::mod_add(cs, vec![state[5].clone(), f]);
-    state[6] = Uint8x4or32::mod_add(cs, vec![state[6].clone(), g]);
-    state[7] = Uint8x4or32::mod_add(cs, vec![state[7].clone(), h]);
+            /*
+                Add the compressed chunk to the current hash value:
+                h0 = h0 + a
+                h1 = h1 + b
+                h2 = h2 + c
+                h3 = h3 + d
+                h4 = h4 + e
+                h5 = h5 + f
+                h6 = h6 + g
+                h7 = h7 + h
+            */
+            state[0] = Uint32::mod_add(cs, vec![state[0].clone(), a]);
+            state[1] = Uint32::mod_add(cs, vec![state[1].clone(), b]);
+            state[2] = Uint32::mod_add(cs, vec![state[2].clone(), c]);
+            state[3] = Uint32::mod_add(cs, vec![state[3].clone(), d]);
+            state[4] = Uint32::mod_add(cs, vec![state[4].clone(), e]);
+            state[5] = Uint32::mod_add(cs, vec![state[5].clone(), f]);
+            state[6] = Uint32::mod_add(cs, vec![state[6].clone(), g]);
+            state[7] = Uint32::mod_add(cs, vec![state[7].clone(), h]);
+        }
+    }
 }
 
 ///
@@ -180,11 +206,7 @@ pub fn sha256<F: Field>(
 
     state
         .into_iter()
-        .flat_map(|hash| {
-            let mut bytes = hash.into_uint8x4(cs);
-            bytes.0.reverse();
-            bytes.0
-        })
+        .flat_map(|hash| hash.to_bytes_be(cs))
         .collect()
 }
 
@@ -217,19 +239,15 @@ mod test {
 
                 let mut state = get_sha256_iv();
                 let mut block = vec![Uint8::Constant(0); 64];
-                block[0] = Uint8::Constant(1);
+                block[0] = Uint8::Constant(0x80);
                 sha256_compress(cs, &block, &mut state);
                 
                 expect_state
-                    .chunks(4)
+                    .into_iter()
                     .zip(state)
-                    .for_each(|(expect, actual)| {
-                        let expect = ((expect[0] as u32) << 24)
-                            + ((expect[1] as u32) << 16)
-                            + ((expect[2] as u32) << 8)
-                            + expect[3] as u32;
-                        assert_matches!(actual, Uint8x4or32::Uint32(Uint32::Constant(v)) => {
-                            assert_eq!(v, expect)
+                    .for_each(|(expect, res)| {
+                        assert_matches!(res, Uint32::Constant(res) => {
+                            assert_eq!(res, expect)
                         })
                     });
 
@@ -260,14 +278,14 @@ mod test {
                 expect_state
                     .into_iter()
                     .zip(state)
-                    .for_each(|(expect, actual)| {
-                        assert_matches!(actual, Uint8x4or32::Uint32(Uint32::Variable(actual)) => {
-                            checking.push((actual.lt_var, expect.into()));
+                    .for_each(|(expect, res)| {
+                        assert_matches!(res, Uint32::Variable(res) => {
+                            checking.push((res.lt_var, expect.into()));
                         })
                     });
 
-                assert_eq!(cs.composer.size(), 17837);
-                assert_eq!(cs.lookup_table.size(), 328908);
+                assert_eq!(cs.composer.size(), 11903);
+                assert_eq!(cs.lookup_table.size(), 271616);
 
                 checking
             },

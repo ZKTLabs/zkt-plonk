@@ -25,6 +25,7 @@ ark-ff = { version = "0.3", default-features = false }
 ark-poly = "0.3"
 ark-poly-commit = "0.3"
 ark-serialize = { version = "0.3", features = ["derive"] }
+backtrace = { version = "0.3", optional = true }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 indexmap = { version = "1.8.1", default-features = false }
 itertools = { version = "0.10.1", default-features = false }
@@ -70,15 +71,7 @@ std = [
 
 # Check if Elements Exist in Lookup Table
 # Enbale this feature will cost a lot of time
-check-lookup = [
-    "check-contains",
-    "check-lookup-1d",
-    "check-lookup-2d",
-]
+check-lookup = []
 
-#
-check-contains = []
-#
-check-lookup-1d = []
-#
-check-lookup-2d = []
+# Trace
+trace = ["backtrace"]

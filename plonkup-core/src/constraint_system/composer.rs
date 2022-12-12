@@ -95,7 +95,7 @@ impl<F: Field> Selectors<F> {
     }
 
     ///
-    pub fn with_left_lt(mut self, w_l: &LTVariable<F>) -> Self {
+    pub fn by_left_lt(mut self, w_l: &LTVariable<F>) -> Self {
         let q_m = self.q_m * w_l.coeff;
         let q_l = self.q_l * w_l.coeff;
         self.q_r += self.q_m * w_l.offset;
@@ -107,7 +107,7 @@ impl<F: Field> Selectors<F> {
     }
 
     ///
-    pub fn with_right_lt(mut self, w_r: &LTVariable<F>) -> Self {
+    pub fn by_right_lt(mut self, w_r: &LTVariable<F>) -> Self {
         let q_m = self.q_m * w_r.coeff;
         let q_r = self.q_r * w_r.coeff;
         self.q_l += self.q_m * w_r.offset;
@@ -119,7 +119,7 @@ impl<F: Field> Selectors<F> {
     }
 
     ///
-    pub fn with_out_lt(mut self, w_o: &LTVariable<F>) -> Self {
+    pub fn by_out_lt(mut self, w_o: &LTVariable<F>) -> Self {
         let q_o = self.q_o * w_o.coeff;
         self.q_c += self.q_o * w_o.offset;
         self.q_o = q_o;
@@ -153,6 +153,9 @@ pub struct SetupComposer<F: Field> {
     pub perm: Permutation,
     /// Positions of public inputs
     pub pp: PublicPositions,
+
+    #[cfg(feature = "trace")]
+    pub(super) backtrace: Vec<backtrace::Backtrace>,
 }
 
 impl<F: Field> SetupComposer<F> {
@@ -170,6 +173,8 @@ impl<F: Field> SetupComposer<F> {
             t_tag: Vec::new(),
             perm: Permutation::new(),
             pp: PublicPositions::new(),
+            #[cfg(feature = "trace")]
+            backtrace: Vec::new(),
         }
     }
 
@@ -186,6 +191,8 @@ impl<F: Field> SetupComposer<F> {
             t_tag: Vec::with_capacity(constraint_size),
             perm: Permutation::with_capacity(variable_size),
             pp: PublicPositions::new(),
+            #[cfg(feature = "trace")]
+            backtrace: Vec::with_capacity(constraint_size),
         }
     }
 
@@ -219,6 +226,12 @@ impl<F: Field> SetupComposer<F> {
 
         if with_pi {
             self.pp.add_input(self.n);
+        }
+
+        #[cfg(feature = "trace")]
+        {
+            let backtrace = backtrace::Backtrace::new_unresolved();
+            self.backtrace.push(backtrace);
         }
 
         self.n += 1;

@@ -123,14 +123,14 @@ macro_rules! impl_uint_range_table {
             }
         }
 
-        impl_custom_table!($table, CustomSet, BITS, u32);
+        $crate::impl_custom_table!($table, CustomSet, BITS, u32);
     };
 }
 
 ///
 #[macro_export]
 macro_rules! impl_uint_operation_table {
-    ($table:ident, $tpx:ty, $tpy:ty, |$x:ident| -> $body:block) => {
+    ($table:ident, $tpx:ty, $tpy:ty, |$x:ident| $body:block) => {
         ///
         pub struct $table;
 
@@ -145,9 +145,9 @@ macro_rules! impl_uint_operation_table {
             }
         }
 
-        impl_custom_table!($table, Custom1DMap);
+        $crate::impl_custom_table!($table, Custom1DMap);
     };
-    (@withvar $table:ident, $tpx:ty, $tpy:ty, $tpz:ty, |$x:ident, $y:ident| -> $body:block) => {
+    (@withvar $table:ident, $tpx:ty, $tpy:ty, $tpz:ty, |$x:ident, $y:ident| $body:block) => {
         ///
         pub struct $table;
 
@@ -167,9 +167,9 @@ macro_rules! impl_uint_operation_table {
             }
         }
 
-        impl_custom_table!($table, Custom2DMap);
+        $crate::impl_custom_table!($table, Custom2DMap);
     };
-    (@withconst $table:ident, $tpx:ty, $tpop:ty, $tpy:ty, |$a:ident, $b:ident| -> $body:block) => {
+    (@withconst $table:ident, $tpx:ty, $tpop:ty, $tpy:ty, |$a:ident, $b:ident| $body:block) => {
         ///
         pub struct $table<const OP: $tpop>;
 
@@ -187,44 +187,44 @@ macro_rules! impl_uint_operation_table {
             }
         }
 
-        impl_custom_table!($table, Custom1DMap, OP, $tpop);
+        $crate::impl_custom_table!($table, Custom1DMap, OP, $tpop);
     };
 }
 
 impl_uint_range_table!(UintRangeTable);
 
-impl_uint_operation_table!(U8NotTable, u8, u8, |x| -> { !x });
-impl_uint_operation_table!(U8BitsRevTable, u8, u8, |x| -> { x.reverse_bits() });
+impl_uint_operation_table!(U8NotTable, u8, u8, |x| { !x });
+impl_uint_operation_table!(U8BitsRevTable, u8, u8, |x| { x.reverse_bits() });
 
-impl_uint_operation_table!(U16NotTable, u16, u16, |x| -> { !x });
-impl_uint_operation_table!(U16BitsRevTable, u16, u16, |x| -> { x.reverse_bits() });
+impl_uint_operation_table!(U16NotTable, u16, u16, |x| { !x });
+impl_uint_operation_table!(U16BitsRevTable, u16, u16, |x| { x.reverse_bits() });
 
-impl_uint_operation_table!(@withvar U8OrTable, u8, u8, u8, |x, y| -> { x | y });
-impl_uint_operation_table!(@withvar U8XorTable, u8, u8, u8, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withvar U8AndTable, u8, u8, u8, |x, y| -> { x & y });
-impl_uint_operation_table!(@withvar U8NotAndTable, u8, u8, u8, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withvar U8OrTable, u8, u8, u8, |x, y| { x | y });
+impl_uint_operation_table!(@withvar U8XorTable, u8, u8, u8, |x, y| { x ^ y });
+impl_uint_operation_table!(@withvar U8AndTable, u8, u8, u8, |x, y| { x & y });
+impl_uint_operation_table!(@withvar U8NotAndTable, u8, u8, u8, |x, y| { (!x) & y });
 
-impl_uint_operation_table!(@withvar U16OrTable, u16, u16, u16, |x, y| -> { x | y });
-impl_uint_operation_table!(@withvar U16XorTable, u16, u16, u16, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withvar U16AndTable, u16, u16, u16, |x, y| -> { x & y });
-impl_uint_operation_table!(@withvar U16NotAndTable, u16, u16, u16, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withvar U16OrTable, u16, u16, u16, |x, y| { x | y });
+impl_uint_operation_table!(@withvar U16XorTable, u16, u16, u16, |x, y| { x ^ y });
+impl_uint_operation_table!(@withvar U16AndTable, u16, u16, u16, |x, y| { x & y });
+impl_uint_operation_table!(@withvar U16NotAndTable, u16, u16, u16, |x, y| { (!x) & y });
 
-impl_uint_operation_table!(@withconst U8OrWithConstTable, u8, u8, u8, |x, y| -> { x | y });
-impl_uint_operation_table!(@withconst U8XorWithConstTable, u8, u8, u8, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withconst U8AndWithConstTable, u8, u8, u8, |x, y| -> { x & y });
-impl_uint_operation_table!(@withconst U8NotAndWithConstTable, u8, u8, u8, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withconst U8OrWithConstTable, u8, u8, u8, |x, y| { x | y });
+impl_uint_operation_table!(@withconst U8XorWithConstTable, u8, u8, u8, |x, y| { x ^ y });
+impl_uint_operation_table!(@withconst U8AndWithConstTable, u8, u8, u8, |x, y| { x & y });
+impl_uint_operation_table!(@withconst U8NotAndWithConstTable, u8, u8, u8, |x, y| { (!x) & y });
 
-impl_uint_operation_table!(@withconst U16OrWithConstTable, u16, u16, u16, |x, y| -> { x | y });
-impl_uint_operation_table!(@withconst U16XorWithConstTable, u16, u16, u16, |x, y| -> { x ^ y });
-impl_uint_operation_table!(@withconst U16AndWithConstTable, u16, u16, u16, |x, y| -> { x & y });
-impl_uint_operation_table!(@withconst U16NotAndWithConstTable, u16, u16, u16, |x, y| -> { (!x) & y });
+impl_uint_operation_table!(@withconst U16OrWithConstTable, u16, u16, u16, |x, y| { x | y });
+impl_uint_operation_table!(@withconst U16XorWithConstTable, u16, u16, u16, |x, y| { x ^ y });
+impl_uint_operation_table!(@withconst U16AndWithConstTable, u16, u16, u16, |x, y| { x & y });
+impl_uint_operation_table!(@withconst U16NotAndWithConstTable, u16, u16, u16, |x, y| { (!x) & y });
 
-impl_uint_operation_table!(@withconst U8ShiftLeftTable, u8, u32, u8, |x, n| -> { x << n });
-impl_uint_operation_table!(@withconst U8ShiftRightTable, u8, u32, u8, |x, n| -> { x >> n });
-impl_uint_operation_table!(@withconst U8RotateLeftTable, u8, u32, u8, |x, n| -> { x.rotate_left(n) });
-impl_uint_operation_table!(@withconst U8RotateRightTable, u8, u32, u8, |x, n| -> { x.rotate_right(n) });
+impl_uint_operation_table!(@withconst U8ShlTable, u8, u32, u8, |x, n| { x << n });
+impl_uint_operation_table!(@withconst U8ShrTable, u8, u32, u8, |x, n| { x >> n });
+impl_uint_operation_table!(@withconst U8RotlTable, u8, u32, u8, |x, n| { x.rotate_left(n) });
+impl_uint_operation_table!(@withconst U8RotrTable, u8, u32, u8, |x, n| { x.rotate_right(n) });
 
-impl_uint_operation_table!(@withconst U16ShiftLeftTable, u16, u32, u16, |x, n| -> { x << n });
-impl_uint_operation_table!(@withconst U16ShiftRightTable, u16, u32, u16, |x, n| -> { x >> n });
-impl_uint_operation_table!(@withconst U16RotateLeftTable, u16, u32, u16, |x, n| -> { x.rotate_left(n) });
-impl_uint_operation_table!(@withconst U16RotateRightTable, u16, u32, u16, |x, n| -> { x.rotate_right(n) });
+impl_uint_operation_table!(@withconst U16ShlTable, u16, u32, u16, |x, n| { x << n });
+impl_uint_operation_table!(@withconst U16ShrTable, u16, u32, u16, |x, n| { x >> n });
+impl_uint_operation_table!(@withconst U16RotlTable, u16, u32, u16, |x, n| { x.rotate_left(n) });
+impl_uint_operation_table!(@withconst U16RotrTable, u16, u32, u16, |x, n| { x.rotate_right(n) });

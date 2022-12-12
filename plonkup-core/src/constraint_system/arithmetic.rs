@@ -22,8 +22,8 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_left(F::one())
                     .with_right(F::one())
                     .with_out(-F::one())
-                    .with_left_lt(x)
-                    .with_right_lt(y);
+                    .by_left_lt(x)
+                    .by_right_lt(y);
 
                 composer.gate_constrain(x.var, y.var, z, sels, false);
             }
@@ -52,8 +52,8 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_left(F::one())
                     .with_right(-F::one())
                     .with_out(-F::one())
-                    .with_left_lt(x)
-                    .with_right_lt(y);
+                    .by_left_lt(x)
+                    .by_right_lt(y);
 
                 composer.gate_constrain(x.var, y.var, z, sels, false);
             }
@@ -81,8 +81,8 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_out(-F::one())
-                    .with_left_lt(x)
-                    .with_right_lt(y);
+                    .by_left_lt(x)
+                    .by_right_lt(y);
 
                 composer.gate_constrain(x.var, y.var, z, sels, false);
             }
@@ -110,8 +110,8 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_out(-F::one())
-                    .with_left_lt(y)
-                    .with_out_lt(x);
+                    .by_left_lt(y)
+                    .by_out_lt(x);
 
                 composer.gate_constrain(y.var, z, x.var, sels, false);
             }
@@ -139,8 +139,8 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_out(-F::one())
-                    .with_left_lt(x)
-                    .with_right_lt(x);
+                    .by_left_lt(x)
+                    .by_right_lt(x);
 
                 composer.gate_constrain(x.var, x.var, y, sels, false);
             }
@@ -176,8 +176,8 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_right(b)
                     .with_out(-F::one())
                     .with_constant(c)
-                    .with_left_lt(x)
-                    .with_right_lt(y);
+                    .by_left_lt(x)
+                    .by_right_lt(y);
 
                 composer.gate_constrain(x.var, y.var, z, sels, false);
             }

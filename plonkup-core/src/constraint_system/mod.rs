@@ -110,7 +110,7 @@ impl<F: Field> ConstraintSystem<F> {
         match &mut self.composer {
             Composer::Setup(composer) => {
                 composer.perm.new_variable()
-            },
+            }
             Composer::Proving(composer) => {
                 composer.var_map.assign_variable(value)
             }
@@ -155,8 +155,8 @@ impl<F: Field> ConstraintSystem<F> {
         let sels = Selectors::new_arith()
             .with_left(F::one())
             .with_right(-F::one())
-            .with_left_lt(x)
-            .with_right_lt(y);
+            .by_left_lt(x)
+            .by_right_lt(y);
         
         self.arith_constrain(x.var, y.var, Variable::Zero, sels, None);
     }
@@ -167,7 +167,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 let sels = Selectors::new_arith()
                     .with_out(-F::one())
-                    .with_out_lt(x);
+                    .by_out_lt(x);
 
                 composer.gate_constrain(
                     Variable::Zero,
@@ -205,13 +205,13 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_mul(F::one())
                     .with_out(F::one())
                     .with_constant(-F::one())
-                    .with_left_lt(x);
+                    .by_out_lt(x);
 
                 composer.gate_constrain(x.var, y, z, sels, false);
 
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
-                    .with_left_lt(x);
+                    .by_out_lt(x);
 
                 composer.gate_constrain(x.var, z, Variable::Zero, sels, false);
             }
@@ -267,7 +267,7 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_out(-F::one())
-                    .with_right_lt(choice_a);
+                    .by_right_lt(choice_a);
 
                 composer.gate_constrain(bit.0, choice_a.var, x, sels, false);
 
@@ -275,7 +275,7 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_mul(-F::one())
                     .with_right(F::one())
                     .with_out(-F::one())
-                    .with_right_lt(choice_b);
+                    .by_right_lt(choice_b);
 
                 composer.gate_constrain(bit.0, choice_b.var, y, sels, false);
 
@@ -331,7 +331,7 @@ impl<F: Field> ConstraintSystem<F> {
                 let sels = Selectors::new_arith()
                     .with_mul(F::one())
                     .with_out(-F::one())
-                    .with_right_lt(value);
+                    .by_right_lt(value);
 
                 composer.gate_constrain(bit.0, value.var, out, sels, false);
             }
@@ -378,7 +378,7 @@ impl<F: Field> ConstraintSystem<F> {
                     .with_left(-F::one())
                     .with_out(-F::one())
                     .with_constant(F::one())
-                    .with_right_lt(value);
+                    .by_right_lt(value);
 
                 composer.gate_constrain(bit.0, value.var, out, sels, false);
             }
