@@ -15,15 +15,10 @@
 //! ECC op. gates, Range checks, Logical gates (Bitwise ops) etc.
 
 use std::borrow::{Borrow, BorrowMut};
-
 use ark_ff::Field;
 
-use crate::{
-    permutation::Permutation,
-    proof_system::{PublicInputs, PublicPositions},
-};
-
-use super::{Variable, VariableMap, LTVariable};
+use crate::{permutation::Permutation};
+use super::{Variable, VariableMap, LTVariable, PublicInputs, PublicPositions};
 
 #[derive(Debug, Clone, Copy)]
 ///

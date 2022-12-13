@@ -7,7 +7,6 @@
 use ark_ff::Field;
 
 use crate::lookup::*;
-
 use super::{Composer, Variable, ConstraintSystem, Selectors};
 
 impl<F: Field> ConstraintSystem<F> {
@@ -31,7 +30,6 @@ impl<F: Field> ConstraintSystem<F> {
                     let x_value = composer.var_map.value_of_var(x);
                     self.lookup_table.contains::<T>(&x_value);
                 }
-
                 composer.input_wires(x, Variable::Zero, Variable::Zero, None);
             }
         }
@@ -58,7 +56,6 @@ impl<F: Field> ConstraintSystem<F> {
                     let actual_y_value = composer.var_map.value_of_var(y);
                     assert_eq!(expect_y_value, actual_y_value);
                 }
-
                 composer.input_wires(x, y, Variable::Zero, None);
             }
         }
@@ -87,7 +84,6 @@ impl<F: Field> ConstraintSystem<F> {
                     let actual_z_value = composer.var_map.value_of_var(z);
                     assert_eq!(expect_z_value, actual_z_value);
                 }
-
                 composer.input_wires(x, y, z, None);
             }
         }

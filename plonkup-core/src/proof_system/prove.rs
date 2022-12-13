@@ -30,7 +30,6 @@ use crate::{
         lc, compute_lagrange_poly, poly_from_evals_ref, evals_from_poly_ref,
     },
 };
-
 use super::{
     linearisation_poly, quotient_poly,
     ProverKey, ExtendedProverKey,

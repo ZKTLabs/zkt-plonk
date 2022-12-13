@@ -13,12 +13,14 @@ mod boolean;
 mod lookup;
 mod composer;
 mod variable;
+mod pi;
 mod helper;
 
 pub use boolean::*;
 pub use composer::*;
 pub use variable::*;
 pub use helper::*;
+pub use pi::*;
 
 use ark_ff::Field;
 

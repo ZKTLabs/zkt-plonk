@@ -13,7 +13,6 @@ use crate::{
     error::Error,
     util::{poly_from_coset_evals, coset_evals_from_poly_ref},
 };
-
 use super::ExtendedProverKey;
 
 /// Computes the Quotient [`DensePolynomial`] given the [`EvaluationDomain`], a

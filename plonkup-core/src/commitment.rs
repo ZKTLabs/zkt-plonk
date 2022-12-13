@@ -42,8 +42,7 @@ where
         let points_repr = commitments.iter().map(|c| c.0).collect::<Vec<_>>();
 
         ark_poly_commit::kzg10::Commitment::<E>(
-            VariableBaseMSM::multi_scalar_mul(&points_repr, &scalars_repr)
-                .into(),
+            VariableBaseMSM::multi_scalar_mul(&points_repr, &scalars_repr).into(),
         )
     }
 }

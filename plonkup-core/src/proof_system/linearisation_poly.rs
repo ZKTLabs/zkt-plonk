@@ -16,7 +16,6 @@ use crate::{
     proof_system::ProverKey,
     util::{EvaluationDomainExt, compute_first_lagrange_evaluation},
 };
-
 use super::ExtendedProverKey;
 
 /// Subset of the [`ProofEvaluations`]. Evaluations at `z` of the

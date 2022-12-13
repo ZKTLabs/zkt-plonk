@@ -155,7 +155,7 @@ impl<F: Field> Uint8Var<F> {
 macro_rules! impl_u8_var_self_operation {
     ($($op:literal),+) => {
         impl<F: Field> Uint8Var<F> {
-            pub fn rotr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+            fn rotr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
                 let (value, var): (u8, Variable);
                 match n {
                     $(
@@ -175,7 +175,7 @@ macro_rules! impl_u8_var_self_operation {
                 }
             }
 
-            pub fn shr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
+            fn shr(&self, cs: &mut ConstraintSystem<F>, n: u32) -> Self {
                 let (value, var): (u8, Variable);
                 match n {
                     $(
@@ -201,7 +201,7 @@ macro_rules! impl_u8_var_self_operation {
 macro_rules! impl_u8_var_operation_with_const {
     ($($op:literal),+) => {
         impl<F: Field> Uint8Var<F> {
-            pub fn and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
+            fn and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
                 let (value, var): (u8, Variable);
                 match y {
                     $(
@@ -220,7 +220,7 @@ macro_rules! impl_u8_var_operation_with_const {
                 }
             }
 
-            pub fn xor_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
+            fn xor_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
                 let (value, var): (u8, Variable);
                 match y {
                     $(
@@ -239,7 +239,7 @@ macro_rules! impl_u8_var_operation_with_const {
                 }
             }
 
-            pub fn not_and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
+            fn not_and_with_const(&self, cs: &mut ConstraintSystem<F>, y: u8) -> Self {
                 let (value, var): (u8, Variable);
                 match y {
                     $(
