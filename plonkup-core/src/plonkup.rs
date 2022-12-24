@@ -207,6 +207,7 @@ where
     ) -> Result<
         (
             PC::CommitterKey,
+            PC::VerifierKey,
             ProverKey<F>,
             Option<ExtendedProverKey<F>>,
             VerifierKey<F, PC>,
@@ -218,9 +219,9 @@ where
         let circuit = C::default();
         circuit.synthesize(&mut cs)?;
 
-        let (ck, _) = PC::trim(
+        let (ck, cvk) = PC::trim(
             pp,
-            cs.circuit_bound(),
+            cs.circuit_bound() * 4,
             0,
             None,
         )
@@ -229,7 +230,7 @@ where
         let (pk, epk, vk) =
             plonk_setup::<_, D, _>(&ck, cs, extend)?;
 
-        Ok((ck, pk, epk, vk))
+        Ok((ck, cvk, pk, epk, vk))
     }
 
     ///
@@ -341,9 +342,14 @@ mod test {
     fn test_full<F: PrimeField, PC: HomomorphicCommitment<F>>() {
         let rng = &mut test_rng();
         // setup
-        let pp = PC::setup(1 << 17, None, rng).unwrap();
-        let (ck, pk, epk, vk) =
-            PlonkupInstance::<F, PC>::compile(true, &pp).unwrap();
+        let pp = PC::setup(1 << 10, None, rng).unwrap();
+        let (
+            ck,
+            cvk,
+            pk,
+            epk,
+            vk,
+        ) = PlonkupInstance::<F, PC>::compile(true, &pp).unwrap();
 
         // prove
         let circuit = TestCircuit {
@@ -354,6 +360,9 @@ mod test {
         };
         let epk = epk.map(|epk| Rc::new(epk));
         let proof = PlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, circuit, rng).unwrap();
+
+        // verify
+        PlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u8.into()]).unwrap();
     }
 
     batch_test_field!(

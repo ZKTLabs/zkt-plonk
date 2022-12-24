@@ -236,19 +236,19 @@ where
     #[cfg(feature = "parallel")]
     let product = crate::par_izip!(roots, sigmas, wires);
 
-    let product = product
+    let product: Vec<_> = product
         .take(n - 1)
         .map(|(root, sigma, wire)| {
-            let numinator = (root * beta + wire.0 + gamma)
-                * (root * K1::<F>() * beta + wire.1 + gamma)
-                * (root * K1::<F>() * beta + wire.2 + gamma);
-            let dominator = (root * sigma.0 + wire.0 + gamma)
-                * (root * sigma.1 + wire.1 + gamma)
-                * (root * sigma.2 + wire.2 + gamma);
+            let numinator = (beta * root + wire.0 + gamma)
+                * (K1::<F>() * beta * root + wire.1 + gamma)
+                * (K2::<F>() * beta * root + wire.2 + gamma);
+            let dominator = (beta * sigma.0 + wire.0 + gamma)
+                * (beta * sigma.1 + wire.1 + gamma)
+                * (beta * sigma.2 + wire.2 + gamma);
             
             numinator * dominator.inverse().unwrap()
         })
-        .collect::<Vec<_>>();
+        .collect();
 
     let mut z1_evals = Vec::with_capacity(n);
     // First element is one
@@ -314,9 +314,9 @@ where
         .map(|(f, t, t_next, h1, h1_next, h2)| {
             let numinator = one_plus_delta
                 * (epsilon + f)
-                * (epsilon_one_plus_delta + t + (delta * t_next));
-            let dominator = (epsilon_one_plus_delta + h1 + (*h2 * delta))
-                * (epsilon_one_plus_delta + h2 + (*h1_next * delta));
+                * (delta * t_next + epsilon_one_plus_delta + t);
+            let dominator = (delta * h2 + epsilon_one_plus_delta + h1)
+                * (delta * h1_next + epsilon_one_plus_delta + h2);
 
             numinator * dominator.inverse().unwrap()
         })

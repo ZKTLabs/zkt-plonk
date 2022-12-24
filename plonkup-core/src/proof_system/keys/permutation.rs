@@ -126,12 +126,12 @@ impl<F: FftField> ExtendedProverKey<F> {
         // Computes the following:
         // (a(x) + β*x + γ) * (b(x) + β*k1*x + γ) * (c(x) + β*k2*x + γ) * z1(x) * α
         let part_1 = {
-            let x = self.x_coset[i];
+            let beta_mul_x = beta * self.x_coset[i];
             alpha
                 * z1_i
-                * (a_i + (beta * x) + gamma)
-                * (b_i + (beta * K1::<F>() * x) + gamma)
-                * (c_i + (beta * K1::<F>() * x) + gamma)
+                * (beta_mul_x + a_i + gamma)
+                * (beta_mul_x * K1::<F>() + b_i + gamma)
+                * (beta_mul_x * K2::<F>() + c_i + gamma)
         };
 
         // Computes the following:
@@ -142,9 +142,9 @@ impl<F: FftField> ExtendedProverKey<F> {
             let sigma3_eval = self.sigma3_coset[i];
             -alpha
                 * z1_i_next
-                * (a_i + (beta * sigma1_eval) + gamma)
-                * (b_i + (beta * sigma2_eval) + gamma)
-                * (c_i + (beta * sigma3_eval) + gamma)
+                * (beta * sigma1_eval + a_i + gamma)
+                * (beta * sigma2_eval + b_i + gamma)
+                * (beta * sigma3_eval + c_i + gamma)
         };
 
         // Computes the following:
@@ -199,7 +199,7 @@ where
         let scalar = alpha
             * (beta_mul_z + evaluations.wire_evals.a + gamma)
             * (beta_mul_z * K1::<F>() + evaluations.wire_evals.b + gamma)
-            * (beta_mul_z * K1::<F>() + evaluations.wire_evals.c + gamma)
+            * (beta_mul_z * K2::<F>() + evaluations.wire_evals.c + gamma)
             + (l_1_eval * alpha.square());
         scalars.push(scalar);
         points.push(z1_comm);

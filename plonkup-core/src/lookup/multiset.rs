@@ -44,7 +44,7 @@ impl<F: Field> MultiSet<F> {
     /// Extends the length of the multiset to n elements The `n` will be the
     /// size of the arithmetic circuit. This will extend the vectors to the
     /// size
-    pub(crate) fn pad(&mut self, n: usize) {
+    pub(super) fn pad_with_first(&mut self, n: usize) {
         assert!(n.is_power_of_two());
         if self.is_empty() {
             self.push(F::zero())
@@ -167,12 +167,11 @@ impl<F: Field> MultiSet<F> {
     /// Treats each element in the multiset as evaluation points
     /// Computes IFFT of the set of evaluation points
     /// and returns the coefficients as a Polynomial data structure
-    pub(crate) fn into_polynomial<D>(mut self, domain: &D) -> DensePolynomial<F>
+    pub(crate) fn into_polynomial<D>(self, domain: &D) -> DensePolynomial<F>
     where
         F: FftField,
         D: EvaluationDomain<F>,
     {
-        self.pad(domain.size());
         poly_from_evals(domain, self.0)
     }
 

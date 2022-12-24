@@ -126,7 +126,7 @@ impl<F: Field> LookupTable<F> {
     pub(crate) fn compress_to_multiset(self, n: usize, zeta: F) -> MultiSet<F> {
         let msets = self.into_multisets();
         let mut t = lc(&msets, zeta);
-        t.pad(n);
+        t.pad_with_first(n);
         
         t
     }

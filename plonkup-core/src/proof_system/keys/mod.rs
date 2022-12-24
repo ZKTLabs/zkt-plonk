@@ -230,7 +230,7 @@ impl<F: Field> ProverKey<F> {
             DensePolynomial::from_coefficients_vec(vec![F::zero(), F::one()]),
         );
 
-        // Compute 4n evaluations for X^n -1
+        // Compute 4n evaluations for x^n - 1
         let vh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
         let vh_coset = coset_evals_from_poly(&domain_4n, vh_poly);
 

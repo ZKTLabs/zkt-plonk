@@ -114,6 +114,7 @@ where
         pi_coset,
     );
     let arith = arith
+        .take(4 * n)
         .enumerate()
         .map(|(i, (a, b, c, pi))| {
             epk.arith.compute_quotient_i(
@@ -144,6 +145,7 @@ where
         epk.l_1_coset.par_iter(),
     );
     let perm = perm
+        .take(4 * n)
         .enumerate()
         .map(|(i, (a, b, c, z1, z1_next, l_1))| {
             epk.perm.compute_quotient_i(
@@ -191,6 +193,7 @@ where
         epk.l_1_coset.par_iter(),
     );
     let lookup = lookup
+        .take(4 * n)
         .enumerate()
         .map(|(i, (a, b, c, f, t, t_next, h1, h1_next, h2, z2, z2_next, l_1))| {
             epk.lookup.compute_quotient_i(
@@ -228,7 +231,6 @@ where
         lookup,
         epk.vh_coset.par_iter(),
     );
-
     let quotient = quotient
         .map(|(arith, perm, lookup, vh)| {
             (arith + perm + lookup) * vh.inverse().unwrap()

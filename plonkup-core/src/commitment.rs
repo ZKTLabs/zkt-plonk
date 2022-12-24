@@ -37,9 +37,9 @@ where
         let scalars_repr = scalars
             .iter()
             .map(<E::Fr as PrimeField>::into_repr)
-            .collect::<Vec<_>>();
+            .collect_vec();
 
-        let points_repr = commitments.iter().map(|c| c.0).collect::<Vec<_>>();
+        let points_repr = commitments.iter().map(|c| c.0).collect_vec();
 
         ark_poly_commit::kzg10::Commitment::<E>(
             VariableBaseMSM::multi_scalar_mul(&points_repr, &scalars_repr).into(),
@@ -60,6 +60,7 @@ pub type IPACommitment<G, D> = <IPA<G, D> as PolynomialCommitment<
 >>::Commitment;
 
 use blake2::digest::{Digest, Update};
+use itertools::Itertools;
 impl<G, D> HomomorphicCommitment<<G as ark_ec::AffineCurve>::ScalarField>
     for IPA<G, D>
 where
@@ -73,10 +74,9 @@ where
         let scalars_repr = scalars
             .iter()
             .map(<G as ark_ec::AffineCurve>::ScalarField::into_repr)
-            .collect::<Vec<_>>();
+            .collect_vec();
 
-        let points_repr =
-            commitments.iter().map(|c| c.comm).collect::<Vec<_>>();
+        let points_repr = commitments.iter().map(|c| c.comm).collect_vec();
 
         IPACommitment::<G, D> {
             comm: VariableBaseMSM::multi_scalar_mul(
