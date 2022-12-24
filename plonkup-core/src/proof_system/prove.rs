@@ -9,7 +9,6 @@
 use std::rc::Rc;
 use ark_ff::{Field, FftField};
 use ark_poly::{
-    Polynomial,
     univariate::DensePolynomial,
     EvaluationDomain,
     UVPolynomial,
@@ -135,9 +134,9 @@ where
     let mut c_poly = poly_from_evals_ref(&domain, &c_evals);
 
     // Add blinding factors
-    add_blinders_to_poly(rng, &mut a_poly, n, 2);
-    add_blinders_to_poly(rng, &mut b_poly, n, 2);
-    add_blinders_to_poly(rng, &mut c_poly, n, 2);
+    add_blinders_to_poly(rng, 2, &mut a_poly);
+    add_blinders_to_poly(rng, 2, &mut b_poly);
+    add_blinders_to_poly(rng, 2, &mut c_poly);
 
     let wire_polys = vec![
         label_polynomial!(a_poly),
@@ -195,7 +194,7 @@ where
     let mut f_poly = f.clone().into_polynomial(&domain);
 
     // Add blinding factors
-    add_blinders_to_poly(rng, &mut f_poly, n, 2);
+    add_blinders_to_poly(rng, 2, &mut f_poly);
 
     let mut f_poly = vec![label_polynomial!(f_poly)];
     // Commit to query polynomial
@@ -214,8 +213,8 @@ where
     let mut h2_poly = h2.clone().into_polynomial(&domain);
 
     // Add blinding factors
-    add_blinders_to_poly(rng, &mut h1_poly, n, 3);
-    add_blinders_to_poly(rng, &mut h2_poly, n, 2);
+    add_blinders_to_poly(rng, 3, &mut h1_poly);
+    add_blinders_to_poly(rng, 2, &mut h2_poly);
 
     // Commit to h polys
     let mut h1_poly = vec![label_polynomial!(h1_poly)];
@@ -269,7 +268,7 @@ where
     drop(c_evals);
 
     // Add blinding factors
-    add_blinders_to_poly(rng, &mut z1_poly, n, 3);
+    add_blinders_to_poly(rng, 3, &mut z1_poly);
 
     // Commit to permutation polynomial.
     let mut z1_poly = vec![label_polynomial!(z1_poly)];
@@ -297,7 +296,7 @@ where
     drop(h2);
 
     // Add blinding factors
-    add_blinders_to_poly(rng, &mut z2_poly, n, 3);
+    add_blinders_to_poly(rng, 3, &mut z2_poly);
 
     // Commit to lookup permutation polynomial.
     let mut z2_poly = vec![label_polynomial!(z2_poly)];
@@ -500,31 +499,78 @@ where
     })
 }
 
-fn add_blinders_to_poly<F, R>(
-    rng: &mut R,
-    poly: &mut DensePolynomial<F>,
-    n: usize,
-    k: usize,
-)
+fn add_blinders_to_poly<F, R>(rng: &mut R, k: usize, poly: &mut DensePolynomial<F>)
 where
     F: Field,
     R: RngCore + CryptoRng,
 {
-    assert_eq!(poly.degree(), n);
-    poly.coeffs.resize(n + k, F::zero());
-
     let blinders = (0..k).into_iter().map(|_| F::rand(rng)).collect_vec();
-
+    poly.coeffs.extend_from_slice(&blinders);
     poly
         .coeffs
         .iter_mut()
-        .zip(blinders.iter())
+        .zip(blinders)
         .for_each(|(coeff, blinder)| coeff.sub_assign(blinder));
+}
 
-    poly
-        .coeffs
-        .iter_mut()
-        .skip(n)
-        .zip(blinders.iter())
-        .for_each(|(coeff, blinder)| coeff.add_assign(blinder));
+#[cfg(test)]
+mod test {
+    use ark_ff::FftField;
+    use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, Polynomial};
+    use ark_std::test_rng;
+    use ark_bn254::Bn254;
+    use ark_bls12_381::Bls12_381;
+    use ark_bls12_377::Bls12_377;
+    use itertools::Itertools;
+    
+    use crate::{util::poly_from_evals_ref, batch_test_field};
+    use super::add_blinders_to_poly;
+
+    fn test_add_blinders_to_poly<F: FftField>() {
+        let rng = &mut test_rng();
+        // 8 degree poly
+        let domain = GeneralEvaluationDomain::new(8).unwrap();
+        let evals = (0..8).into_iter().map(|_| F::rand(rng)).collect_vec();
+        let poly = poly_from_evals_ref(&domain, &evals);
+
+        // add 1 blinder
+        let mut poly_1 = poly.clone();
+        add_blinders_to_poly(rng, 1, &mut poly_1);
+        for (ele, expect) in domain.elements().zip(evals.iter()) {
+            let res = poly_1.evaluate(&ele);
+            assert_eq!(&res, expect);
+        }
+        // add 2 blinders
+        let mut poly_2 = poly.clone();
+        add_blinders_to_poly(rng, 2, &mut poly_2);
+        for (ele, expect) in domain.elements().zip(evals.iter()) {
+            let res = poly_2.evaluate(&ele);
+            assert_eq!(&res, expect);
+        }
+        // add 3 blinders
+        let mut poly_3 = poly.clone();
+        add_blinders_to_poly(rng, 3, &mut poly_3);
+        for (ele, expect) in domain.elements().zip(evals.iter()) {
+            let res = poly_3.evaluate(&ele);
+            assert_eq!(&res, expect);
+        }
+    }
+
+    batch_test_field!(
+        Bn254,
+        [test_add_blinders_to_poly],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_377,
+        [test_add_blinders_to_poly],
+        []
+    );
+
+    batch_test_field!(
+        Bls12_381,
+        [test_add_blinders_to_poly],
+        []
+    );
 }

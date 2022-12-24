@@ -53,7 +53,7 @@ impl<F: Field> ProverKey<F> {
             .into_iter()
             .zip(lagranges)
             .fold(poly, |acc, (&pi, l_poly)| {
-                &acc + &(l_poly * pi)
+                l_poly * pi + acc
             })
     }
 }

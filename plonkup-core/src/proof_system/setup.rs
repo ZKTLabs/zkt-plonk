@@ -113,10 +113,9 @@ where
 
     // 4. Compute Lagrange polynomials at public indexes
     for index in composer.pp.get_pos() {
-        let lagrange = compute_lagrange_poly(&domain, *index);
         let poly = ark_poly_commit::LabeledPolynomial::new(
             format!("lagrange_{}_poly", index + 1),
-            lagrange,
+            compute_lagrange_poly(&domain, *index),
             None,
             None,
         );

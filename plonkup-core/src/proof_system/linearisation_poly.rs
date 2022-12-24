@@ -126,6 +126,13 @@ where
     let n = domain.size();
     let shifted_z = z * domain.group_gen();
 
+    let vanishing_poly_eval = domain.evaluate_vanishing_polynomial(z);
+    let l_1_eval = compute_first_lagrange_evaluation(
+        n,
+        vanishing_poly_eval,
+        z,
+    );
+
     // Wire evaluations
     let wire_evals = WireEvaluations {
         a: a_poly.evaluate(&z),
@@ -140,17 +147,6 @@ where
         z1_next: z1_poly.evaluate(&shifted_z),
     };
 
-    // Compute the last term in the linearisation polynomial
-    // (negative_quotient_term):
-    // - Z_h(z_challenge) * [t_1(X) + z_challenge^n * t_2(X) + z_challenge^2n *
-    //   t_3(X) + z_challenge^3n * t_4(X)]
-    let vanishing_poly_eval = domain.evaluate_vanishing_polynomial(z);
-    let l_1_eval = compute_first_lagrange_evaluation(
-        n,
-        vanishing_poly_eval,
-        z,
-    );
-
     let lookup_evals = LookupEvaluations {
         f: f_poly.evaluate(&z),
         z2_next: z2_poly.evaluate(&shifted_z),
@@ -161,7 +157,7 @@ where
         t_next: t_poly.evaluate(&shifted_z),
     };
 
-    let arith_constraint = pk.arith.compute_linearisation(
+    let arith = pk.arith.compute_linearisation(
         &wire_evals,
         pub_inputs,
         &epk.arith.lagranges,
@@ -190,18 +186,18 @@ where
         h1_poly,
     );
 
+    // Compute the last term in the linearisation polynomial
+    // (negative_quotient_term):
+    // - zh(z) * [q_low(x) + z^(n+2)*q_mid(x) + z^(2n+4)*q_high(x)]
     let z_exp_n_plus_2 = (vanishing_poly_eval + F::one()) * z.square();
     let quotient_term = &(&(&(&(q_hi_poly * z_exp_n_plus_2)
         + q_mid_poly)
         * z_exp_n_plus_2)
         + q_lo_poly)
         * vanishing_poly_eval;
-    let negative_quotient_term = &quotient_term * (-F::one());
+    let neg_quotient_term = &quotient_term * -F::one();
 
-    let linearisation_polynomial = arith_constraint
-        + permutation
-        + lookup
-        + negative_quotient_term;
+    let linearisation_polynomial = arith + permutation + lookup + neg_quotient_term;
 
     Ok((
         linearisation_polynomial,

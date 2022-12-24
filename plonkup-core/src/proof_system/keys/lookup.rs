@@ -46,6 +46,7 @@ impl<F: Field> ProverKey<F> {
         let one_plus_delta = delta + F::one();
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
+        // q_lookup(x) * (a(z) + ζ*b(z) + (ζ^2)*c(z) + (ζ^3)*tag(z) - f(z)) * α^3
         let part_1 = {
             let a = wire_evals.a;
             let b = wire_evals.b;
@@ -57,7 +58,7 @@ impl<F: Field> ProverKey<F> {
             )
         };
 
-        // z2(X) * [(1 + δ) * (ε + f_bar) * (ε(1+δ) + t_bar + δ*t_ω_bar) * α^4 + l1_bar * α^5]
+        // z2(x) * [(1+δ) * (ε+f(z)) * (ε(1+δ) + t(z) + δ*t(ωz)) * α^4 + L_1(z) * α^5]
         let part_2 = z2_poly * (
             alpha_qu
                 * one_plus_delta
@@ -66,7 +67,7 @@ impl<F: Field> ProverKey<F> {
                 + (l_1_eval * alpha_qu * alpha)
         );
 
-        // h1(X) * (−z2_ω_bar) * (ε(1+δ) + h2_bar  + δ*h1_ω_bar) * α^4
+        // h1(x) * -z2(ωz) * (ε(1+δ) + h2(z) + δ*h1(ωz)) * α^4
         let part_3 = h1_poly * (
             -alpha_qu
                 * lookup_evals.z2_next
@@ -118,8 +119,7 @@ impl<F: FftField> ExtendedProverKey<F> {
         let one_plus_delta = delta + F::one();
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
-        // q_lookup(X) * (a(X) + zeta * b(X) + (zeta^2 * c(X)) + (zeta^3 * d(X)
-        // - f(X))) * α^3
+        // q_lookup(x) * (a(x) + ζ*b(x) + (ζ^2)*c(x) + (ζ^3)*tag(x) - f(x)) * α^3
         let part_1 = {
             let q_lookup_i = self.q_lookup_coset[i];
             let t_tag_i = self.t_tag_coset[i];
@@ -128,17 +128,17 @@ impl<F: FftField> ExtendedProverKey<F> {
                 * q_lookup_i
         };
 
-        // z2(X) * (1+δ) * (ε+f(X)) * (ε*(1+δ) + t(X) + δt(Xω)) * α^4
+        // z2(x) * (1+δ) * (ε+f(x)) * (ε*(1+δ) + t(x) + δt(xω)) * α^4
         let part_2 = alpha_qu
             * one_plus_delta
             * (epsilon + f_i)
             * (delta * t_i_next + epsilon_one_plus_delta + t_i)
             * z2_i;
 
-        // − z2(Xω) * (ε*(1+δ) + h1(X) + δ*h2(X)) * (ε*(1+δ) + h2(X) + δ*h1(Xω)) * α^4
+        // − z2(xω) * (ε*(1+δ) + h1(x) + δ*h2(x)) * (ε*(1+δ) + h2(x) + δ*h1(xω)) * α^4
         let part_3 = -alpha_qu
             * z2_i_next
-            * (delta * h2_i + epsilon_one_plus_delta + h1_i)
+            * (delta * h2_i + h1_i + epsilon_one_plus_delta)
             * (delta * h1_i_next + h2_i + epsilon_one_plus_delta);
 
         let part_4 = (z2_i - F::one()) * l_1_i * alpha_qu * alpha;
@@ -199,6 +199,7 @@ where
         let one_plus_delta = F::one() + delta;
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
+        // (a(z) + ζ*b(z) + (ζ^2)*c(z) + (ζ^3)*tag(z) - f(z)) * α^3
         let scalar = {
             let a = evaluations.wire_evals.a;
             let b = evaluations.wire_evals.b;
@@ -211,7 +212,7 @@ where
         scalars.push(scalar);
         points.push(self.q_lookup.clone());
 
-        // (1 + δ) * (ε + f(z)) * (ε(1+δ) + t(z) + δ*t(ωz)) * α^4 + L_1(z) * α^5
+        // (1+δ) * (ε+f(z)) * (ε(1+δ) + t(z) + δ*t(ωz)) * α^4 + L_1(z) * α^5
         let scalar = alpha_qu
             * one_plus_delta
             * (epsilon + evaluations.lookup_evals.f)

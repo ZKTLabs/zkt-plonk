@@ -36,3 +36,4 @@ sha2 = { version = "0.10", features = ["default", "compress"] }
 [features]
 default = []
 trace = ["plonkup-core/trace"]
+check-lookup = ["plonkup-core/check-lookup"]

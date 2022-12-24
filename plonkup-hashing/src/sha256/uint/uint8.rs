@@ -42,8 +42,8 @@ impl_uint_operation_table!(
 ///
 #[derive(Debug, Clone, Copy)]
 pub struct Uint8Var<F: Field> {
-    pub var: Variable,
-    pub value: u8,
+    pub(crate) var: Variable,
+    pub(crate) value: u8,
     pub(super) _p: PhantomData<F>,
 }
 
@@ -361,28 +361,28 @@ impl<F: Field> Uint8<F> {
         }
     }
 
-    pub fn rotr_1_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+    pub(super) fn rotr_1_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
         match self {
             Self::Constant(x) => Self::Constant(x.rotate_right(1) ^ x),
             Self::Variable(x) => Self::Variable(x.rotr_1_xor(cs)),
         }
     }
 
-    pub fn rotr_2_xor_shr_1(&self, cs: &mut ConstraintSystem<F>) -> Self {
+    pub(super) fn rotr_2_xor_shr_1(&self, cs: &mut ConstraintSystem<F>) -> Self {
         match self {
             Self::Constant(x) => Self::Constant(x.rotate_right(2) ^ (x >> 1)),
             Self::Variable(x) => Self::Variable(x.rotr_2_xor_shr_1(cs)),
         }
     }
 
-    pub fn rotr_5_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
+    pub(super) fn rotr_5_xor(&self, cs: &mut ConstraintSystem<F>) -> Self {
         match self {
             Self::Constant(x) => Self::Constant(x.rotate_right(5) ^ x),
             Self::Variable(x) => Self::Variable(x.rotr_5_xor(cs)),
         }
     }
 
-    pub fn rotr_1_xor_rotr_6(&self, cs: &mut ConstraintSystem<F>) -> Self {
+    pub(super) fn rotr_1_xor_rotr_6(&self, cs: &mut ConstraintSystem<F>) -> Self {
         match self {
             Self::Constant(x) => Self::Constant(x.rotate_right(1) ^ x.rotate_right(6)),
             Self::Variable(x) => Self::Variable(x.rotr_1_xor_rotr_6(cs)),

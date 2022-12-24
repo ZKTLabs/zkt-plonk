@@ -110,15 +110,14 @@ where
         let alpha_sq = alpha.square();
         let alpha_qu = alpha_sq.square();
 
-        // (a + beta * sigma1 + gamma) * (b + beta * sigma2 + gamma) *
-        // (c + gamma) * alpha * z1_next_eval
+        // (a(z) + β*σ1 + γ) * (b(z) + β*σ2 + γ) * (c(z) + γ) * α * z1(ωz)
         let part_1 = alpha
             * (beta * self.evaluations.perm_evals.sigma1 + self.evaluations.wire_evals.a + gamma)
             * (beta * self.evaluations.perm_evals.sigma2 + self.evaluations.wire_evals.b + gamma)
             * (self.evaluations.wire_evals.c + gamma)
             * self.evaluations.perm_evals.z1_next;
 
-        // l_1(z) * alpha^2
+        // L_1(z) * α^2
         let part_2 = l_1_eval * alpha_sq;
 
         // (ε(1 + δ) + δ * h2(z)) * (ε(1 + δ) + h2(z) + δ * h1(ωz)) * α^4 * z2(ωz)
@@ -157,10 +156,9 @@ where
         // +  2 for permutation
         // +  3 for lookup
         // +  3 for each piece of the quotient poly
-        // = 14 + public input length of scalars and points
-
-        let mut scalars = Vec::with_capacity(14 + pub_inputs.len());
-        let mut points = Vec::with_capacity(14 + pub_inputs.len());
+        // = 13 + public input length of scalars and points
+        let mut scalars = Vec::with_capacity(13 + pub_inputs.len());
+        let mut points = Vec::with_capacity(13 + pub_inputs.len());
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
@@ -285,7 +283,6 @@ where
 
         // Add commitment to permutation polynomial to transcript
         transcript.append_commitment("z1_commit", &self.z1_commit);
-
         transcript.append_commitment("z2_commit", &self.z2_commit);
 
         // Compute quotient challenge

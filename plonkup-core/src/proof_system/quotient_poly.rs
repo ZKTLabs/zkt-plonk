@@ -41,9 +41,13 @@ where
     F: FftField,
     D: EvaluationDomain<F>,
 {
-    let domain_4n = D::new(4 * domain.size())
+    let n = domain.size();
+    // Size of quotient poly is 3n+5
+    assert!(n >= 5);
+
+    let domain_4n = D::new(4 * n)
         .ok_or(Error::InvalidEvalDomainSize {
-            log_size_of_group: (4 * domain.size()).trailing_zeros(),
+            log_size_of_group: (4 * n).trailing_zeros(),
             adicity: <F::FftParams as ark_ff::FftParameters>::TWO_ADICITY,
         })?;
 
@@ -212,7 +216,7 @@ where
 
     #[cfg(not(feature = "parallel"))]
     let quotient = itertools::izip!(
-        arith_constraints,
+        arith,
         perm,
         lookup,
         epk.vh_coset.iter(),

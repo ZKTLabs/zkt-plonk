@@ -22,7 +22,6 @@ use crate::{
         prove as plonk_prove,
     },
     transcript::TranscriptProtocol,
-    lookup::LookupTable,
     util::EvaluationDomainExt,
 };
 
@@ -170,18 +169,9 @@ use crate::{
 /// }
 /// ```
 ///
-pub trait Circuit<F: Field>: Sized {
-    ///
-    fn register_tables(_: &mut LookupTable<F>) {}
-    
+pub trait Circuit<F: Field>: Default {    
     /// Implementation used to fill the composer.
     fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error>;
-
-    ///
-    fn circuit(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
-        Self::register_tables(&mut cs.lookup_table);
-        self.synthesize(cs)
-    }
 }
 
 ///
@@ -214,7 +204,6 @@ where
     pub fn compile(
         extend: bool,
         pp: &PC::UniversalParams,
-        circuit: C,
     ) -> Result<
         (
             PC::CommitterKey,
@@ -226,6 +215,7 @@ where
     > {
         let mut cs = ConstraintSystem::new(true);
         // Generate circuit constraint
+        let circuit = C::default();
         circuit.synthesize(&mut cs)?;
 
         let (ck, _) = PC::trim(
@@ -273,6 +263,110 @@ where
 
         proof.verify(cvk, vk, transcript, pub_inputs)
     }
+}
+
+#[cfg(test)]
+mod test {
+    use ark_ff::PrimeField;
+    use ark_poly::GeneralEvaluationDomain;
+    use ark_std::test_rng;
+    use ark_bn254::Bn254;
+
+    use crate::{
+        constraint_system::{Variable, Selectors, test_gate_constraints},
+        lookup::UintRangeTable,
+        transcript::MerlinTranscript,
+        batch_test_field,
+        batch_test_kzg,
+    };
+    use super::*;
+
+    // Implements a circuit that checks:
+    // 1) a + b = c
+    // 2) a is in 8 bit range (lookup)
+    // 3) b is in 8 bit range (lookup)
+    // 4) d = a * c, d is a PI
+    #[derive(derivative::Derivative)]
+    #[derivative(Debug(bound = ""), Default(bound = ""))]
+    pub struct TestCircuit {
+        a: u8,
+        b: u8,
+        c: u8,
+        d: u8,
+    }
+
+    impl<F: Field> Circuit<F> for TestCircuit {
+        fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
+            let a = cs.assign_variable(self.a.into());
+            let b = cs.assign_variable(self.b.into());
+
+            let c = cs.add_gate(&a.into(), &b.into());
+
+            cs.contains_gate::<UintRangeTable<8>>(a);
+            cs.contains_gate::<UintRangeTable<8>>(b);
+            
+            let sels = Selectors::new_arith()
+                .with_mul(-F::one());
+            cs.arith_constrain(a, c, Variable::Zero, sels, Some(self.d.into()));
+
+            Ok(())
+        }
+    }
+
+    type PlonkupInstance<F, PC> = Plonkup<
+        F,
+        GeneralEvaluationDomain<F>,
+        PC,
+        MerlinTranscript,
+        TestCircuit,
+    >;
+
+    fn test_circuit<F: Field>() {
+        test_gate_constraints(
+            |cs: &mut ConstraintSystem<F>| {
+                let circuit = TestCircuit {
+                    a: 2,
+                    b: 3,
+                    c: 5,
+                    d: 10,
+                };
+                circuit.synthesize(cs).unwrap();
+
+                vec![]
+            },
+            &[10u8.into()],
+        );
+    }
+
+    fn test_full<F: PrimeField, PC: HomomorphicCommitment<F>>() {
+        let rng = &mut test_rng();
+        // setup
+        let pp = PC::setup(1 << 17, None, rng).unwrap();
+        let (ck, pk, epk, vk) =
+            PlonkupInstance::<F, PC>::compile(true, &pp).unwrap();
+
+        // prove
+        let circuit = TestCircuit {
+            a: 2,
+            b: 3,
+            c: 5,
+            d: 10,
+        };
+        let epk = epk.map(|epk| Rc::new(epk));
+        let proof = PlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, circuit, rng).unwrap();
+    }
+
+    batch_test_field!(
+        Bn254,
+        [test_circuit],
+        []
+    );
+
+    batch_test_kzg!(
+        Bn254,
+        [test_full],
+        []
+    );
 }
 
 // #[cfg(test)]

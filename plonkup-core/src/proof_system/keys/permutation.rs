@@ -52,34 +52,30 @@ impl<F: Field> ProverKey<F> {
         z1_poly: &DensePolynomial<F>,
     ) -> Result<DensePolynomial<F>, Error> {
         // Computes the following:
-        // (a_eval + beta * z + gamma) * (b_eval + beta * K1 * z +
-        // gamma) * (c_eval + beta * K2 * z + gamma) * alpha * z1(X)
+        // ((a(z) + β*z + γ) * (b(z) + β*K1*z + γ) * (c(z) + β*K2*z + γ) * α + L_1(z) * α^2) * z1(x)
         let part_1 = {
             let beta_mul_z = beta * z;
             z1_poly * (
                 alpha
-                * (beta_mul_z + wire_evals.a + gamma)
-                * (K1::<F>() * beta_mul_z + wire_evals.b + gamma)
-                * (K2::<F>() * beta_mul_z + wire_evals.c + gamma)
+                    * (beta_mul_z + wire_evals.a + gamma)
+                    * (K1::<F>() * beta_mul_z + wire_evals.b + gamma)
+                    * (K2::<F>() * beta_mul_z + wire_evals.c + gamma)
+                    + (l_1_eval * alpha.square())
             )
         };
 
         // Computes the following:
-        // -(a_eval + beta * sigma1 + gamma)(b_eval + beta * sigma2 + gamma)
-        // * beta * z1_next_eval * alpha * sigma3(X)
+        // -(a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * β * z1(ωz) * α * σ3(x)
         let part_2 =
             &self.sigma3 * (
                 -alpha
-                * beta
-                * perm_evals.z1_next
-                * (beta * perm_evals.sigma1 + wire_evals.a + gamma)
-                * (beta * perm_evals.sigma2 + wire_evals.b + gamma)
+                    * beta
+                    * perm_evals.z1_next
+                    * (beta * perm_evals.sigma1 + wire_evals.a + gamma)
+                    * (beta * perm_evals.sigma2 + wire_evals.b + gamma)
             );
 
-        // Computes the lineariser check.
-        let part_3 = z1_poly * (l_1_eval * alpha.square());
-
-        Ok(&(&part_1 + &part_2) + &part_3)
+        Ok(part_1 + part_2)
     }
 }
 
@@ -128,33 +124,31 @@ impl<F: FftField> ExtendedProverKey<F> {
         l_1_i: F,
     ) -> F {
         // Computes the following:
-        // (a(x) + beta * X + gamma) * (b(X) + beta * k1 * X + gamma) * (c(X) + beta *
-        // k2 * X + gamma) * z(X) * alpha
+        // (a(x) + β*x + γ) * (b(x) + β*k1*x + γ) * (c(x) + β*k2*x + γ) * z1(x) * α
         let part_1 = {
             let x = self.x_coset[i];
             alpha
-            * z1_i
-            * (a_i + (beta * x) + gamma)
-            * (b_i + (beta * K1::<F>() * x) + gamma)
-            * (c_i + (beta * K1::<F>() * x) + gamma)
+                * z1_i
+                * (a_i + (beta * x) + gamma)
+                * (b_i + (beta * K1::<F>() * x) + gamma)
+                * (c_i + (beta * K1::<F>() * x) + gamma)
         };
 
         // Computes the following:
-        // - (a(x) + beta * Sigma1(X) + gamma) * (b(X) + beta * Sigma2(X) + gamma) * (c(X)
-        // + beta * Sigma3(X) + gamma) * z(X*omega) * alpha
+        // - (a(x) + β*σ1(x) + γ) * (b(x) + β*σ2(x) + γ) * (c(x) + β*σ3(x) + γ) * z1(xω) * α
         let part_2 = {
             let sigma1_eval = self.sigma1_coset[i];
             let sigma2_eval = self.sigma2_coset[i];
             let sigma3_eval = self.sigma3_coset[i];
             -alpha
-            * z1_i_next
-            * (a_i + (beta * sigma1_eval) + gamma)
-            * (b_i + (beta * sigma2_eval) + gamma)
-            * (c_i + (beta * sigma3_eval) + gamma)
+                * z1_i_next
+                * (a_i + (beta * sigma1_eval) + gamma)
+                * (b_i + (beta * sigma2_eval) + gamma)
+                * (c_i + (beta * sigma3_eval) + gamma)
         };
 
         // Computes the following:
-        // L_1(X) * [Z(X) - 1] * alpha^2
+        // L_1(x) * [z1(x) - 1] * α^2
         let part_3 = (z1_i - F::one()) * l_1_i * alpha.square();
 
         part_1 + part_2 + part_3
@@ -200,8 +194,7 @@ where
         l_1_eval: F,
         z1_comm: PCC,
     ) {
-        // (a_eval + beta * z + gamma)(b_eval + beta * z * k1 +
-        // gamma)(c_eval + beta * k2 * z + gamma) * alpha + l_1_eval * alpha^2
+        // (a(z) + β*z + γ) * (b(z) + β*K1*z + γ) * (c(z) + β*K2*z + γ) * α + L_1(z) * α^2
         let beta_mul_z = beta * z;
         let scalar = alpha
             * (beta_mul_z + evaluations.wire_evals.a + gamma)
@@ -211,7 +204,7 @@ where
         scalars.push(scalar);
         points.push(z1_comm);
 
-        // -(a(z) + β * σ1(z) + γ) * (b(z) + β * σ2(z) + γ) * z1(ωz) * α * β
+        // -(a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * z1(ωz) * α * β
         let scalar = -alpha
             * beta
             * evaluations.perm_evals.z1_next
