@@ -403,13 +403,19 @@ mod test {
 
     batch_test_field!(
         Bls12_377,
-        [test_compute_sigma_permutations],
+        [
+            test_compute_sigma_permutations,
+            test_compute_z1_poly
+        ],
         []
     );
 
     batch_test_field!(
         Bls12_381,
-        [test_compute_sigma_permutations],
+        [
+            test_compute_sigma_permutations,
+            test_compute_z1_poly
+        ],
         []
     );
 }

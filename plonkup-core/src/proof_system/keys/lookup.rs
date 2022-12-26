@@ -206,8 +206,7 @@ where
             let c = evaluations.wire_evals.c;
             let d = evaluations.lookup_evals.t_tag;
             alpha_sq * alpha
-                * lc(&[a, b, c, d], zeta)
-                - evaluations.lookup_evals.f
+                * (lc(&[a, b, c, d], zeta) - evaluations.lookup_evals.f)
         };
         scalars.push(scalar);
         points.push(self.q_lookup.clone());

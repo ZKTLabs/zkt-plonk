@@ -123,12 +123,11 @@ where
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
     I: IntoIterator<Item = &'a F>,
 {
-    let n = domain.size();
     let shifted_z = z * domain.group_gen();
 
     let zh_eval = domain.evaluate_vanishing_polynomial(z);
     let l_1_eval = compute_first_lagrange_evaluation(
-        n,
+        domain.size(),
         zh_eval,
         z,
     );
@@ -160,7 +159,7 @@ where
     let arith = pk.arith.compute_linearisation(
         &wire_evals,
         pub_inputs,
-        &epk.arith.lagranges,
+        &epk.arith.pi_lag,
     );
 
     let permutation = pk.perm.compute_linearisation(

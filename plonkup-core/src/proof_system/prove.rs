@@ -96,7 +96,7 @@ where
         let sigma3 = evals_from_poly_ref(&domain, &pk.perm.sigma3);
         let q_lookup = evals_from_poly_ref(&domain, &pk.lookup.q_lookup);
         let t_tag = evals_from_poly_ref(&domain, &pk.lookup.t_tag);
-        let lagranges = composer
+        let pi_lag = composer
             .pi
             .get_pos()
             .into_iter()
@@ -109,7 +109,7 @@ where
             sigma3,
             q_lookup,
             t_tag,
-            lagranges,
+            pi_lag,
         )?;
         Rc::new(epk)
     };

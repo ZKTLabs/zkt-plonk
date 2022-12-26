@@ -74,7 +74,7 @@ where
         t2: PC::Commitment,
         t3: PC::Commitment,
         t4: PC::Commitment,
-        lagranges: Vec<PC::Commitment>,
+        pi_lag: Vec<PC::Commitment>,
     ) -> Self {
         assert!(n.is_power_of_two());
         Self {
@@ -85,7 +85,7 @@ where
                 q_r,
                 q_o,
                 q_c,
-                lagranges,
+                pi_lag,
             },
             perm: permutation::VerifierKey {
                 sigma1,
@@ -120,7 +120,7 @@ where
         transcript.append_commitment("q_r_commit", &self.arith.q_r);
         transcript.append_commitment("q_o_commit", &self.arith.q_o);
         transcript.append_commitment("q_c_commit", &self.arith.q_c);
-        transcript.append_commitments("lagrange_commits", &self.arith.lagranges);
+        transcript.append_commitments("pi_lag_commits", &self.arith.pi_lag);
         transcript.append_commitment("sigma1_commit", &self.perm.sigma1);
         transcript.append_commitment("sigma2_commit", &self.perm.sigma2);
         transcript.append_commitment("sigma3_commit", &self.perm.sigma3);
@@ -200,7 +200,7 @@ impl<F: Field> ProverKey<F> {
         sigma3: Vec<F>,
         q_lookup: Vec<F>,
         t_tag: Vec<F>,
-        lagranges: Vec<DensePolynomial<F>>,
+        pi_lag: Vec<DensePolynomial<F>>,
     ) -> Result<ExtendedProverKey<F>, Error>
     where
         F: FftField,
@@ -244,7 +244,7 @@ impl<F: Field> ProverKey<F> {
                 q_r_coset,
                 q_o_coset,
                 q_c_coset,
-                lagranges,
+                pi_lag,
             },
             lookup: lookup::ExtendedProverKey {
                 q_lookup,

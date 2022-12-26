@@ -131,7 +131,7 @@ where
     )
     .map_err(to_pc_error::<F, PC>)?;
 
-    let lagranges = label_commitments[14..]
+    let pi_lag = label_commitments[14..]
         .iter()
         .map(|lc| lc.commitment().clone())
         .collect();
@@ -151,7 +151,7 @@ where
         label_commitments[11].commitment().clone(), // t2
         label_commitments[12].commitment().clone(), // t3
         label_commitments[13].commitment().clone(), // t4
-        lagranges,
+        pi_lag,
     );
 
     let mut polys_iter = label_polynomials
@@ -172,7 +172,7 @@ where
     );
 
     let epk = if extend {
-        let lagranges = polys_iter.skip(4).collect();
+        let pi_lag = polys_iter.skip(4).collect();
         let epk = pk.extend_prover_key(
             &domain,
             sigma1_evals,
@@ -180,7 +180,7 @@ where
             sigma3_evals,
             composer.q_lookup,
             composer.t_tag,
-            lagranges,
+            pi_lag,
         )?;
         Some(epk)
     } else {

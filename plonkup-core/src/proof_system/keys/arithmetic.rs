@@ -38,7 +38,7 @@ impl<F: Field> ProverKey<F> {
         &self,
         wire_evals: &WireEvaluations<F>,
         pub_inputs: I,
-        lagranges: &[DensePolynomial<F>],
+        pi_lag: &[DensePolynomial<F>],
     ) -> DensePolynomial<F>
     where
         I: IntoIterator<Item = &'a F>,
@@ -51,7 +51,7 @@ impl<F: Field> ProverKey<F> {
 
         pub_inputs
             .into_iter()
-            .zip(lagranges)
+            .zip(pi_lag)
             .fold(poly, |acc, (&pi, l_poly)| {
                 l_poly * pi + acc
             })
@@ -73,7 +73,7 @@ pub struct ExtendedProverKey<F: FftField> {
     /// Constant Selector
     pub q_c_coset: Vec<F>,
     ///
-    pub lagranges: Vec<DensePolynomial<F>>,
+    pub pi_lag: Vec<DensePolynomial<F>>,
 }
 
 impl<F: FftField> ExtendedProverKey<F> {
@@ -120,7 +120,7 @@ where
     /// Constant Selector Commitment
     pub q_c: PC::Commitment,
     /// Lagrange poly commitments for public inputs
-    pub lagranges: Vec<PC::Commitment>,
+    pub pi_lag: Vec<PC::Commitment>,
 }
 
 impl<F, PC> VerifierKey<F, PC>
@@ -153,6 +153,6 @@ where
         points.push(self.q_c.clone());
 
         scalars.extend_from_slice(pub_inputs);
-        points.extend_from_slice(&self.lagranges);
+        points.extend_from_slice(&self.pi_lag);
     }
 }

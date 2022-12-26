@@ -226,7 +226,7 @@ where
 
         assert_eq!(
             pub_inputs.len(),
-            vk.arith.lagranges.len(),
+            vk.arith.pi_lag.len(),
             "invalid length of public inputs",
         );
 
