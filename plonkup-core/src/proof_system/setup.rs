@@ -8,6 +8,7 @@
 
 use ark_ff::{FftField, Field};
 use ark_poly::EvaluationDomain;
+use itertools::Itertools;
 
 use crate::{
     commitment::HomomorphicCommitment,
@@ -88,8 +89,9 @@ where
     label_polynomials.push(label_polynomial!(t_tag_poly));
 
     // 2. Compute the sigma polynomials
+    let roots = domain.elements().collect_vec();
     let (sigma1_evals, sigma2_evals, sigma3_evals) =
-        composer.perm.compute_all_sigma_evals(n, &domain);
+        composer.perm.compute_all_sigma_evals(n, &roots);
 
     let sigma1_poly = poly_from_evals_ref(&domain, &sigma1_evals);
     let sigma2_poly = poly_from_evals_ref(&domain, &sigma2_evals);

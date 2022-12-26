@@ -156,15 +156,11 @@ impl Permutation {
 
     /// Computes the sigma polynomials which are used to build the permutation
     /// polynomial.
-    pub(crate) fn compute_all_sigma_evals<F, D>(
+    pub(crate) fn compute_all_sigma_evals<F: FftField>(
         &mut self,
         n: usize,
-        domain: &D,
-    ) -> (Vec<F>, Vec<F>, Vec<F>)
-    where
-        F: FftField,
-        D: EvaluationDomain<F>,
-    {
+        roots: &[F],
+    ) -> (Vec<F>, Vec<F>, Vec<F>) {
         // Compute sigma mappings
         let (sigma1, sigma2, sigma3) =
             self.compute_sigma_permutations(n);
@@ -173,12 +169,10 @@ impl Permutation {
         assert_eq!(sigma2.len(), n);
         assert_eq!(sigma3.len(), n);
 
-        let roots = domain.elements().collect_vec();
-
         // define the sigma permutations using two non quadratic residues
-        let sigma1 = self.compute_sigma_evals(&sigma1, &roots);
-        let sigma2 = self.compute_sigma_evals(&sigma2, &roots);
-        let sigma3 = self.compute_sigma_evals(&sigma3, &roots);
+        let sigma1 = self.compute_sigma_evals(&sigma1, roots);
+        let sigma2 = self.compute_sigma_evals(&sigma2, roots);
+        let sigma3 = self.compute_sigma_evals(&sigma3, roots);
 
         (sigma1, sigma2, sigma3)
     }
@@ -263,85 +257,19 @@ where
     poly_from_evals(domain, z1_evals)
 }
 
-///
-pub(crate) fn compute_z2_poly<F, D>(
-    domain: &D,
-    delta: F,
-    epsilon: F,
-    f: &[F],
-    t: &[F],
-    h1: &[F],
-    h2: &[F],
-) -> DensePolynomial<F>
-where
-    F: FftField,
-    D: EvaluationDomain<F>,
-{
-    let n = domain.size();
-
-    assert_eq!(f.len(), n);
-    assert_eq!(t.len(), n);
-    assert_eq!(h1.len(), n);
-    assert_eq!(h2.len(), n);
-
-    #[cfg(not(feature = "parallel"))]
-    let t_next = t.iter().skip(1);
-    #[cfg(feature = "parallel")]
-    let t_next = t.par_iter().skip(1);
-
-    #[cfg(not(feature = "parallel"))]
-    let h1_next = h1.iter().skip(1);
-    #[cfg(feature = "parallel")]
-    let h1_next = h1.par_iter().skip(1);
-
-    let one_plus_delta = F::one() + delta;
-    let epsilon_one_plus_delta = epsilon * one_plus_delta;
-
-    #[cfg(not(feature = "parallel"))]
-    let product = itertools::izip!(f, t, t_next, h1, h1_next, h2);
-    #[cfg(feature = "parallel")]
-    let product = crate::par_izip!(
-        f.par_iter(),
-        t.par_iter(),
-        t_next,
-        h1.par_iter(),
-        h1_next,
-        h2.par_iter(),
-    );
-
-    let product: Vec<_> = product
-        .take(n - 1)
-        .map(|(f, t, t_next, h1, h1_next, h2)| {
-            let numinator = one_plus_delta
-                * (epsilon + f)
-                * (delta * t_next + epsilon_one_plus_delta + t);
-            let dominator = (delta * h2 + epsilon_one_plus_delta + h1)
-                * (delta * h1_next + epsilon_one_plus_delta + h2);
-
-            numinator * dominator.inverse().unwrap()
-        })
-        .collect();
-
-    let mut z2_evals = Vec::with_capacity(n);
-    let mut state = F::one();
-    z2_evals.push(state);
-    for s in product {
-        state *= s;
-        z2_evals.push(state);
-    }
-
-    poly_from_evals(domain, z2_evals)
-}
-
 #[cfg(test)]
 mod test {
     use ark_ff::FftField;
     use ark_bn254::Bn254;
     use ark_bls12_381::Bls12_381;
     use ark_bls12_377::Bls12_377;
+    use ark_poly::{GeneralEvaluationDomain, Polynomial};
+    use ark_std::test_rng;
+    use itertools::izip;
 
     use crate::{
         constraint_system::{ConstraintSystem, SetupComposer},
+        util::EvaluationDomainExt,
         batch_test_field,
     };
     use super::*;
@@ -398,9 +326,78 @@ mod test {
         assert_eq!(sigma3[3], WireData::Output(0));
     }
 
+    fn test_compute_z1_poly<F: FftField>() {
+        let rng = &mut test_rng();
+
+        let cs = ConstraintSystem::<F>::new(true);
+        let mut composer: SetupComposer<_> = cs.composer.into();
+
+        // x1 * x4 = x2
+        // x1 + x3 = x2
+        // x1 + x2 = 2*x3
+        // x3 * x4 = 2*x2
+        let x1 = composer.perm.new_variable();
+        let x2 = composer.perm.new_variable();
+        let x3 = composer.perm.new_variable();
+        let x4 = composer.perm.new_variable();
+
+        composer.perm.add_variables_to_map(x1, x4, x2, 0);
+        composer.perm.add_variables_to_map(x1, x3, x2, 1);
+        composer.perm.add_variables_to_map(x1, x2, x3, 2);
+        composer.perm.add_variables_to_map(x3, x4, x2, 3);
+
+        let domain = GeneralEvaluationDomain::new(4).unwrap();
+        let roots = domain.elements().collect_vec();
+        let (sigma1, sigma2, sigma3) =
+            composer.perm.compute_all_sigma_evals(4, &roots);
+        
+        let x1 = F::from(4u32);
+        let x2 = F::from(12u32);
+        let x3 = F::from(8u32);
+        let x4 = F::from(3u32);
+
+        let beta = F::rand(rng);
+        let gamma = F::rand(rng);
+        let a = vec![x1, x1, x1, x3];
+        let b = vec![x4, x3, x2, x4];
+        let c = vec![x2, x2, x3, x2];
+        let z1_poly = compute_z1_poly(
+            &domain,
+            beta,
+            gamma,
+            &a,
+            &b,
+            &c,
+            &sigma1,
+            &sigma2,
+            &sigma3,
+        );
+
+        let omega = domain.group_gen();
+        izip!(roots.iter(), a, b, c, sigma1, sigma2, sigma3)
+            .for_each(|(root, a, b, c, s1, s2, s3)| {
+                let part_1 = (beta * root + a + gamma)
+                    * (beta * K1::<F>() * root + b + gamma)
+                    * (beta * K2::<F>() * root + c + gamma)
+                    * z1_poly.evaluate(root);
+                let part_2 = (beta * s1 + a + gamma)
+                    * (beta * s2 + b + gamma)
+                    * (beta * s3 + c + gamma)
+                    * z1_poly.evaluate(&(omega * root));
+                
+                assert_eq!(part_1, part_2);
+            });
+
+        let root_0 = roots[0];
+        assert_eq!(z1_poly.evaluate(&root_0), F::one());
+    }
+
     batch_test_field!(
         Bn254,
-        [test_compute_sigma_permutations],
+        [
+            test_compute_sigma_permutations,
+            test_compute_z1_poly
+        ],
         []
     );
 

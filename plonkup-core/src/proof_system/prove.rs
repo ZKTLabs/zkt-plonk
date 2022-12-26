@@ -21,8 +21,8 @@ use crate::{
     constraint_system::{ConstraintSystem, ProvingComposer, Variable},
     error::{to_pc_error, Error},
     label_polynomial,
-    lookup::MultiSet,
-    permutation::{compute_z1_poly, compute_z2_poly},
+    lookup::{MultiSet, compute_z2_poly},
+    permutation::compute_z1_poly,
     transcript::TranscriptProtocol,
     util::{
         EvaluationDomainExt,
@@ -174,11 +174,11 @@ where
 
     let t_first = t.0[0];
     let f_args = izip!(
-        &a_evals,
-        &b_evals,
-        &c_evals,
-        &epk.lookup.q_lookup,
-        &epk.lookup.t_tag,
+        a_evals.iter(),
+        b_evals.iter(),
+        c_evals.iter(),
+        epk.lookup.q_lookup.iter(),
+        epk.lookup.t_tag.iter(),
     );
     let f = f_args
         .map(|(a, b, c, q_lookup, t_tag)| {

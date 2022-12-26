@@ -110,7 +110,7 @@ where
         let alpha_sq = alpha.square();
         let alpha_qu = alpha_sq.square();
 
-        // (a(z) + β*σ1 + γ) * (b(z) + β*σ2 + γ) * (c(z) + γ) * α * z1(ωz)
+        // (a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * (c(z) + γ) * α * z1(ωz)
         let part_1 = alpha
             * (beta * self.evaluations.perm_evals.sigma1 + self.evaluations.wire_evals.a + gamma)
             * (beta * self.evaluations.perm_evals.sigma2 + self.evaluations.wire_evals.b + gamma)
@@ -124,10 +124,10 @@ where
         let part_3 = {
             let epsilon_one_plus_delta = epsilon * (F::one() + delta);
             alpha_qu
-            * self.evaluations.lookup_evals.z2_next
-            * (delta * self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
-            * (delta * self.evaluations.lookup_evals.h1_next
-                + self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
+                * self.evaluations.lookup_evals.z2_next
+                * (delta * self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
+                * (delta * self.evaluations.lookup_evals.h1_next
+                    + self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
         };
 
         // L_1(z) * α^5
@@ -192,12 +192,10 @@ where
             self.h1_commit.clone(),
         );
 
-        // Second part
-        // z_challenge ^ n
+        let z_exp_n_plus_2 = (zh_eval + F::one()) * z.square();
         let scalar_1 = -zh_eval;
-        let z_sq = z.square();
-        let scalar_2 = scalar_1 * (zh_eval + F::one()) * z_sq;
-        let scalar_3 = scalar_2 * z_sq;
+        let scalar_2 = -zh_eval * z_exp_n_plus_2;
+        let scalar_3 = -zh_eval * z_exp_n_plus_2.square();
         scalars.extend(vec![scalar_1, scalar_2, scalar_3]);
         points.extend(vec![
             self.q_lo_commit.clone(),

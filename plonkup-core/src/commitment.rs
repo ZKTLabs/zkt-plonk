@@ -40,10 +40,9 @@ where
             .collect_vec();
 
         let points_repr = commitments.iter().map(|c| c.0).collect_vec();
-
-        ark_poly_commit::kzg10::Commitment::<E>(
-            VariableBaseMSM::multi_scalar_mul(&points_repr, &scalars_repr).into(),
-        )
+        let commitment = VariableBaseMSM::multi_scalar_mul(&points_repr, &scalars_repr).into();
+        
+        ark_poly_commit::kzg10::Commitment::<E>(commitment)
     }
 }
 

@@ -142,7 +142,10 @@ impl<F: Field> LookupTable<F> {
     {
         self.into_multisets()
             .into_iter()
-            .map(|t| t.into_polynomial(domain))
+            .map(|mut t| {
+                t.pad_with_first(domain.size());
+                t.into_polynomial(domain)
+            })
             .collect()
     }
 }

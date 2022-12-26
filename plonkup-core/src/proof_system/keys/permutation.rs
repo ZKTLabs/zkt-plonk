@@ -58,8 +58,8 @@ impl<F: Field> ProverKey<F> {
             z1_poly * (
                 alpha
                     * (beta_mul_z + wire_evals.a + gamma)
-                    * (K1::<F>() * beta_mul_z + wire_evals.b + gamma)
-                    * (K2::<F>() * beta_mul_z + wire_evals.c + gamma)
+                    * (beta_mul_z * K1::<F>() + wire_evals.b + gamma)
+                    * (beta_mul_z * K2::<F>() + wire_evals.c + gamma)
                     + (l_1_eval * alpha.square())
             )
         };
