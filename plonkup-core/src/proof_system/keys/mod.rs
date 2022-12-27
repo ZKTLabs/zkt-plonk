@@ -40,6 +40,9 @@ where
     /// Circuit size (padded to a power of two).
     pub n: usize,
 
+    /// Domain roots at Public Inputs indexes
+    pub pi_roots: Vec<F>,
+
     /// Arithmetic Verifier Key
     pub arith: arithmetic::VerifierKey<F, PC>,
 
@@ -60,6 +63,7 @@ where
     /// sigma polynomial commitments.
     pub(crate) fn from_polynomial_commitments(
         n: usize,
+        pi_roots: Vec<F>,
         q_m: PC::Commitment,
         q_l: PC::Commitment,
         q_r: PC::Commitment,
@@ -74,18 +78,17 @@ where
         t2: PC::Commitment,
         t3: PC::Commitment,
         t4: PC::Commitment,
-        pi_lag: Vec<PC::Commitment>,
     ) -> Self {
         assert!(n.is_power_of_two());
         Self {
             n,
+            pi_roots,
             arith: arithmetic::VerifierKey {
                 q_m,
                 q_l,
                 q_r,
                 q_o,
                 q_c,
-                pi_lag,
             },
             perm: permutation::VerifierKey {
                 sigma1,
@@ -120,7 +123,6 @@ where
         transcript.append_commitment("q_r_commit", &self.arith.q_r);
         transcript.append_commitment("q_o_commit", &self.arith.q_o);
         transcript.append_commitment("q_c_commit", &self.arith.q_c);
-        transcript.append_commitments("pi_lag_commits", &self.arith.pi_lag);
         transcript.append_commitment("sigma1_commit", &self.perm.sigma1);
         transcript.append_commitment("sigma2_commit", &self.perm.sigma2);
         transcript.append_commitment("sigma3_commit", &self.perm.sigma3);
@@ -200,7 +202,6 @@ impl<F: Field> ProverKey<F> {
         sigma3: Vec<F>,
         q_lookup: Vec<F>,
         t_tag: Vec<F>,
-        pi_lag: Vec<DensePolynomial<F>>,
     ) -> Result<ExtendedProverKey<F>, Error>
     where
         F: FftField,
@@ -244,7 +245,6 @@ impl<F: Field> ProverKey<F> {
                 q_r_coset,
                 q_o_coset,
                 q_c_coset,
-                pi_lag,
             },
             lookup: lookup::ExtendedProverKey {
                 q_lookup,

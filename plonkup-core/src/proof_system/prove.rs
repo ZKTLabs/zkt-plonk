@@ -24,14 +24,13 @@ use crate::{
     lookup::{MultiSet, compute_z2_poly},
     permutation::compute_z1_poly,
     transcript::TranscriptProtocol,
-    util::{
-        EvaluationDomainExt,
-        lc, compute_lagrange_poly, poly_from_evals_ref, evals_from_poly_ref,
-    },
+    util::{EvaluationDomainExt, lc, poly_from_evals_ref, evals_from_poly_ref},
 };
 use super::{
-    linearisation_poly, quotient_poly,
-    ProverKey, ExtendedProverKey,
+    linearisation_poly,
+    quotient_poly,
+    ProverKey,
+    ExtendedProverKey,
     proof::Proof,
 };
 
@@ -96,12 +95,6 @@ where
         let sigma3 = evals_from_poly_ref(&domain, &pk.perm.sigma3);
         let q_lookup = evals_from_poly_ref(&domain, &pk.lookup.q_lookup);
         let t_tag = evals_from_poly_ref(&domain, &pk.lookup.t_tag);
-        let pi_lag = composer
-            .pi
-            .get_pos()
-            .into_iter()
-            .map(|index| compute_lagrange_poly(&domain, *index))
-            .collect();
         let epk = pk.extend_prover_key(
             &domain,
             sigma1,
@@ -109,7 +102,6 @@ where
             sigma3,
             q_lookup,
             t_tag,
-            pi_lag,
         )?;
         Rc::new(epk)
     };
@@ -376,8 +368,6 @@ where
     let (linear_poly, evaluations) = linearisation_poly::compute(
         &domain,
         pk,
-        &epk,
-        composer.pi.get_vals(),
         alpha,
         beta,
         gamma,

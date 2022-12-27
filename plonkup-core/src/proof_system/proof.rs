@@ -26,7 +26,7 @@ use crate::{
         VerifierKey,
     },
     transcript::TranscriptProtocol,
-    util::{EvaluationDomainExt, compute_first_lagrange_evaluation},
+    util::{EvaluationDomainExt, compute_lagrange_evaluation},
     error::Error,
 };
 
@@ -105,23 +105,43 @@ where
         gamma: F,
         delta: F,
         epsilon: F,
+        z: F,
         l_1_eval: F,
+        zh_eval: F,
+        pub_inputs: &[F],
+        vk: &VerifierKey<F, PC>,
     ) -> F {
         let alpha_sq = alpha.square();
         let alpha_qu = alpha_sq.square();
 
+        // PI(z)
+        let part_1 = pub_inputs
+            .iter()
+            .zip(vk.pi_roots.iter())
+            .map(|(pi, point)| {
+                let lagrange = compute_lagrange_evaluation(
+                    vk.n,
+                    *point,
+                    zh_eval,
+                    z,
+                );
+                lagrange * pi
+            })
+            .sum::<F>()
+            .neg();
+
         // (a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * (c(z) + γ) * α * z1(ωz)
-        let part_1 = alpha
+        let part_2 = alpha
             * (beta * self.evaluations.perm_evals.sigma1 + self.evaluations.wire_evals.a + gamma)
             * (beta * self.evaluations.perm_evals.sigma2 + self.evaluations.wire_evals.b + gamma)
             * (self.evaluations.wire_evals.c + gamma)
             * self.evaluations.perm_evals.z1_next;
 
         // L_1(z) * α^2
-        let part_2 = l_1_eval * alpha_sq;
+        let part_3 = l_1_eval * alpha_sq;
 
         // (ε(1 + δ) + δ * h2(z)) * (ε(1 + δ) + h2(z) + δ * h1(ωz)) * α^4 * z2(ωz)
-        let part_3 = {
+        let part_4 = {
             let epsilon_one_plus_delta = epsilon * (F::one() + delta);
             alpha_qu
                 * self.evaluations.lookup_evals.z2_next
@@ -131,10 +151,10 @@ where
         };
 
         // L_1(z) * α^5
-        let part_4 = l_1_eval * alpha_qu * alpha;
+        let part_5 = l_1_eval * alpha_qu * alpha;
 
         // Return r_0
-        part_1 + part_2 + part_3 + part_4
+        part_1 + part_2 + part_3 + part_4 + part_5
     }
 
     /// Computes the commitment to `[r]_1`.
@@ -149,22 +169,20 @@ where
         z: F,
         l_1_eval: F,
         zh_eval: F,
-        pub_inputs: &[F],
         vk: &VerifierKey<F, PC>,
     ) -> PC::Commitment {
         //    5 + public input length for arithmetic
         // +  2 for permutation
         // +  3 for lookup
         // +  3 for each piece of the quotient poly
-        // = 13 + public input length of scalars and points
-        let mut scalars = Vec::with_capacity(13 + pub_inputs.len());
-        let mut points = Vec::with_capacity(13 + pub_inputs.len());
+        // = 13 length of scalars and points
+        let mut scalars = Vec::with_capacity(13);
+        let mut points = Vec::with_capacity(13);
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
             &mut points,
             &self.evaluations,
-            pub_inputs,
         );
 
         vk.perm.compute_linearisation_commitment(
@@ -226,7 +244,7 @@ where
 
         assert_eq!(
             pub_inputs.len(),
-            vk.arith.pi_lag.len(),
+            vk.pi_roots.len(),
             "invalid length of public inputs",
         );
 
@@ -298,7 +316,7 @@ where
         let zh_eval = domain.evaluate_vanishing_polynomial(z);
 
         // Compute first lagrange polynomial evaluated at `z_challenge`
-        let l_1_eval = compute_first_lagrange_evaluation(vk.n, zh_eval, z);
+        let l_1_eval = compute_lagrange_evaluation(vk.n, F::one(), zh_eval, z);
 
         let zeta_sq = zeta.square();
         let t_commit = PC::multi_scalar_mul(
@@ -317,7 +335,11 @@ where
             gamma,
             delta,
             epsilon,
+            z,
             l_1_eval,
+            zh_eval,
+            pub_inputs,
+            vk,
         );
 
         // Add evaluations to transcript
@@ -348,7 +370,6 @@ where
             z,
             l_1_eval,
             zh_eval,
-            pub_inputs,
             vk,
         );
 

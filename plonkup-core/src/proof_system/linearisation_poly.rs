@@ -14,9 +14,8 @@ use ark_serialize::{
 use crate::{
     error::Error,
     proof_system::ProverKey,
-    util::{EvaluationDomainExt, compute_first_lagrange_evaluation},
+    util::{EvaluationDomainExt, compute_lagrange_evaluation},
 };
-use super::ExtendedProverKey;
 
 /// Subset of the [`ProofEvaluations`]. Evaluations at `z` of the
 /// wire polynomials
@@ -93,11 +92,9 @@ pub struct ProofEvaluations<F: Field> {
 }
 
 /// Compute the linearisation polynomial.
-pub(crate) fn compute<'a, F, D, I>(
+pub(crate) fn compute<F, D>(
     domain: &D,
     pk: &ProverKey<F>,
-    epk: &ExtendedProverKey<F>,
-    pub_inputs: I,
     alpha: F,
     beta: F,
     gamma: F,
@@ -121,13 +118,13 @@ pub(crate) fn compute<'a, F, D, I>(
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
-    I: IntoIterator<Item = &'a F>,
 {
     let shifted_z = z * domain.group_gen();
 
     let zh_eval = domain.evaluate_vanishing_polynomial(z);
-    let l_1_eval = compute_first_lagrange_evaluation(
+    let l_1_eval = compute_lagrange_evaluation(
         domain.size(),
+        F::one(),
         zh_eval,
         z,
     );
@@ -156,11 +153,7 @@ where
         t_next: t_poly.evaluate(&shifted_z),
     };
 
-    let arith = pk.arith.compute_linearisation(
-        &wire_evals,
-        pub_inputs,
-        &epk.arith.pi_lag,
-    );
+    let arith = pk.arith.compute_linearisation(&wire_evals);
 
     let permutation = pk.perm.compute_linearisation(
         alpha,

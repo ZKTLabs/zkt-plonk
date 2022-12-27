@@ -16,7 +16,7 @@ use crate::{
     error::{to_pc_error, Error},
     label_polynomial,
     proof_system::{ProverKey, ExtendedProverKey, VerifierKey},
-    util::{compute_lagrange_poly, poly_from_evals, poly_from_evals_ref},
+    util::{poly_from_evals, poly_from_evals_ref},
 };
 
 impl<F: Field> SetupComposer<F> {
@@ -70,7 +70,7 @@ where
     // Pad composer
     composer.pad_to(n);
 
-    let mut label_polynomials = Vec::with_capacity(14 + composer.pp.size());
+    let mut label_polynomials = Vec::with_capacity(14);
 
     let q_m_poly = poly_from_evals(&domain, composer.q_m);
     let q_l_poly = poly_from_evals(&domain, composer.q_l);
@@ -113,17 +113,6 @@ where
     label_polynomials.push(label_polynomial!(t3_poly));
     label_polynomials.push(label_polynomial!(t4_poly));
 
-    // 4. Compute Lagrange polynomials at public indexes
-    for index in composer.pp.get_pos() {
-        let poly = ark_poly_commit::LabeledPolynomial::new(
-            format!("lagrange_{}_poly", index + 1),
-            compute_lagrange_poly(&domain, *index),
-            None,
-            None,
-        );
-        label_polynomials.push(poly);
-    }
-
     let (label_commitments, _) = PC::commit(
         ck,
         &label_polynomials,
@@ -131,12 +120,10 @@ where
     )
     .map_err(to_pc_error::<F, PC>)?;
 
-    let pi_lag = label_commitments[14..]
-        .iter()
-        .map(|lc| lc.commitment().clone())
-        .collect();
+    let pi_roots = composer.pp.get_pos().map(|i| domain.element(*i)).collect();
     let vk = VerifierKey::from_polynomial_commitments(
         n,
+        pi_roots,
         label_commitments[0].commitment().clone(), // q_m
         label_commitments[1].commitment().clone(), // q_l
         label_commitments[2].commitment().clone(), // q_r
@@ -151,7 +138,6 @@ where
         label_commitments[11].commitment().clone(), // t2
         label_commitments[12].commitment().clone(), // t3
         label_commitments[13].commitment().clone(), // t4
-        pi_lag,
     );
 
     let mut polys_iter = label_polynomials
@@ -172,7 +158,6 @@ where
     );
 
     let epk = if extend {
-        let pi_lag = polys_iter.skip(4).collect();
         let epk = pk.extend_prover_key(
             &domain,
             sigma1_evals,
@@ -180,7 +165,6 @@ where
             sigma3_evals,
             composer.q_lookup,
             composer.t_tag,
-            pi_lag,
         )?;
         Some(epk)
     } else {

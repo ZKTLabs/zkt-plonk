@@ -197,30 +197,31 @@ where
         .fold(kth_val, |acc, val| acc * challenge + val.clone())
 }
 
-/// The first lagrange polynomial has the expression:
+/// Lagrange polynomial has the expression:
 ///
 /// ```text
-/// L_0(X) = mul_from_1_to_(n-1) [(X - omega^i) / (1 - omega^i)]
+/// L_k(X) = ∏ 0 to (n-1) without k [(x - omega^i) / (omega^k - omega^i)]
 /// ```
 ///
 /// with `omega` being the generator of the domain (the `n`th root of unity).
 ///
 /// We use two equalities:
-///   1. `mul_from_1_to_(n-1) [1 / (1 - omega^i)] = 1 / n` NOTE: L'Hôpital Principle
-///   2. `mul_from_1_to_(n-1) [(X - omega^i)] = (X^n - 1) / (X - 1)`
+///   1. `∏ 0 to (n-1) without k (omega^k - omega^i) = n / omega^k` NOTE: L'Hôpital Principle
+///   2. `∏ 0 to (n-1) without k (x - omega^i) = (x^n - 1) / (x - omega^k)`
 /// to obtain the expression:
 ///
 /// ```text
-/// L_0(X) = (X^n - 1) / n * (X - 1)
+/// L_k(X) = (x^n - 1) * omega^k / n * (x - omega^k)
 /// ```
-pub(crate) fn compute_first_lagrange_evaluation<F: Field>(
+pub(crate) fn compute_lagrange_evaluation<F: Field>(
     n: usize,
+    point: F,
     zh_eval: F,
     z: F,
 ) -> F {
-    let n_fr = F::from(n as u64);
-    let denom = n_fr * (z - F::one());
-    zh_eval * denom.inverse().unwrap()
+    let numinator = zh_eval * point;
+    let dominator = F::from(n as u64) * (z - point);
+    numinator * dominator.inverse().unwrap()
 }
 
 /// Computes lagrange polynomial over `domain` of `index`.

@@ -7,7 +7,7 @@ use plonkup_core::{
     constraint_system::{ConstraintSystem, LTVariable, Selectors},
 };
 
-use super::{Uint8, Uint8Var};
+use crate::hasher::uint8::{Uint8, Uint8Var};
 
 impl_uint_operation_table!(
     U8SpreadToU32Table,
@@ -67,7 +67,6 @@ impl<F: Field> Uint8Var<F> {
     }
 }
 
-///
 #[derive(Debug, Clone)]
 pub(crate) struct Uint8x4<F: Field>(pub Vec<Uint8<F>>);
 
@@ -571,7 +570,6 @@ impl<F: Field> Uint8x4<F> {
     }
 }
 
-///
 #[derive(Debug, Clone)]
 pub(crate) struct Uint32Var<F: Field> {
     pub value: u32,
@@ -652,7 +650,6 @@ impl<F: Field> Uint32Var<F> {
     }
 }
 
-///
 #[derive(Debug, Clone)]
 pub(crate) enum Uint32<F: Field> {
     Constant(u32),

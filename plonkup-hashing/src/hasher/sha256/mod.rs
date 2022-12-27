@@ -1,10 +1,12 @@
-
-mod uint;
+mod utils;
+mod uint32;
 
 use std::{vec::Vec, collections::HashMap};
 use ark_ff::Field;
 use plonkup_core::constraint_system::ConstraintSystem;
-use uint::{Uint8, Uint8x4, Uint32};
+use uint32::{Uint8x4, Uint32};
+
+use crate::hasher::Uint8;
 
 #[allow(clippy::unreadable_literal)]
 const ROUND_CONSTANTS: [u32; 64] = [
@@ -227,7 +229,8 @@ mod test {
     use itertools::Itertools;
     use plonkup_core::{batch_test_field, constraint_system::test_gate_constraints};
 
-    use super::{*, uint::*};
+    use crate::hasher::uint8::Uint8Var;
+    use super::*;
 
     fn test_blank_hash<F: Field>() {
         test_gate_constraints(

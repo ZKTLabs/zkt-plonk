@@ -14,4 +14,6 @@
 extern crate alloc;
 
 ///
-pub mod sha256;
+pub mod hasher;
+///
+pub mod merkle;

@@ -34,27 +34,15 @@ pub struct ProverKey<F: Field> {
 impl<F: Field> ProverKey<F> {
     /// Computes the arithmetic gate contribution to the linearisation
     /// polynomial at the given evaluation points.
-    pub(crate) fn compute_linearisation<'a, I>(
+    pub(crate) fn compute_linearisation(
         &self,
         wire_evals: &WireEvaluations<F>,
-        pub_inputs: I,
-        pi_lag: &[DensePolynomial<F>],
-    ) -> DensePolynomial<F>
-    where
-        I: IntoIterator<Item = &'a F>,
-    {
-        let poly = &(&self.q_m * (wire_evals.a * wire_evals.b)
+    ) -> DensePolynomial<F> {
+        &(&self.q_m * (wire_evals.a * wire_evals.b)
             + (&self.q_l * wire_evals.a)
             + (&self.q_r * wire_evals.b)
             + (&self.q_o * wire_evals.c))
-            + &self.q_c;
-
-        pub_inputs
-            .into_iter()
-            .zip(pi_lag)
-            .fold(poly, |acc, (&pi, l_poly)| {
-                l_poly * pi + acc
-            })
+            + &self.q_c
     }
 }
 
@@ -72,8 +60,6 @@ pub struct ExtendedProverKey<F: FftField> {
     pub q_o_coset: Vec<F>,
     /// Constant Selector
     pub q_c_coset: Vec<F>,
-    ///
-    pub pi_lag: Vec<DensePolynomial<F>>,
 }
 
 impl<F: FftField> ExtendedProverKey<F> {
@@ -119,8 +105,6 @@ where
     pub q_o: PC::Commitment,
     /// Constant Selector Commitment
     pub q_c: PC::Commitment,
-    /// Lagrange poly commitments for public inputs
-    pub pi_lag: Vec<PC::Commitment>,
 }
 
 impl<F, PC> VerifierKey<F, PC>
@@ -135,7 +119,6 @@ where
         scalars: &mut Vec<F>,
         points: &mut Vec<PC::Commitment>,
         evaluations: &ProofEvaluations<F>,
-        pub_inputs: &[F],
     ) {
         scalars.push(evaluations.wire_evals.a * evaluations.wire_evals.b);
         points.push(self.q_m.clone());
@@ -151,8 +134,5 @@ where
 
         scalars.push(F::one());
         points.push(self.q_c.clone());
-
-        scalars.extend_from_slice(pub_inputs);
-        points.extend_from_slice(&self.pi_lag);
     }
 }
