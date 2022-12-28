@@ -224,17 +224,14 @@ pub(crate) fn compute_lagrange_evaluation<F: Field>(
     numinator * dominator.inverse().unwrap()
 }
 
-/// Computes lagrange polynomial over `domain` of `index`.
-pub(crate) fn compute_lagrange_poly<F, D>(domain: &D, index: usize) -> DensePolynomial<F>
+/// Computes first lagrange polynomial over `domain` of `index`.
+pub(crate) fn compute_first_lagrange_poly<F, D>(domain: &D) -> DensePolynomial<F>
 where
     F: FftField,
     D: EvaluationDomain<F>,
 {
-    let n = domain.size();
-    assert!(index < n);
-
-    let mut x_evals = vec![F::zero(); n];
-    x_evals[index] = F::one();
+    let mut x_evals = vec![F::zero(); domain.size()];
+    x_evals[0] = F::one();
     poly_from_evals(domain, x_evals)
 }
 

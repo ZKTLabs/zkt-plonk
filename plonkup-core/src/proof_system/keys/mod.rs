@@ -18,7 +18,7 @@ use crate::{
     commitment::HomomorphicCommitment,
     transcript::TranscriptProtocol,
     error::Error,
-    util::{compute_lagrange_poly, coset_evals_from_poly, coset_evals_from_poly_ref},
+    util::{compute_first_lagrange_poly, coset_evals_from_poly, coset_evals_from_poly_ref},
 };
 
 /// PLONK circuit Verification Key.
@@ -235,7 +235,7 @@ impl<F: Field> ProverKey<F> {
         let vh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
         let vh_coset = coset_evals_from_poly(&domain_4n, vh_poly);
 
-        let l_1_poly = compute_lagrange_poly(domain, 0);
+        let l_1_poly = compute_first_lagrange_poly(domain);
         let l_1_coset = coset_evals_from_poly(&domain_4n, l_1_poly);
 
         Ok(ExtendedProverKey {
