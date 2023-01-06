@@ -15,5 +15,7 @@ mod proof;
 
 pub(crate) use prove::prove;
 pub(crate) use setup::setup;
+
 pub use proof::*;
 pub use keys::*;
+pub use linearisation_poly::*;

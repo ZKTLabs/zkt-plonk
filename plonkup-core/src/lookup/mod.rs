@@ -15,6 +15,7 @@ pub(crate) use multiset::MultiSet;
 pub use custom::*;
 pub use table::*;
 
+use ark_std::cfg_iter;
 use ark_ff::FftField;
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain};
 #[cfg(feature = "parallel")]
@@ -43,15 +44,8 @@ where
     assert_eq!(h1.len(), n);
     assert_eq!(h2.len(), n);
 
-    #[cfg(not(feature = "parallel"))]
-    let t_next = t.iter().skip(1);
-    #[cfg(feature = "parallel")]
-    let t_next = t.par_iter().skip(1);
-
-    #[cfg(not(feature = "parallel"))]
-    let h1_next = h1.iter().skip(1);
-    #[cfg(feature = "parallel")]
-    let h1_next = h1.par_iter().skip(1);
+    let t_next = cfg_iter!(t).skip(1);
+    let h1_next = cfg_iter!(h1).skip(1);
 
     let one_plus_delta = F::one() + delta;
     let epsilon_one_plus_delta = epsilon * one_plus_delta;

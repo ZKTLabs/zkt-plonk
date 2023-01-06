@@ -3,7 +3,7 @@ name = "plonkup-core"
 version = "0.1.0"
 authors = ["Lone G"]
 readme = "README.md"
-repository = "https://github.com/zk-garage/plonk"
+# repository = "https://github.com/zk-garage/plonk"
 keywords = ["cryptography", "plonk", "zk-snarks", "zero-knowledge", "crypto"]
 categories = ["algorithms", "cryptography", "science"]
 description = "A pure-Rust implementation of the PLONKUP ZK-SNARKs algorithm."
@@ -18,12 +18,11 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
 blake2 = "0.9"
-md5 = "0.7"
-ark-std = { version = "0.3", features = ["std"] }
-ark-ec = { version = "0.3", default-features = false }
-ark-ff = { version = "0.3", default-features = false }
+ark-std = { version = "0.3", default-features = false }
+ark-ec = "0.3"
+ark-ff = "0.3"
 ark-poly = "0.3"
-ark-poly-commit = "0.3"
+ark-poly-commit = { version = "0.3", default-features = false }
 ark-serialize = { version = "0.3", features = ["derive"] }
 backtrace = { version = "0.3", optional = true }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
@@ -46,6 +45,7 @@ cfg-if = "0.1"
 [features]
 # Default Features
 default = [
+    "std",
     "asm",
     "itertools/default",
     "parallel",
@@ -57,16 +57,21 @@ asm = ["ark-ff/asm"]
 # Parallelism Features
 parallel = [
     "rayon",
+    "ark-std/parallel",
     "ark-ec/parallel",
     "ark-ff/parallel",
-    "ark-poly-commit/parallel",
     "ark-poly/parallel",
+    "ark-poly-commit/parallel",
 ]
 
 # Enable Standard Library
 std = [
+    "ark-std/std",
     "ark-ec/std",
     "ark-ff/std",
+    "ark-poly/std",
+    "ark-poly-commit/std",
+    "ark-serialize/std",
 ]
 
 # Check if Elements Exist in Lookup Table

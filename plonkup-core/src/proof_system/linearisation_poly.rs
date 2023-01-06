@@ -48,15 +48,15 @@ pub struct PermutationEvaluations<F: Field> {
     pub z1_next: F,
 }
 
-// Probably all of these should go into CustomEvals
+/// Probably all of these should go into CustomEvals
 #[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
 #[derivative(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LookupEvaluations<F: Field> {
     /// Evaluations of the query polynomial at `z`
     pub f: F,
 
-    // (Shifted) Evaluation of the lookup permutation polynomial at `z * root
-    // of unity`
+    /// (Shifted) Evaluation of the lookup permutation polynomial at `z * root
+    /// of unity`
     pub z2_next: F,
 
     /// (Shifted) Evaluation of the even indexed half of sorted plonkup poly

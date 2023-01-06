@@ -7,14 +7,17 @@
 //! Prover-side of the PLONK Proving System
 
 use std::rc::Rc;
+use ark_std::cfg_iter_mut;
 use ark_ff::{Field, FftField};
 use ark_poly::{
     univariate::DensePolynomial,
     EvaluationDomain,
     UVPolynomial,
 };
-use itertools::{izip, Itertools};
+use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 use crate::{
     commitment::HomomorphicCommitment,
@@ -165,14 +168,24 @@ where
     //   q_lookup[i] is 0 so the lookup check will pass
 
     let t_first = t.0[0];
-    let f_args = izip!(
+    #[cfg(not(feature = "parallel"))]
+    let f_args = itertools::izip!(
         a_evals.iter(),
         b_evals.iter(),
         c_evals.iter(),
         epk.lookup.q_lookup.iter(),
         epk.lookup.t_tag.iter(),
     );
-    let f = f_args
+    #[cfg(feature = "parallel")]
+    let f_args = crate::par_izip!(
+        a_evals.par_iter(),
+        b_evals.par_iter(),
+        c_evals.par_iter(),
+        epk.lookup.q_lookup.par_iter(),
+        epk.lookup.t_tag.par_iter(),
+    );
+
+    let f: MultiSet<_> = f_args
         .map(|(a, b, c, q_lookup, t_tag)| {
             if q_lookup.is_zero() {
                 t_first
@@ -180,7 +193,7 @@ where
                 lc(&[*a, *b, *c, *t_tag], zeta)
             }
         })
-        .collect::<MultiSet<_>>();
+        .collect();
 
     // Compute query poly
     let mut f_poly = f.clone().into_polynomial(&domain);
@@ -496,9 +509,8 @@ where
 {
     let blinders = (0..k).into_iter().map(|_| F::rand(rng)).collect_vec();
     poly.coeffs.extend_from_slice(&blinders);
-    poly
-        .coeffs
-        .iter_mut()
+    
+    cfg_iter_mut!(poly.coeffs)
         .zip(blinders)
         .for_each(|(coeff, blinder)| coeff.sub_assign(blinder));
 }

@@ -13,6 +13,8 @@ use ark_serialize::{
 };
 use core::ops::{Add, Mul, Deref, DerefMut};
 use indexmap::IndexMap;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 use crate::{error::Error, util::poly_from_evals};
 
@@ -211,16 +213,24 @@ impl<F: Field> DerefMut for MultiSet<F> {
     }
 }
 
-impl<F> FromIterator<F> for MultiSet<F>
-where
-    F: Field,
-{
+impl<F: Field> FromIterator<F> for MultiSet<F> {
     #[inline]
     fn from_iter<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = F>,
     {
         Self(Vec::from_iter(iter))
+    }
+}
+
+#[cfg(feature = "parallel")]
+impl<F: Field> FromParallelIterator<F> for MultiSet<F> {
+    #[inline]
+    fn from_par_iter<I>(iter: I) -> Self
+    where
+        I: IntoParallelIterator<Item = F>,
+    {
+        Self(Vec::from_par_iter(iter))
     }
 }
 

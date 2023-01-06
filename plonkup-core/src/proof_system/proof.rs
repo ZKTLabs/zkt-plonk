@@ -140,7 +140,7 @@ where
         // L_1(z) * α^2
         let part_3 = l_1_eval * alpha_sq;
 
-        // (ε(1 + δ) + δ * h2(z)) * (ε(1 + δ) + h2(z) + δ * h1(ωz)) * α^4 * z2(ωz)
+        // (ε(1+δ) + δ * h2(z)) * (ε(1+δ) + h2(z) + δ * h1(ωz)) * α^4 * z2(ωz)
         let part_4 = {
             let epsilon_one_plus_delta = epsilon * (F::one() + delta);
             alpha_qu
