@@ -4,92 +4,16 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use ark_ff::{Field, FftField};
+use ark_ff::FftField;
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Polynomial};
-use ark_serialize::{
-    Read, Write,
-    CanonicalDeserialize, CanonicalSerialize, SerializationError,
-};
 
 use crate::{
-    error::Error,
-    proof_system::ProverKey,
+    proof_system::{
+        ProverKey, ProofEvaluations, WireEvaluations,
+        PermutationEvaluations, LookupEvaluations,
+    },
     util::{EvaluationDomainExt, compute_lagrange_evaluation},
 };
-
-/// Subset of the [`ProofEvaluations`]. Evaluations at `z` of the
-/// wire polynomials
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct WireEvaluations<F: Field> {
-    /// Evaluation of the witness polynomial for the left wire at `z`.
-    pub a: F,
-
-    /// Evaluation of the witness polynomial for the right wire at `z`.
-    pub b: F,
-
-    /// Evaluation of the witness polynomial for the output wire at `z`.
-    pub c: F,
-}
-
-/// Subset of the [`ProofEvaluations`]. Evaluations of the sigma and permutation
-/// polynomials at `z`  or `z *w` where `w` is the nth root of unity.
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct PermutationEvaluations<F: Field> {
-    /// Evaluation of the left sigma polynomial at `z`.
-    pub sigma1: F,
-
-    /// Evaluation of the right sigma polynomial at `z`.
-    pub sigma2: F,
-
-    /// Evaluation of the permutation polynomial at `z * omega` where `omega`
-    /// is a root of unity.
-    pub z1_next: F,
-}
-
-/// Probably all of these should go into CustomEvals
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LookupEvaluations<F: Field> {
-    /// Evaluations of the query polynomial at `z`
-    pub f: F,
-
-    /// (Shifted) Evaluation of the lookup permutation polynomial at `z * root
-    /// of unity`
-    pub z2_next: F,
-
-    /// (Shifted) Evaluation of the even indexed half of sorted plonkup poly
-    /// at `z root of unity
-    pub h1_next: F,
-
-    /// Evaluations of the odd indexed half of sorted plonkup poly at `z
-    /// root of unity
-    pub h2: F,
-
-    /// Evaluations of the table tag polynomial at `z`
-    pub t_tag: F,
-
-    /// Evaluations of the table polynomial at `z`
-    pub t: F,
-
-    /// (Shifted) Evaluation of the table polynomial at `z * root of unity`
-    pub t_next: F,
-}
-
-/// Set of evaluations that form the [`Proof`](super::Proof).
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ProofEvaluations<F: Field> {
-    /// Wire evaluations
-    pub wire_evals: WireEvaluations<F>,
-
-    /// Permutation and sigma polynomials evaluations
-    pub perm_evals: PermutationEvaluations<F>,
-
-    /// Lookup evaluations
-    pub lookup_evals: LookupEvaluations<F>,
-}
 
 /// Compute the linearisation polynomial.
 pub(crate) fn compute<F, D>(
@@ -114,7 +38,7 @@ pub(crate) fn compute<F, D>(
     h1_poly: &DensePolynomial<F>,
     h2_poly: &DensePolynomial<F>,
     t_poly: &DensePolynomial<F>,
-) -> Result<(DensePolynomial<F>, ProofEvaluations<F>), Error>
+) -> (DensePolynomial<F>, ProofEvaluations<F>)
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
@@ -164,7 +88,7 @@ where
         &wire_evals,
         &perm_evals,
         z1_poly,
-    )?;
+    );
 
     let lookup = pk.lookup.compute_linearisation(
         alpha,
@@ -190,12 +114,12 @@ where
 
     let linearisation_polynomial = arith + permutation + lookup + quotient_term;
 
-    Ok((
+    (
         linearisation_polynomial,
         ProofEvaluations {
             wire_evals,
             perm_evals,
             lookup_evals,
         },
-    ))
+    )
 }

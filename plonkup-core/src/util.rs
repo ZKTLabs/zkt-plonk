@@ -31,17 +31,8 @@ where
     /// Returns the value of `log_2(self.size)`.
     fn log_size_of_group(&self) -> u32;
 
-    /// Returns the inverse of the size in the field.
-    fn size_inv(&self) -> F;
-
     /// Returns a fixed generator of the subgroup.
     fn group_gen(&self) -> F;
-
-    /// Returns the inverse of the fixed generator of the subgroup.
-    fn group_gen_inv(&self) -> F;
-
-    /// Returns a fixed multiplicative generator of the finite field.
-    fn generator_inv(&self) -> F;
 }
 
 impl<F> EvaluationDomainExt<F> for GeneralEvaluationDomain<F>
@@ -59,34 +50,10 @@ where
     }
 
     #[inline]
-    fn size_inv(&self) -> F {
-        match self {
-            GeneralEvaluationDomain::Radix2(domain) => domain.size_inv,
-            GeneralEvaluationDomain::MixedRadix(domain) => domain.size_inv,
-        }
-    }
-
-    #[inline]
     fn group_gen(&self) -> F {
         match self {
             GeneralEvaluationDomain::Radix2(domain) => domain.group_gen,
             GeneralEvaluationDomain::MixedRadix(domain) => domain.group_gen,
-        }
-    }
-
-    #[inline]
-    fn group_gen_inv(&self) -> F {
-        match self {
-            GeneralEvaluationDomain::Radix2(domain) => domain.group_gen_inv,
-            GeneralEvaluationDomain::MixedRadix(domain) => domain.group_gen_inv,
-        }
-    }
-
-    #[inline]
-    fn generator_inv(&self) -> F {
-        match self {
-            GeneralEvaluationDomain::Radix2(domain) => domain.generator_inv,
-            GeneralEvaluationDomain::MixedRadix(domain) => domain.generator_inv,
         }
     }
 }

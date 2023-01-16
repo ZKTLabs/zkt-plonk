@@ -19,8 +19,7 @@ use ark_serialize::*;
 use crate::util::poly_from_evals;
 
 ///
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct PublicPositions(BTreeSet<usize>);
 
 impl PublicPositions {
@@ -49,8 +48,7 @@ impl PublicPositions {
 }
 
 ///  Public Inputs
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct PublicInputs<F: Field>(BTreeMap<usize, F>);
 
 impl<F: Field> PublicInputs<F> {

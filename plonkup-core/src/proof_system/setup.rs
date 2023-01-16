@@ -70,8 +70,6 @@ where
     // Pad composer
     composer.pad_to(n);
 
-    let mut label_polynomials = Vec::with_capacity(14);
-
     let q_m_poly = poly_from_evals(&domain, composer.q_m);
     let q_l_poly = poly_from_evals(&domain, composer.q_l);
     let q_r_poly = poly_from_evals(&domain, composer.q_r);
@@ -79,14 +77,6 @@ where
     let q_c_poly = poly_from_evals(&domain, composer.q_c);
     let q_lookup_poly = poly_from_evals_ref(&domain, &composer.q_lookup);
     let t_tag_poly = poly_from_evals_ref(&domain, &composer.t_tag);
-
-    label_polynomials.push(label_polynomial!(q_m_poly));
-    label_polynomials.push(label_polynomial!(q_l_poly));
-    label_polynomials.push(label_polynomial!(q_r_poly));
-    label_polynomials.push(label_polynomial!(q_o_poly));
-    label_polynomials.push(label_polynomial!(q_c_poly));
-    label_polynomials.push(label_polynomial!(q_lookup_poly));
-    label_polynomials.push(label_polynomial!(t_tag_poly));
 
     // 2. Compute the sigma polynomials
     let roots = domain.elements().collect_vec();
@@ -97,10 +87,6 @@ where
     let sigma2_poly = poly_from_evals_ref(&domain, &sigma2_evals);
     let sigma3_poly = poly_from_evals_ref(&domain, &sigma3_evals);
 
-    label_polynomials.push(label_polynomial!(sigma1_poly));
-    label_polynomials.push(label_polynomial!(sigma2_poly));
-    label_polynomials.push(label_polynomial!(sigma3_poly));
-
     // 3. Compute lookup table polynomials
     let mut t_polys = cs.lookup_table.into_polynomials(&domain);
     let t4_poly = t_polys.pop().unwrap();
@@ -108,53 +94,79 @@ where
     let t2_poly = t_polys.pop().unwrap();
     let t1_poly = t_polys.pop().unwrap();
 
-    label_polynomials.push(label_polynomial!(t1_poly));
-    label_polynomials.push(label_polynomial!(t2_poly));
-    label_polynomials.push(label_polynomial!(t3_poly));
-    label_polynomials.push(label_polynomial!(t4_poly));
+    let labeled_q_m_poly = label_polynomial!(q_m_poly);
+    let labeled_q_l_poly = label_polynomial!(q_l_poly);
+    let labeled_q_r_poly = label_polynomial!(q_r_poly);
+    let labeled_q_o_poly = label_polynomial!(q_o_poly);
+    let labeled_q_c_poly = label_polynomial!(q_c_poly);
+    let labeled_q_lookup_poly = label_polynomial!(q_lookup_poly);
+    let labeled_t_tag_poly = label_polynomial!(t_tag_poly);
+    let labeled_sigma1_poly = label_polynomial!(sigma1_poly);
+    let labeled_sigma2_poly = label_polynomial!(sigma2_poly);
+    let labeled_sigma3_poly = label_polynomial!(sigma3_poly);
+    let labeled_t1_poly = label_polynomial!(t1_poly);
+    let labeled_t2_poly = label_polynomial!(t2_poly);
+    let labeled_t3_poly = label_polynomial!(t3_poly);
+    let labeled_t4_poly = label_polynomial!(t4_poly);
 
-    let (label_commitments, _) = PC::commit(
-        ck,
-        &label_polynomials,
-        None,
-    )
-    .map_err(to_pc_error::<F, PC>)?;
+    let (labeled_commits, _) =
+        PC::commit(
+            ck,
+            vec![
+                &labeled_q_m_poly,
+                &labeled_q_l_poly,
+                &labeled_q_r_poly,
+                &labeled_q_o_poly,
+                &labeled_q_c_poly,
+                &labeled_q_lookup_poly,
+                &labeled_t_tag_poly,
+                &labeled_sigma1_poly,
+                &labeled_sigma2_poly,
+                &labeled_sigma3_poly,
+                &labeled_t1_poly,
+                &labeled_t2_poly,
+                &labeled_t3_poly,
+                &labeled_t4_poly,
+            ],
+            None,
+        )
+        .map_err(to_pc_error::<F, PC>)?;
+    drop(labeled_t1_poly);
+    drop(labeled_t2_poly);
+    drop(labeled_t3_poly);
+    drop(labeled_t4_poly);
 
     let pi_roots = composer.pp.get_pos().map(|i| domain.element(*i)).collect();
     let vk = VerifierKey::from_polynomial_commitments(
         n,
         pi_roots,
-        label_commitments[0].commitment().clone(), // q_m
-        label_commitments[1].commitment().clone(), // q_l
-        label_commitments[2].commitment().clone(), // q_r
-        label_commitments[3].commitment().clone(), // q_o
-        label_commitments[4].commitment().clone(), // q_c
-        label_commitments[5].commitment().clone(), // q_lookup
-        label_commitments[6].commitment().clone(), // t_tag
-        label_commitments[7].commitment().clone(), // sigma1
-        label_commitments[8].commitment().clone(), // sigma2
-        label_commitments[9].commitment().clone(), // sigma3
-        label_commitments[10].commitment().clone(), // t1
-        label_commitments[11].commitment().clone(), // t2
-        label_commitments[12].commitment().clone(), // t3
-        label_commitments[13].commitment().clone(), // t4
+        labeled_commits[0].commitment().clone(), // q_m
+        labeled_commits[1].commitment().clone(), // q_l
+        labeled_commits[2].commitment().clone(), // q_r
+        labeled_commits[3].commitment().clone(), // q_o
+        labeled_commits[4].commitment().clone(), // q_c
+        labeled_commits[5].commitment().clone(), // q_lookup
+        labeled_commits[6].commitment().clone(), // t_tag
+        labeled_commits[7].commitment().clone(), // sigma1
+        labeled_commits[8].commitment().clone(), // sigma2
+        labeled_commits[9].commitment().clone(), // sigma3
+        labeled_commits[10].commitment().clone(), // t1
+        labeled_commits[11].commitment().clone(), // t2
+        labeled_commits[12].commitment().clone(), // t3
+        labeled_commits[13].commitment().clone(), // t4
     );
 
-    let mut polys_iter = label_polynomials
-        .into_iter()
-        .map(|lp| lp.polynomial().clone());
-
     let pk = ProverKey::from_polynomials(
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
-        polys_iter.next().unwrap(),
+        labeled_q_m_poly,
+        labeled_q_l_poly,
+        labeled_q_r_poly,
+        labeled_q_o_poly,
+        labeled_q_c_poly,
+        labeled_q_lookup_poly,
+        labeled_t_tag_poly,
+        labeled_sigma1_poly,
+        labeled_sigma2_poly,
+        labeled_sigma3_poly,
     );
 
     let epk = if extend {

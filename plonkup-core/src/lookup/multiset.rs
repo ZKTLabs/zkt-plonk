@@ -6,11 +6,7 @@
 
 use ark_ff::{Field, FftField};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain};
-use ark_serialize::{
-    Read, Write,
-    CanonicalDeserialize, CanonicalSerialize,
-    SerializationError,
-};
+use ark_serialize::*;
 use core::ops::{Add, Mul, Deref, DerefMut};
 use indexmap::IndexMap;
 #[cfg(feature = "parallel")]

@@ -7,28 +7,28 @@
 //! Arithmetic Gates
 
 use ark_ff::{FftField, Field};
-use ark_poly::{polynomial::univariate::DensePolynomial};
+use ark_poly::polynomial::univariate::DensePolynomial;
+use ark_poly_commit::LabeledPolynomial;
 use ark_serialize::*;
 
 use crate::{
     commitment::HomomorphicCommitment,
-    proof_system::linearisation_poly::{ProofEvaluations, WireEvaluations},
+    proof_system::{ProofEvaluations, WireEvaluations},
 };
 
 /// Arithmetic Gates Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ProverKey<F: Field> {
     /// Multiplication Selector
-    pub q_m: DensePolynomial<F>,
+    pub q_m: LabeledPolynomial<F, DensePolynomial<F>>,
     /// Left Wire Selector
-    pub q_l: DensePolynomial<F>,
+    pub q_l: LabeledPolynomial<F, DensePolynomial<F>>,
     /// Right Wire Selector
-    pub q_r: DensePolynomial<F>,
+    pub q_r: LabeledPolynomial<F, DensePolynomial<F>>,
     /// Output Wire Selector
-    pub q_o: DensePolynomial<F>,
+    pub q_o: LabeledPolynomial<F, DensePolynomial<F>>,
     /// Constant Selector
-    pub q_c: DensePolynomial<F>,
+    pub q_c: LabeledPolynomial<F, DensePolynomial<F>>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -38,17 +38,16 @@ impl<F: Field> ProverKey<F> {
         &self,
         wire_evals: &WireEvaluations<F>,
     ) -> DensePolynomial<F> {
-        &(&self.q_m * (wire_evals.a * wire_evals.b)
-            + (&self.q_l * wire_evals.a)
-            + (&self.q_r * wire_evals.b)
-            + (&self.q_o * wire_evals.c))
-            + &self.q_c
+        &(self.q_m.polynomial() * (wire_evals.a * wire_evals.b)
+            + (self.q_l.polynomial() * wire_evals.a)
+            + (self.q_r.polynomial() * wire_evals.b)
+            + (self.q_o.polynomial() * wire_evals.c))
+            + self.q_c.polynomial()
     }
 }
 
 /// Arithmetic Gates Extended Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ExtendedProverKey<F: FftField> {
     /// Multiplication Selector
     pub q_m_coset: Vec<F>,
@@ -83,13 +82,7 @@ impl<F: FftField> ExtendedProverKey<F> {
 }
 
 /// Arithmetic Gates Verifier Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone,
-    Debug(bound = "PC::Commitment: std::fmt::Debug"),
-    Eq(bound = "PC::Commitment: Eq"),
-    PartialEq(bound = "PC::Commitment: PartialEq")
-)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct VerifierKey<F, PC>
 where
     F: Field,

@@ -12,6 +12,7 @@ pub mod lookup;
 
 use ark_ff::{Field, FftField};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
+use ark_poly_commit::LabeledPolynomial;
 use ark_serialize::*;
 
 use crate::{
@@ -21,17 +22,164 @@ use crate::{
     util::{compute_first_lagrange_poly, coset_evals_from_poly, coset_evals_from_poly_ref},
 };
 
+/// PLONK circuit Proving Key.
+///
+/// This structure is used by the Prover in order to construct a
+/// [`Proof`](crate::proof_system::Proof).
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
+pub struct ProverKey<F: Field> {
+    /// Arithmetic Prover Key
+    pub arith: arithmetic::ProverKey<F>,
+
+    /// Lookup selector
+    pub lookup: lookup::ProverKey<F>,
+
+    /// ProverKey for permutation checks
+    pub perm: permutation::ProverKey<F>,
+}
+
+impl<F: Field> ProverKey<F> {
+    /// Constructs a [`ProverKey`] from the widget ProverKey's that are
+    /// constructed based on the selector polynomials and the
+    /// sigma polynomials and it's evaluations.
+    pub(crate) fn from_polynomials(
+        q_m: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_l: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_r: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_o: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_c: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
+        t_tag: LabeledPolynomial<F, DensePolynomial<F>>,
+        sigma1: LabeledPolynomial<F, DensePolynomial<F>>,
+        sigma2: LabeledPolynomial<F, DensePolynomial<F>>,
+        sigma3: LabeledPolynomial<F, DensePolynomial<F>>,
+    ) -> Self {
+        Self {
+            arith: arithmetic::ProverKey {
+                q_m,
+                q_l,
+                q_r,
+                q_o,
+                q_c,
+            },
+            lookup: lookup::ProverKey {
+                q_lookup,
+                t_tag,
+            },
+            perm: permutation::ProverKey {
+                sigma1,
+                sigma2,
+                sigma3,
+            },
+        }
+    }
+
+    ///
+    pub fn extend_prover_key<D>(
+        &self,
+        domain: &D,
+        sigma1: Vec<F>,
+        sigma2: Vec<F>,
+        sigma3: Vec<F>,
+        q_lookup: Vec<F>,
+        t_tag: Vec<F>,
+    ) -> Result<ExtendedProverKey<F>, Error>
+    where
+        F: FftField,
+        D: EvaluationDomain<F>,
+    {
+        let domain_4n = D::new(4 * domain.size())
+            .ok_or(Error::InvalidEvalDomainSize {
+                log_size_of_group: (4 * domain.size()).trailing_zeros(),
+                adicity: <F::FftParams as ark_ff::FftParameters>::TWO_ADICITY,
+            })?;
+
+        let q_m_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_m);
+        let q_l_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_l);
+        let q_r_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_r);
+        let q_o_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_o);
+        let q_c_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_c);
+
+        let q_lookup_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.q_lookup);
+        let t_tag_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.t_tag);
+
+        let sigma1_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma1);
+        let sigma2_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma2);
+        let sigma3_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma3);
+
+        let x_coset = coset_evals_from_poly(
+            &domain_4n,
+            DensePolynomial::from_coefficients_vec(vec![F::zero(), F::one()]),
+        );
+
+        // Compute 4n evaluations for x^n - 1
+        let vh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
+        let vh_coset = coset_evals_from_poly(&domain_4n, vh_poly);
+
+        let l_1_poly = compute_first_lagrange_poly(domain);
+        let l_1_coset = coset_evals_from_poly(&domain_4n, l_1_poly);
+
+        Ok(ExtendedProverKey {
+            arith: arithmetic::ExtendedProverKey {
+                q_m_coset,
+                q_l_coset,
+                q_r_coset,
+                q_o_coset,
+                q_c_coset,
+            },
+            lookup: lookup::ExtendedProverKey {
+                q_lookup,
+                q_lookup_coset,
+                t_tag,
+                t_tag_coset,
+            },
+            perm: permutation::ExtendedProverKey {
+                sigma1,
+                sigma1_coset,
+                sigma2,
+                sigma2_coset,
+                sigma3,
+                sigma3_coset,
+                x_coset,
+            },
+            vh_coset,
+            l_1_coset,
+        })
+    }
+}
+
+/// PLONK circuit Extended Proving Key.
+///
+/// This structure is used by the Prover in order to construct a
+/// [`Proof`](crate::proof_system::Proof).
+#[derive(Debug, Clone, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+pub struct ExtendedProverKey<F: FftField> {
+    /// Arithmetic Prover Key
+    pub arith: arithmetic::ExtendedProverKey<F>,
+
+    /// Lookup selector
+    pub lookup: lookup::ExtendedProverKey<F>,
+
+    /// ProverKey for permutation checks
+    pub perm: permutation::ExtendedProverKey<F>,
+
+    /// Pre-processes the 4n Evaluations for the vanishing polynomial, so
+    /// they do not need to be computed at the proving stage.
+    ///
+    /// NOTE: With this, we can combine all parts of the quotient polynomial
+    /// in their evaluation phase and divide by the quotient
+    /// polynomial without having to perform IFFT
+    pub vh_coset: Vec<F>,
+
+    ///
+    pub l_1_coset: Vec<F>,
+}
+
 /// PLONK circuit Verification Key.
 ///
 /// This structure is used by the Verifier in order to verify a
 /// [`Proof`](super::Proof).
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = "arithmetic::VerifierKey<F,PC>: core::fmt::Debug, PC::Commitment: core::fmt::Debug"),
-    Eq(bound = "arithmetic::VerifierKey<F,PC>: Eq, PC::Commitment: Eq"),
-    PartialEq(bound = "arithmetic::VerifierKey<F,PC>: PartialEq, PC::Commitment: PartialEq"),
-)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct VerifierKey<F, PC>
 where
     F: Field,
@@ -133,171 +281,6 @@ where
         transcript.append_commitment("t3_commit", &self.lookup.t3);
         transcript.append_commitment("t4_commit", &self.lookup.t4);
     }
-}
-
-/// PLONK circuit Proving Key.
-///
-/// This structure is used by the Prover in order to construct a
-/// [`Proof`](crate::proof_system::Proof).
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = "lookup::ProverKey<F>: Clone"),
-    Debug(bound = "lookup::ProverKey<F>: std::fmt::Debug"),
-    Eq(bound = "lookup::ProverKey<F>: Eq"),
-    PartialEq(bound = "lookup::ProverKey<F>: PartialEq")
-)]
-pub struct ProverKey<F: Field> {
-    /// Arithmetic Prover Key
-    pub arith: arithmetic::ProverKey<F>,
-
-    /// Lookup selector
-    pub lookup: lookup::ProverKey<F>,
-
-    /// ProverKey for permutation checks
-    pub perm: permutation::ProverKey<F>,
-}
-
-impl<F: Field> ProverKey<F> {
-    /// Constructs a [`ProverKey`] from the widget ProverKey's that are
-    /// constructed based on the selector polynomials and the
-    /// sigma polynomials and it's evaluations.
-    pub(crate) fn from_polynomials(
-        q_m: DensePolynomial<F>,
-        q_l: DensePolynomial<F>,
-        q_r: DensePolynomial<F>,
-        q_o: DensePolynomial<F>,
-        q_c: DensePolynomial<F>,
-        q_lookup: DensePolynomial<F>,
-        t_tag: DensePolynomial<F>,
-        sigma1: DensePolynomial<F>,
-        sigma2: DensePolynomial<F>,
-        sigma3: DensePolynomial<F>,
-    ) -> Self {
-        Self {
-            arith: arithmetic::ProverKey {
-                q_m,
-                q_l,
-                q_r,
-                q_o,
-                q_c,
-            },
-            lookup: lookup::ProverKey {
-                q_lookup,
-                t_tag,
-            },
-            perm: permutation::ProverKey {
-                sigma1,
-                sigma2,
-                sigma3,
-            },
-        }
-    }
-
-    ///
-    pub fn extend_prover_key<D>(
-        &self,
-        domain: &D,
-        sigma1: Vec<F>,
-        sigma2: Vec<F>,
-        sigma3: Vec<F>,
-        q_lookup: Vec<F>,
-        t_tag: Vec<F>,
-    ) -> Result<ExtendedProverKey<F>, Error>
-    where
-        F: FftField,
-        D: EvaluationDomain<F>,
-    {
-        let domain_4n = D::new(4 * domain.size())
-            .ok_or(Error::InvalidEvalDomainSize {
-                log_size_of_group: (4 * domain.size()).trailing_zeros(),
-                adicity: <F::FftParams as ark_ff::FftParameters>::TWO_ADICITY,
-            })?;
-
-        let q_m_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_m);
-        let q_l_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_l);
-        let q_r_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_r);
-        let q_o_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_o);
-        let q_c_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_c);
-
-        let q_lookup_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.q_lookup);
-        let t_tag_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.t_tag);
-
-        let sigma1_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma1);
-        let sigma2_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma2);
-        let sigma3_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma3);
-
-        let x_coset = coset_evals_from_poly(
-            &domain_4n,
-            DensePolynomial::from_coefficients_vec(vec![F::zero(), F::one()]),
-        );
-
-        // Compute 4n evaluations for x^n - 1
-        let vh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
-        let vh_coset = coset_evals_from_poly(&domain_4n, vh_poly);
-
-        let l_1_poly = compute_first_lagrange_poly(domain);
-        let l_1_coset = coset_evals_from_poly(&domain_4n, l_1_poly);
-
-        Ok(ExtendedProverKey {
-            arith: arithmetic::ExtendedProverKey {
-                q_m_coset,
-                q_l_coset,
-                q_r_coset,
-                q_o_coset,
-                q_c_coset,
-            },
-            lookup: lookup::ExtendedProverKey {
-                q_lookup,
-                q_lookup_coset,
-                t_tag,
-                t_tag_coset,
-            },
-            perm: permutation::ExtendedProverKey {
-                sigma1,
-                sigma1_coset,
-                sigma2,
-                sigma2_coset,
-                sigma3,
-                sigma3_coset,
-                x_coset,
-            },
-            vh_coset,
-            l_1_coset,
-        })
-    }
-}
-
-/// PLONK circuit Extended Proving Key.
-///
-/// This structure is used by the Prover in order to construct a
-/// [`Proof`](crate::proof_system::Proof).
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = "lookup::ExtendedProverKey<F>: Clone"),
-    Debug(bound = "lookup::ExtendedProverKey<F>: std::fmt::Debug"),
-    Eq(bound = "lookup::ExtendedProverKey<F>: Eq"),
-    PartialEq(bound = "lookup::ExtendedProverKey<F>: PartialEq")
-)]
-pub struct ExtendedProverKey<F: FftField> {
-    /// Arithmetic Prover Key
-    pub arith: arithmetic::ExtendedProverKey<F>,
-
-    /// Lookup selector
-    pub lookup: lookup::ExtendedProverKey<F>,
-
-    /// ProverKey for permutation checks
-    pub perm: permutation::ExtendedProverKey<F>,
-
-    /// Pre-processes the 4n Evaluations for the vanishing polynomial, so
-    /// they do not need to be computed at the proving stage.
-    ///
-    /// NOTE: With this, we can combine all parts of the quotient polynomial
-    /// in their evaluation phase and divide by the quotient
-    /// polynomial without having to perform IFFT
-    pub vh_coset: Vec<F>,
-
-    ///
-    pub l_1_coset: Vec<F>,
 }
 
 // #[cfg(test)]

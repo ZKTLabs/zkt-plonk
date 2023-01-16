@@ -11,36 +11,94 @@
 //! structure and it's methods.
 
 use std::marker::PhantomData;
-use ark_ff::FftField;
+use ark_ff::{Field, FftField};
 use ark_poly::EvaluationDomain;
-use ark_serialize::{
-    Read, Write,
-    CanonicalDeserialize, CanonicalSerialize, SerializationError,
-};
+use ark_serialize::*;
 
 use crate::{
     label_commitment,
     commitment::HomomorphicCommitment,
-    proof_system::{
-        linearisation_poly::ProofEvaluations,
-        VerifierKey,
-    },
+    proof_system::VerifierKey,
     transcript::TranscriptProtocol,
     util::{EvaluationDomainExt, compute_lagrange_evaluation},
     error::Error,
 };
 
+/// Subset of the [`ProofEvaluations`]. Evaluations at `z` of the
+/// wire polynomials
+#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+pub struct WireEvaluations<F: Field> {
+    /// Evaluation of the witness polynomial for the left wire at `z`.
+    pub a: F,
+
+    /// Evaluation of the witness polynomial for the right wire at `z`.
+    pub b: F,
+
+    /// Evaluation of the witness polynomial for the output wire at `z`.
+    pub c: F,
+}
+
+/// Subset of the [`ProofEvaluations`]. Evaluations of the sigma and permutation
+/// polynomials at `z`  or `z *w` where `w` is the nth root of unity.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+pub struct PermutationEvaluations<F: Field> {
+    /// Evaluation of the left sigma polynomial at `z`.
+    pub sigma1: F,
+
+    /// Evaluation of the right sigma polynomial at `z`.
+    pub sigma2: F,
+
+    /// Evaluation of the permutation polynomial at `z * omega` where `omega`
+    /// is a root of unity.
+    pub z1_next: F,
+}
+
+/// Probably all of these should go into CustomEvals
+#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+pub struct LookupEvaluations<F: Field> {
+    /// Evaluations of the query polynomial at `z`
+    pub f: F,
+
+    /// (Shifted) Evaluation of the lookup permutation polynomial at `z * root
+    /// of unity`
+    pub z2_next: F,
+
+    /// (Shifted) Evaluation of the even indexed half of sorted plonkup poly
+    /// at `z root of unity
+    pub h1_next: F,
+
+    /// Evaluations of the odd indexed half of sorted plonkup poly at `z
+    /// root of unity
+    pub h2: F,
+
+    /// Evaluations of the table tag polynomial at `z`
+    pub t_tag: F,
+
+    /// Evaluations of the table polynomial at `z`
+    pub t: F,
+
+    /// (Shifted) Evaluation of the table polynomial at `z * root of unity`
+    pub t_next: F,
+}
+
+/// Set of evaluations that form the [`Proof`](super::Proof).
+#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+pub struct ProofEvaluations<F: Field> {
+    /// Wire evaluations
+    pub wire_evals: WireEvaluations<F>,
+
+    /// Permutation and sigma polynomials evaluations
+    pub perm_evals: PermutationEvaluations<F>,
+
+    /// Lookup evaluations
+    pub lookup_evals: LookupEvaluations<F>,
+}
+
 /// A [`Proof`] is a composition of `Commitment`s to the Witness, Permutation,
 /// Quotient, Shifted and Opening polynomials as well as the
 /// `ProofEvaluations`.
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = "PC::Commitment: Clone, PC::Proof: Clone"),
-    Debug(bound = "PC::Commitment: core::fmt::Debug, PC::Proof: core::fmt::Debug"),
-    Default(bound = "PC::Commitment: Default, PC::Proof: Default"),
-    Eq(bound = "PC::Commitment: Eq, PC::Proof: Eq"),
-    PartialEq(bound = "PC::Commitment: PartialEq, PC::Proof: PartialEq")
-)]
+/// Set of evaluations that form the [`Proof`](super::Proof).
+#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Proof<F, D, PC>
 where
     F: FftField,
@@ -268,10 +326,8 @@ where
         // Compute table compression challenge `zeta`.
         let zeta = transcript.challenge_scalar("zeta");
 
-        // Add f_poly commitment to transcript
+        // Add f and h commitment to transcript
         transcript.append_commitment("f_commit", &self.f_commit);
-
-        // Add h polynomials to transcript
         transcript.append_commitment("h1_commit", &self.h1_commit);
         transcript.append_commitment("h2_commit", &self.h2_commit);
 
@@ -318,6 +374,19 @@ where
         // Compute first lagrange polynomial evaluated at `z_challenge`
         let l_1_eval = compute_lagrange_evaluation(vk.n, F::one(), zh_eval, z);
 
+        let r0 = self.compute_r0(
+            alpha,
+            beta,
+            gamma,
+            delta,
+            epsilon,
+            z,
+            l_1_eval,
+            zh_eval,
+            pub_inputs,
+            vk,
+        );
+
         let zeta_sq = zeta.square();
         let t_commit = PC::multi_scalar_mul(
             &[
@@ -329,16 +398,17 @@ where
             &[F::one(), zeta, zeta_sq, zeta_sq * zeta],
         );
 
-        let r0 = self.compute_r0(
+        // Compute linearisation commitment
+        let r_commit = self.compute_linearisation_commitment(
             alpha,
             beta,
             gamma,
             delta,
             epsilon,
+            zeta,
             z,
             l_1_eval,
             zh_eval,
-            pub_inputs,
             vk,
         );
 
@@ -358,20 +428,6 @@ where
         transcript.append_scalar("z2_next_eval", &self.evaluations.lookup_evals.z2_next);
         transcript.append_scalar("h1_next_eval", &self.evaluations.lookup_evals.h1_next);
         transcript.append_scalar("h2_eval", &self.evaluations.lookup_evals.h2);
-
-        // Compute linearisation commitment
-        let linear_commit = self.compute_linearisation_commitment(
-            alpha,
-            beta,
-            gamma,
-            delta,
-            epsilon,
-            zeta,
-            z,
-            l_1_eval,
-            zh_eval,
-            vk,
-        );
 
         // Commitment Scheme
         // Now we delegate computation to the commitment scheme by batch
@@ -393,51 +449,44 @@ where
         // challenge `z`
         let v = transcript.challenge_scalar("v");
 
-        let aw_commits = [
-            label_commitment!(linear_commit),
-            label_commitment!(vk.perm.sigma1),
-            label_commitment!(vk.perm.sigma2),
-            label_commitment!(vk.lookup.t_tag),
-            label_commitment!(self.f_commit),
-            label_commitment!(self.h2_commit),
-            label_commitment!(t_commit),
-            label_commitment!(self.a_commit),
-            label_commitment!(self.b_commit),
-            label_commitment!(self.c_commit),
-        ];
-
-        let aw_evals = [
-            r0,
-            self.evaluations.perm_evals.sigma1,
-            self.evaluations.perm_evals.sigma2,
-            self.evaluations.lookup_evals.t_tag,
-            self.evaluations.lookup_evals.f,
-            self.evaluations.lookup_evals.h2,
-            self.evaluations.lookup_evals.t,
-            self.evaluations.wire_evals.a,
-            self.evaluations.wire_evals.b,
-            self.evaluations.wire_evals.c,
-        ];
-
-        let saw_commits = [
-            label_commitment!(self.z1_commit),
-            label_commitment!(t_commit),
-            label_commitment!(self.z2_commit),
-            label_commitment!(self.h1_commit),
-        ];
-
-        let saw_evals = [
-            self.evaluations.perm_evals.z1_next,
-            self.evaluations.lookup_evals.t_next,
-            self.evaluations.lookup_evals.z2_next,
-            self.evaluations.lookup_evals.h1_next,
-        ];
+        let labeled_r_commit = label_commitment!(r_commit);
+        let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
+        let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
+        let labeled_t_tag_commit = label_commitment!(vk.lookup.t_tag);
+        let labeled_f_commit = label_commitment!(self.f_commit);
+        let labeled_h2_commit = label_commitment!(self.h2_commit);
+        let labeled_t_commit = label_commitment!(t_commit);
+        let labeled_a_commit = label_commitment!(self.a_commit);
+        let labeled_b_commit = label_commitment!(self.b_commit);
+        let labeled_c_commit = label_commitment!(self.c_commit);
 
         match PC::check(
             cvk,
-            &aw_commits,
+            vec![
+                &labeled_r_commit,
+                &labeled_a_commit,
+                &labeled_b_commit,
+                &labeled_c_commit,
+                &labeled_sigma1_commit,
+                &labeled_sigma2_commit,
+                &labeled_t_tag_commit,
+                &labeled_f_commit,
+                &labeled_h2_commit,
+                &labeled_t_commit,
+            ],
             &z,
-            aw_evals,
+            vec![
+                r0,
+                self.evaluations.wire_evals.a,
+                self.evaluations.wire_evals.b,
+                self.evaluations.wire_evals.c,
+                self.evaluations.perm_evals.sigma1,
+                self.evaluations.perm_evals.sigma2,
+                self.evaluations.lookup_evals.t_tag,
+                self.evaluations.lookup_evals.f,
+                self.evaluations.lookup_evals.h2,
+                self.evaluations.lookup_evals.t,
+            ],
             &self.aw_opening,
             v,
             None,
@@ -447,11 +496,25 @@ where
             Err(e) => panic!("{:?}", e),
         }
         .and_then(|_| {
+            let labeled_z1_commit = label_commitment!(self.z1_commit);
+            let labeled_z2_commit = label_commitment!(self.z2_commit);
+            let labeled_h1_commit = label_commitment!(self.h1_commit);
+
             match PC::check(
                 cvk,
-                &saw_commits,
+                vec![
+                    &labeled_z1_commit,
+                    &labeled_t_commit,
+                    &labeled_z2_commit,
+                    &labeled_h1_commit,
+                ],
                 &(z * domain.group_gen()),
-                saw_evals,
+                vec![
+                    self.evaluations.perm_evals.z1_next,
+                    self.evaluations.lookup_evals.t_next,
+                    self.evaluations.lookup_evals.z2_next,
+                    self.evaluations.lookup_evals.h1_next,
+                ],
                 &self.saw_opening,
                 v,
                 None,

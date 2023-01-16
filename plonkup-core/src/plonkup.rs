@@ -249,7 +249,7 @@ where
         let transcript = &mut T::new("Plonkup");
         vk.seed_transcript(transcript);
 
-        plonk_prove(ck, pk, epk, cs, transcript, rng)
+        plonk_prove(ck, pk, epk, vk, cs, transcript, rng)
     }
 
     ///

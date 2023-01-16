@@ -49,6 +49,7 @@ default = [
     "asm",
     "itertools/default",
     "parallel",
+    "trace",
 ]
 
 # Raw Assembly

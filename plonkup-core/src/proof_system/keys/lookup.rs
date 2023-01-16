@@ -7,24 +7,22 @@
 
 use ark_ff::{FftField, Field};
 use ark_poly::polynomial::univariate::DensePolynomial;
+use ark_poly_commit::LabeledPolynomial;
 use ark_serialize::*;
 
 use crate::{
     util::lc,
-    proof_system::linearisation_poly::{
-        ProofEvaluations, WireEvaluations, LookupEvaluations,
-    },
+    proof_system::{ProofEvaluations, WireEvaluations, LookupEvaluations},
     commitment::HomomorphicCommitment,
 };
 
 /// Lookup Gates Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ProverKey<F: Field> {
     /// Lookup selector
-    pub q_lookup: DensePolynomial<F>,
+    pub q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
     /// Table tag selector
-    pub t_tag: DensePolynomial<F>,
+    pub t_tag: LabeledPolynomial<F, DensePolynomial<F>>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -52,7 +50,7 @@ impl<F: Field> ProverKey<F> {
             let b = wire_evals.b;
             let c = wire_evals.c;
             let d = lookup_evals.t_tag;
-            &self.q_lookup * (
+            self.q_lookup.polynomial() * (
                 alpha_sq * alpha
                     * (lc(&[a, b, c, d], zeta) - lookup_evals.f)
             )
@@ -79,8 +77,7 @@ impl<F: Field> ProverKey<F> {
 }
 
 /// Lookup Gates Extended Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ExtendedProverKey<F: FftField> {
     /// Lookup selector
     pub q_lookup: Vec<F>,
@@ -148,14 +145,7 @@ impl<F: FftField> ExtendedProverKey<F> {
 }
 
 /// LookUp Verifier Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone,
-    Copy(bound = "PC::Commitment: Copy"),
-    Debug(bound = "PC::Commitment: core::fmt::Debug"),
-    Eq(bound = "PC::Commitment: Eq"),
-    PartialEq(bound = "PC::Commitment: PartialEq")
-)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct VerifierKey<F, PC>
 where
     F: Field,

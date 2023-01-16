@@ -8,34 +8,25 @@
 
 use ark_ff::{FftField, Field};
 use ark_poly::polynomial::univariate::DensePolynomial;
-use ark_poly_commit::PCCommitment;
+use ark_poly_commit::{PCCommitment, LabeledPolynomial};
 use ark_serialize::*;
 
 use crate::{
-    error::Error,
     permutation::constants::{K1, K2},
-    proof_system::linearisation_poly::{
-        ProofEvaluations, WireEvaluations, PermutationEvaluations,
-    },
+    proof_system::{ProofEvaluations, WireEvaluations, PermutationEvaluations},
 };
 
 /// Permutation Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = ""),
-    Eq(bound = ""),
-    PartialEq(bound = "")
-)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ProverKey<F: Field> {
     /// Left Permutation
-    pub sigma1: DensePolynomial<F>,
+    pub sigma1: LabeledPolynomial<F, DensePolynomial<F>>,
 
     /// Right Permutation
-    pub sigma2: DensePolynomial<F>,
+    pub sigma2: LabeledPolynomial<F, DensePolynomial<F>>,
 
     /// Output Permutation
-    pub sigma3: DensePolynomial<F>,
+    pub sigma3: LabeledPolynomial<F, DensePolynomial<F>>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -50,7 +41,7 @@ impl<F: Field> ProverKey<F> {
         wire_evals: &WireEvaluations<F>,
         perm_evals: &PermutationEvaluations<F>,
         z1_poly: &DensePolynomial<F>,
-    ) -> Result<DensePolynomial<F>, Error> {
+    ) -> DensePolynomial<F> {
         // Computes the following:
         // ((a(z) + β*z + γ) * (b(z) + β*K1*z + γ) * (c(z) + β*K2*z + γ) * α + L_1(z) * α^2) * z1(x)
         let part_1 = {
@@ -67,7 +58,7 @@ impl<F: Field> ProverKey<F> {
         // Computes the following:
         // -(a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * β * z1(ωz) * α * σ3(x)
         let part_2 =
-            &self.sigma3 * (
+            self.sigma3.polynomial() * (
                 -alpha
                     * beta
                     * perm_evals.z1_next
@@ -75,18 +66,12 @@ impl<F: Field> ProverKey<F> {
                     * (beta * perm_evals.sigma2 + wire_evals.b + gamma)
             );
 
-        Ok(part_1 + part_2)
+        part_1 + part_2
     }
 }
 
 /// Permutation Prover Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = ""),
-    Eq(bound = ""),
-    PartialEq(bound = "")
-)]
+#[derive(Debug, Clone, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ExtendedProverKey<F: FftField> {
     /// Left Permutation
     pub sigma1: Vec<F>,
@@ -156,13 +141,7 @@ impl<F: FftField> ExtendedProverKey<F> {
 }
 
 /// Permutation Verifier Key
-#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = "PCC: core::fmt::Debug"),
-    Eq(bound = "PCC: Eq"),
-    PartialEq(bound = "PCC: PartialEq")
-)]
+#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct VerifierKey<PCC>
 where
     PCC: PCCommitment + Default,

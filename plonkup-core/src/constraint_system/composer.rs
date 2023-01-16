@@ -150,6 +150,7 @@ pub struct SetupComposer<F: Field> {
     pub pp: PublicPositions,
 
     #[cfg(feature = "trace")]
+    #[derivative(Debug="ignore")]
     pub(super) backtrace: Vec<backtrace::Backtrace>,
 }
 
