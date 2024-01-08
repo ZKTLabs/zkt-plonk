@@ -141,10 +141,16 @@ impl<F: FftField> ExtendedProverKey<F> {
 }
 
 /// Permutation Verifier Key
-#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
+#[derivative(
+    Clone(bound = "PCC: Clone"),
+    Debug(bound = "PCC: core::fmt::Debug"),
+    Eq(bound = "PCC: Eq"),
+    PartialEq(bound = "PCC: PartialEq")
+)]
 pub struct VerifierKey<PCC>
 where
-    PCC: PCCommitment + Default,
+    PCC: PCCommitment,
 {
     /// Left Permutation Commitment
     pub sigma1: PCC,
@@ -158,7 +164,7 @@ where
 
 impl<PCC> VerifierKey<PCC>
 where
-    PCC: PCCommitment + Default,
+    PCC: PCCommitment,
 {
     /// Computes the linearisation commitments.
     pub(crate) fn compute_linearisation_commitment<F: Field>(

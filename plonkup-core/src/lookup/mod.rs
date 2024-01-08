@@ -6,13 +6,11 @@
 
 //! Module containing the lookups.
 
-mod custom;
 mod table;
 mod multiset;
 
 pub(crate) use multiset::MultiSet;
 
-pub use custom::*;
 pub use table::*;
 
 use ark_std::cfg_iter;

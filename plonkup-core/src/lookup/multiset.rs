@@ -42,13 +42,10 @@ impl<F: Field> MultiSet<F> {
     /// Extends the length of the multiset to n elements The `n` will be the
     /// size of the arithmetic circuit. This will extend the vectors to the
     /// size
-    pub(super) fn pad_with_first(&mut self, n: usize) {
+    pub(super) fn pad_with_zero(&mut self, n: usize) {
         assert!(n.is_power_of_two());
-        if self.is_empty() {
-            self.push(F::zero())
-        };
         if n > self.len() {
-            self.0.resize(n, self.0[0])
+            self.0.resize(n, F::zero())
         }
     }
 
@@ -172,17 +169,6 @@ impl<F: Field> MultiSet<F> {
     {
         poly_from_evals(domain, self.0)
     }
-
-    // /// Compress a vector of multisets into a single multiset using
-    // /// a RLC. A random challenge `zeta` needs to be provided. It
-    // /// is derived by hashing the transcript.
-    // pub(crate) fn compress(multisets: &[Self], zeta: F) -> Self {
-    //     let len = multisets[0].len();
-    //     for mset in multisets.iter().skip(1) {
-    //         assert_eq!(mset.len(), len)
-    //     }
-    //     lc(multisets, zeta)
-    // }
 }
 
 impl<F> From<&[F]> for MultiSet<F>

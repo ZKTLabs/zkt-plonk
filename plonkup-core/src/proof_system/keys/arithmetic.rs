@@ -82,7 +82,13 @@ impl<F: FftField> ExtendedProverKey<F> {
 }
 
 /// Arithmetic Gates Verifier Key
-#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
+#[derivative(
+    Clone(bound = "PC::Commitment: Clone"),
+    Debug(bound = "PC::Commitment: core::fmt::Debug"),
+    Eq(bound = "PC::Commitment: Eq"),
+    PartialEq(bound = "PC::Commitment: PartialEq")
+)]
 pub struct VerifierKey<F, PC>
 where
     F: Field,

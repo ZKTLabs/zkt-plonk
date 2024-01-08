@@ -26,7 +26,7 @@ use crate::{
 
 /// Subset of the [`ProofEvaluations`]. Evaluations at `z` of the
 /// wire polynomials
-#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct WireEvaluations<F: Field> {
     /// Evaluation of the witness polynomial for the left wire at `z`.
     pub a: F,
@@ -40,7 +40,7 @@ pub struct WireEvaluations<F: Field> {
 
 /// Subset of the [`ProofEvaluations`]. Evaluations of the sigma and permutation
 /// polynomials at `z`  or `z *w` where `w` is the nth root of unity.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct PermutationEvaluations<F: Field> {
     /// Evaluation of the left sigma polynomial at `z`.
     pub sigma1: F,
@@ -54,7 +54,7 @@ pub struct PermutationEvaluations<F: Field> {
 }
 
 /// Probably all of these should go into CustomEvals
-#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct LookupEvaluations<F: Field> {
     /// Evaluations of the query polynomial at `z`
     pub f: F,
@@ -71,9 +71,6 @@ pub struct LookupEvaluations<F: Field> {
     /// root of unity
     pub h2: F,
 
-    /// Evaluations of the table tag polynomial at `z`
-    pub t_tag: F,
-
     /// Evaluations of the table polynomial at `z`
     pub t: F,
 
@@ -82,7 +79,7 @@ pub struct LookupEvaluations<F: Field> {
 }
 
 /// Set of evaluations that form the [`Proof`](super::Proof).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct ProofEvaluations<F: Field> {
     /// Wire evaluations
     pub wire_evals: WireEvaluations<F>,
@@ -98,7 +95,14 @@ pub struct ProofEvaluations<F: Field> {
 /// Quotient, Shifted and Opening polynomials as well as the
 /// `ProofEvaluations`.
 /// Set of evaluations that form the [`Proof`](super::Proof).
-#[derive(Debug, Clone, Copy, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
+#[derivative(
+    Clone(bound = "PC::Commitment: Clone, PC::Proof: Clone"),
+    Debug(bound = "PC::Commitment: core::fmt::Debug, PC::Proof: core::fmt::Debug"),
+    Default(bound = "PC::Commitment: Default, PC::Proof: Default"),
+    Eq(bound = "PC::Commitment: Eq, PC::Proof: Eq"),
+    PartialEq(bound = "PC::Commitment: PartialEq, PC::Proof: PartialEq")
+)]
 pub struct Proof<F, D, PC>
 where
     F: FftField,

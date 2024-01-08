@@ -10,7 +10,6 @@
 
 mod arithmetic;
 mod boolean;
-mod lookup;
 mod composer;
 mod variable;
 mod pi;
@@ -80,6 +79,7 @@ impl<F: Field> ConstraintSystem<F> {
         setup: bool,
         constraint_size: usize,
         variable_size: usize,
+        table_size: usize,
     ) -> Self {
         let composer = if setup {
             Composer::Setup(
@@ -93,7 +93,7 @@ impl<F: Field> ConstraintSystem<F> {
 
         Self {
             composer,
-            lookup_table: LookupTable::new(),
+            lookup_table: LookupTable::with_capacity(table_size),
         }
     }
 
@@ -145,6 +145,24 @@ impl<F: Field> ConstraintSystem<F> {
                     w_o,
                     pi,
                 );
+            }
+        }
+    }
+
+    ///
+    pub fn lookup_constrain(&mut self, w_o: Variable) {
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                let sels = Selectors::new_lookup();
+                composer.gate_constrain(Variable::Zero, Variable::Zero, w_o, sels, false);
+            }
+            Composer::Proving(composer) => {
+                #[cfg(feature = "check-lookup")]
+                {
+                    let value = composer.var_map.value_of_var(w_o);
+                    self.lookup_table.contains::<T>(&value);
+                }
+                composer.input_wires(Variable::Zero, Variable::Zero, w_o, None);
             }
         }
     }

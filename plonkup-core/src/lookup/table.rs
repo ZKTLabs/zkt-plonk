@@ -4,13 +4,12 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use std::collections::HashMap;
 use ark_ff::{Field, FftField};
-use ark_poly::EvaluationDomain;
-use ark_poly::univariate::DensePolynomial;
+use ark_poly::{EvaluationDomain, univariate::DensePolynomial};
+use indexmap::IndexSet;
 
-use crate::util::lc;
 use super::*;
+use crate::util::poly_from_evals;
 
 /// This struct is a table, contaning a vector, of arity 4 where each of the
 /// values is a scalar. The elements of the table are determined by the function
@@ -19,281 +18,208 @@ use super::*;
 /// This struct will be used to determine the outputs of gates within arithmetic
 /// circuits.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LookupTable<F: Field>(HashMap<&'static str, (F, Vec<[F; 3]>)>);
+pub struct LookupTable<F: Field>(pub IndexSet<F>);
 
 impl<F: Field> LookupTable<F> {
-    /// Create a new, empty Plookup table, with arity 4.
+    /// Create a new, empty Plookup table
     pub(crate) fn new() -> Self {
         Self::default()
     }
 
     ///
-    pub fn tables(&self) -> usize {
-        self.0.len()
+    pub(crate) fn with_capacity(size: usize) -> Self {
+        Self(IndexSet::with_capacity(size))
     }
 
     /// Returns the length of the `LookupTable` vector.
     pub fn size(&self) -> usize {
-        self.0.iter().map(|(_, (_, r))| r.len()).sum()
+        self.0.len()
+    }
+
+    /// 
+    pub fn insert(&mut self, element: F) -> bool {
+        self.0.insert(element)
     }
 
     ///
-    pub fn contains_table<T: CustomTable<F>>(&self) -> bool {
-        self.0.contains_key(T::NAME)
+    pub fn contains(&self, x: &F) {
+        self.0.get(x).unwrap_or_else(|| panic!("element not found in table"));
     }
 
-    ///
-    pub fn table_tag<T: CustomTable<F>>(&self) -> F {
-        self
-            .0
-            .get(T::NAME)
-            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
-            .0
-    }
-
-    ///
-    pub fn register_table<T: CustomTable<F>>(&mut self) {
-        if !self.contains_table::<T>() {
-            // tag is the number of inserted tables
-            let tag = self.tables() as u64;
-            let rows = T::collect_rows();
-            self.0.insert(T::NAME, (tag.into(), rows));
-        }
-    }
-
-    ///
-    pub fn contains<T: CustomTable<F> + CustomSet<F>>(&self, x: &F) {
-        self
-            .0
-            .get(T::NAME)
-            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
-            .1
-            .iter()
-            .find(|row| &row[0] == x)
-            .unwrap_or_else(|| panic!("element not found in {}", T::NAME));
-    }
-
-    ///
-    pub fn lookup_1d<T: CustomTable<F> + Custom1DMap<F>>(&self, x: &F) -> F {
-        let row = self
-            .0
-            .get(T::NAME)
-            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
-            .1
-            .iter()
-            .find(|row| &row[0] == x)
-            .unwrap_or_else(|| panic!("element not found in {}", T::NAME));
-
-        row[1]
-    }
-
-    /// Attempts to find an output value, given two input values, by querying
-    /// the lookup table. The final wire holds the index of the table. The
-    /// element must be predetermined to be between -1 and 2 depending on
-    /// the type of table used. If the element does not exist, it will
-    /// return an error.
-    pub fn lookup_2d<T: CustomTable<F> + Custom2DMap<F>>(&self, x: &F, y: &F) -> F {
-        let row = self
-            .0
-            .get(T::NAME)
-            .unwrap_or_else(|| panic!("{} is not registered", T::NAME))
-            .1
-            .iter()
-            .find(|row| &row[0] == x && &row[1] == y)
-            .unwrap_or_else(|| panic!("elements not found in {}", T::NAME));
-
-        row[2]
-    }
-
-    /// Takes in a table, which is a vector of slices containing
-    /// 4 elements, and turns them into 3 distinct multisets for
-    /// a, b, c.
-    fn into_multisets(self) -> Vec<MultiSet<F>> {
-        let mut msets = vec![MultiSet::with_capacity(self.size()); 4];
-        for (_, (tag, rows)) in self.0 {
-            for row in rows {
-                msets[0].push(row[0]);
-                msets[1].push(row[1]);
-                msets[2].push(row[2]);
-                msets[3].push(tag);
-            }
-        }
-        
-        msets
-    }
-
-    ///
-    pub(crate) fn compress_to_multiset(self, n: usize, zeta: F) -> MultiSet<F> {
-        let msets = self.into_multisets();
-        let mut t = lc(&msets, zeta);
-        t.pad_with_first(n);
+    /// Takes in a table, which is a vector of slices containing all elements,
+    /// turns them into multiset for c and extends the length to `n`, 
+    pub(super) fn into_multiset(self, n: usize) -> MultiSet<F> {
+        let mut t = MultiSet::from_iter(self.0.into_iter());
+        t.pad_with_zero(n);
         
         t
     }
 
-    ///
-    pub(crate) fn into_polynomials<D>(
-        self,
-        domain: &D,
-    ) -> Vec<DensePolynomial<F>>
+    /// 
+    pub(crate) fn into_polynomial<D>(self, domain: &D) -> DensePolynomial<F>
     where
         F: FftField,
         D: EvaluationDomain<F>,
     {
-        self.into_multisets()
-            .into_iter()
-            .map(|mut t| {
-                t.pad_with_first(domain.size());
-                t.into_polynomial(domain)
-            })
-            .collect()
+        self.into_multiset(domain.size()).into_polynomial(domain)
+    }
+
+    ///
+    pub fn selector_polynomial<D>(&self, domain: &D) -> DensePolynomial<F>
+    where
+        F: FftField,
+        D: EvaluationDomain<F>,
+    {
+        let mut selectors = vec![F::one(); self.size()];
+        selectors.resize(domain.size(), F::zero());
+        poly_from_evals(domain, selectors)
     }
 }
 
-#[cfg(test)]
-mod test {
-    use ark_ff::Field;
-    use ark_std::test_rng;
-    use ark_bn254::Bn254;
+// #[cfg(test)]
+// mod test {
+//     use ark_ff::Field;
+//     use ark_std::test_rng;
+//     use ark_bn254::Bn254;
 
-    use crate::{batch_test_field, impl_custom_table};
-    use super::*;
+//     use crate::{batch_test_field, impl_custom_table};
+//     use super::*;
 
-    pub struct DummySet;
+//     pub struct DummySet;
 
-    impl<F: Field> CustomSet<F> for DummySet {
-        type Element = F;
+//     impl<F: Field> CustomSet<F> for DummySet {
+//         type Element = F;
 
-        fn contains(_element: Self::Element) -> bool {
-            unimplemented!("not needed for testing")
-        }
+//         fn contains(_element: Self::Element) -> bool {
+//             unimplemented!("not needed for testing")
+//         }
 
-        fn collect_elements() -> Vec<Self::Element> {
-            let rng = &mut test_rng();
-            (0..8).into_iter().map(|_| F::rand(rng)).collect()
-        }
-    }
+//         fn collect_elements() -> Vec<Self::Element> {
+//             let rng = &mut test_rng();
+//             (0..8).into_iter().map(|_| F::rand(rng)).collect()
+//         }
+//     }
 
-    impl_custom_table!(DummySet, CustomSet);
+//     impl_custom_table!(DummySet, CustomSet);
 
-    pub struct Dummy1DMap;
+//     pub struct Dummy1DMap;
 
-    impl<F: Field> Custom1DMap<F> for Dummy1DMap {
-        type X = F;
-        type Y = F;
+//     impl<F: Field> Custom1DMap<F> for Dummy1DMap {
+//         type X = F;
+//         type Y = F;
 
-        fn lookup(x: Self::X) -> Self::Y {
-            x.square()
-        }
+//         fn lookup(x: Self::X) -> Self::Y {
+//             x.square()
+//         }
 
-        fn collect_x_axis() -> Vec<Self::X> {
-            let rng = &mut test_rng();
-            (0..8).into_iter().map(|_| F::rand(rng)).collect()
-        }
-    }
+//         fn collect_x_axis() -> Vec<Self::X> {
+//             let rng = &mut test_rng();
+//             (0..8).into_iter().map(|_| F::rand(rng)).collect()
+//         }
+//     }
 
-    impl_custom_table!(Dummy1DMap, Custom1DMap);
+//     impl_custom_table!(Dummy1DMap, Custom1DMap);
 
-    pub struct Dummy2DMap;
+//     pub struct Dummy2DMap;
 
-    impl<F: Field> Custom2DMap<F> for Dummy2DMap {
-        type X = F;
-        type Y = F;
-        type Z = F;
+//     impl<F: Field> Custom2DMap<F> for Dummy2DMap {
+//         type X = F;
+//         type Y = F;
+//         type Z = F;
 
-        fn lookup(x: Self::X, y: Self::Y) -> Self::Z {
-            x * y
-        }
+//         fn lookup(x: Self::X, y: Self::Y) -> Self::Z {
+//             x * y
+//         }
 
-        fn collect_x_axis() -> Vec<Self::X> {
-            let rng = &mut test_rng();
-            (0..8).into_iter().map(|_| F::rand(rng)).collect()
-        }
+//         fn collect_x_axis() -> Vec<Self::X> {
+//             let rng = &mut test_rng();
+//             (0..8).into_iter().map(|_| F::rand(rng)).collect()
+//         }
 
-        fn collect_y_axis() -> Vec<Self::Y> {
-            let rng = &mut test_rng();
-            (0..8).into_iter().map(|_| F::rand(rng)).collect()
-        }
-    }
+//         fn collect_y_axis() -> Vec<Self::Y> {
+//             let rng = &mut test_rng();
+//             (0..8).into_iter().map(|_| F::rand(rng)).collect()
+//         }
+//     }
 
-    impl_custom_table!(Dummy2DMap, Custom2DMap);
+//     impl_custom_table!(Dummy2DMap, Custom2DMap);
 
-    fn test_register_tables<F: Field>() {
-        let mut table = LookupTable::<F>::new();
+//     fn test_register_tables<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
     
-        table.register_table::<DummySet>();
-        table.register_table::<Dummy1DMap>();
-        table.register_table::<Dummy2DMap>();
+//         table.register_table::<DummySet>();
+//         table.register_table::<Dummy1DMap>();
+//         table.register_table::<Dummy2DMap>();
 
-        assert_eq!(table.tables(), 3);
-        assert_eq!(table.size(), 8 + 8 + 64);
-    }
+//         assert_eq!(table.tables(), 3);
+//         assert_eq!(table.size(), 8 + 8 + 64);
+//     }
 
-    fn test_contains<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<DummySet>();
+//     fn test_contains<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<DummySet>();
 
-        DummySet::collect_elements()
-            .into_iter()
-            .for_each(|e| table.contains::<DummySet>(&e));
-    }
+//         DummySet::collect_elements()
+//             .into_iter()
+//             .for_each(|e| table.contains::<DummySet>(&e));
+//     }
 
-    fn test_contains_failed<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<DummySet>();
+//     fn test_contains_failed<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<DummySet>();
 
-        table.contains::<DummySet>(&F::zero());
-    }
+//         table.contains::<DummySet>(&F::zero());
+//     }
 
-    fn test_lookup_1d<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<Dummy1DMap>();
+//     fn test_lookup_1d<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<Dummy1DMap>();
 
-        Dummy1DMap::collect_x_axis()
-            .into_iter()
-            .for_each(|x| {
-                table.lookup_1d::<Dummy1DMap>(&x);
-            });
-    }
+//         Dummy1DMap::collect_x_axis()
+//             .into_iter()
+//             .for_each(|x| {
+//                 table.lookup_1d::<Dummy1DMap>(&x);
+//             });
+//     }
 
-    fn test_lookup_1d_failed<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<Dummy1DMap>();
+//     fn test_lookup_1d_failed<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<Dummy1DMap>();
 
-        table.lookup_1d::<Dummy1DMap>(&F::zero());
-    }
+//         table.lookup_1d::<Dummy1DMap>(&F::zero());
+//     }
 
-    fn test_lookup_2d<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<Dummy2DMap>();
+//     fn test_lookup_2d<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<Dummy2DMap>();
 
-        Dummy2DMap::collect_x_axis()
-            .into_iter()
-            .zip(Dummy2DMap::collect_y_axis())
-            .for_each(|(x, y)| {
-                table.lookup_2d::<Dummy2DMap>(&x, &y);
-            });
-    }
+//         Dummy2DMap::collect_x_axis()
+//             .into_iter()
+//             .zip(Dummy2DMap::collect_y_axis())
+//             .for_each(|(x, y)| {
+//                 table.lookup_2d::<Dummy2DMap>(&x, &y);
+//             });
+//     }
 
-    fn test_lookup_2d_failed<F: Field>() {
-        let mut table = LookupTable::<F>::new();
-        table.register_table::<Dummy2DMap>();
+//     fn test_lookup_2d_failed<F: Field>() {
+//         let mut table = LookupTable::<F>::new();
+//         table.register_table::<Dummy2DMap>();
 
-        table.lookup_2d::<Dummy2DMap>(&F::zero(), &F::zero());
-    }
+//         table.lookup_2d::<Dummy2DMap>(&F::zero(), &F::zero());
+//     }
 
-    batch_test_field!(
-        Bn254,
-        [
-            test_register_tables,
-            test_contains,
-            test_lookup_1d,
-            test_lookup_2d
-        ],
-        [
-            test_contains_failed,
-            test_lookup_1d_failed,
-            test_lookup_2d_failed
-        ]
-    );
-}
+//     batch_test_field!(
+//         Bn254,
+//         [
+//             test_register_tables,
+//             test_contains,
+//             test_lookup_1d,
+//             test_lookup_2d
+//         ],
+//         [
+//             test_contains_failed,
+//             test_lookup_1d_failed,
+//             test_lookup_2d_failed
+//         ]
+//     );
+// }

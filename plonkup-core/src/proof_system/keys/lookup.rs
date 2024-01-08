@@ -11,7 +11,6 @@ use ark_poly_commit::LabeledPolynomial;
 use ark_serialize::*;
 
 use crate::{
-    util::lc,
     proof_system::{ProofEvaluations, WireEvaluations, LookupEvaluations},
     commitment::HomomorphicCommitment,
 };
@@ -21,8 +20,8 @@ use crate::{
 pub struct ProverKey<F: Field> {
     /// Lookup selector
     pub q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
-    /// Table tag selector
-    pub t_tag: LabeledPolynomial<F, DensePolynomial<F>>,
+    /// Table selector
+    pub q_table: LabeledPolynomial<F, DensePolynomial<F>>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -32,7 +31,6 @@ impl<F: Field> ProverKey<F> {
         alpha: F,
         delta: F,
         epsilon: F,
-        zeta: F,
         l_1_eval: F,
         wire_evals: &WireEvaluations<F>,
         lookup_evals: &LookupEvaluations<F>,
@@ -44,17 +42,9 @@ impl<F: Field> ProverKey<F> {
         let one_plus_delta = delta + F::one();
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
-        // q_lookup(x) * (a(z) + ζ*b(z) + (ζ^2)*c(z) + (ζ^3)*tag(z) - f(z)) * α^3
-        let part_1 = {
-            let a = wire_evals.a;
-            let b = wire_evals.b;
-            let c = wire_evals.c;
-            let d = lookup_evals.t_tag;
-            self.q_lookup.polynomial() * (
-                alpha_sq * alpha
-                    * (lc(&[a, b, c, d], zeta) - lookup_evals.f)
-            )
-        };
+        // q_lookup(x) * (c(z) - f(z)) * α^3
+        let part_1 =
+            self.q_lookup.polynomial() * (alpha_sq * alpha * (wire_evals.c - lookup_evals.f));
 
         // z2(x) * [(1+δ) * (ε+f(z)) * (ε(1+δ) + t(z) + δ*t(ωz)) * α^4 + L_1(z) * α^5]
         let part_2 = z2_poly * (
@@ -72,7 +62,11 @@ impl<F: Field> ProverKey<F> {
                 * (delta * lookup_evals.h1_next + epsilon_one_plus_delta + lookup_evals.h2)
         );
 
-        part_1 + part_2 + part_3
+        // q_table(x) * t(z) * α^5
+        let part_4 =
+            self.q_table.polynomial() * (alpha_qu * alpha_sq * lookup_evals.t);
+
+        part_1 + part_2 + part_3 + part_4
     }
 }
 
@@ -83,10 +77,10 @@ pub struct ExtendedProverKey<F: FftField> {
     pub q_lookup: Vec<F>,
     ///
     pub q_lookup_coset: Vec<F>,
+    /// Table selector
+    pub q_table: Vec<F>,
     ///
-    pub t_tag: Vec<F>,
-    ///
-    pub t_tag_coset: Vec<F>,
+    pub q_table_coset: Vec<F>,
 }
 
 impl<F: FftField> ExtendedProverKey<F> {
@@ -97,7 +91,6 @@ impl<F: FftField> ExtendedProverKey<F> {
         alpha: F,
         delta: F,
         epsilon: F,
-        zeta: F,
         a_i: F,
         b_i: F,
         c_i: F,
@@ -116,14 +109,8 @@ impl<F: FftField> ExtendedProverKey<F> {
         let one_plus_delta = delta + F::one();
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
-        // q_lookup(x) * (a(x) + ζ*b(x) + (ζ^2)*c(x) + (ζ^3)*tag(x) - f(x)) * α^3
-        let part_1 = {
-            let q_lookup_i = self.q_lookup_coset[i];
-            let t_tag_i = self.t_tag_coset[i];
-            alpha_sq * alpha
-                * (lc(&[a_i, b_i, c_i, t_tag_i], zeta) - f_i)
-                * q_lookup_i
-        };
+        // q_lookup(x) * (c(x) - f(x)) * α^3
+        let part_1 = alpha_sq * alpha * (c_i - f_i) * self.q_lookup_coset[i];
 
         // z2(x) * (1+δ) * (ε+f(x)) * (ε*(1+δ) + t(x) + δt(xω)) * α^4
         let part_2 = alpha_qu
@@ -140,12 +127,21 @@ impl<F: FftField> ExtendedProverKey<F> {
 
         let part_4 = (z2_i - F::one()) * l_1_i * alpha_qu * alpha;
 
-        part_1 + part_2 + part_3 + part_4
+        // q_table(x) * t(x) * α^6
+        let part_5 = self.q_table_coset[i] * t_i * alpha_qu * alpha_sq;
+
+        part_1 + part_2 + part_3 + part_4 + part_5
     }
 }
 
 /// LookUp Verifier Key
-#[derive(Debug, Clone, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(CanonicalDeserialize, CanonicalSerialize, derivative::Derivative)]
+#[derivative(
+    Clone(bound = "PC::Commitment: Clone"),
+    Debug(bound = "PC::Commitment: core::fmt::Debug"),
+    Eq(bound = "PC::Commitment: Eq"),
+    PartialEq(bound = "PC::Commitment: PartialEq")
+)]
 pub struct VerifierKey<F, PC>
 where
     F: Field,
@@ -153,16 +149,8 @@ where
 {
     /// Lookup Selector Commitment
     pub q_lookup: PC::Commitment,
-    /// Lookup Table Tag Commitment
-    pub t_tag: PC::Commitment,
-    /// Commitment to first table column
-    pub t1: PC::Commitment,
-    /// Commitment to second table column
-    pub t2: PC::Commitment,
-    /// Commitment to third table column
-    pub t3: PC::Commitment,
-    /// Commitment to fourth table column
-    pub t4: PC::Commitment,
+    /// Table Selector Commitment
+    pub q_table: PC::Commitment,
 }
 
 impl<F, PC> VerifierKey<F, PC>
@@ -189,15 +177,9 @@ where
         let one_plus_delta = F::one() + delta;
         let epsilon_one_plus_delta = epsilon * one_plus_delta;
 
-        // (a(z) + ζ*b(z) + (ζ^2)*c(z) + (ζ^3)*tag(z) - f(z)) * α^3
-        let scalar = {
-            let a = evaluations.wire_evals.a;
-            let b = evaluations.wire_evals.b;
-            let c = evaluations.wire_evals.c;
-            let d = evaluations.lookup_evals.t_tag;
-            alpha_sq * alpha
-                * (lc(&[a, b, c, d], zeta) - evaluations.lookup_evals.f)
-        };
+        // (c(z) - f(z)) * α^3
+        let scalar =
+            alpha_sq * alpha * (evaluations.wire_evals.c - evaluations.lookup_evals.f);
         scalars.push(scalar);
         points.push(self.q_lookup.clone());
 
@@ -218,5 +200,10 @@ where
                 + epsilon_one_plus_delta + evaluations.lookup_evals.h2);
         scalars.push(scalar);
         points.push(h1_comm);
+
+        // t(z) * α^6
+        let scalar = alpha_qu * alpha_sq * evaluations.lookup_evals.t;
+        scalars.push(scalar);
+        points.push(self.q_table.clone());
     }
 }
