@@ -49,7 +49,7 @@ impl<F: Field> ProverKey<F> {
         q_o: LabeledPolynomial<F, DensePolynomial<F>>,
         q_c: LabeledPolynomial<F, DensePolynomial<F>>,
         q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
-        t_tag: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_table: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma1: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma2: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma3: LabeledPolynomial<F, DensePolynomial<F>>,
@@ -64,7 +64,7 @@ impl<F: Field> ProverKey<F> {
             },
             lookup: lookup::ProverKey {
                 q_lookup,
-                t_tag,
+                q_table,
             },
             perm: permutation::ProverKey {
                 sigma1,
@@ -82,7 +82,6 @@ impl<F: Field> ProverKey<F> {
         sigma2: Vec<F>,
         sigma3: Vec<F>,
         q_lookup: Vec<F>,
-        t_tag: Vec<F>,
     ) -> Result<ExtendedProverKey<F>, Error>
     where
         F: FftField,
@@ -101,7 +100,7 @@ impl<F: Field> ProverKey<F> {
         let q_c_coset = coset_evals_from_poly_ref(&domain_4n, &self.arith.q_c);
 
         let q_lookup_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.q_lookup);
-        let t_tag_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.t_tag);
+        let q_table_coset = coset_evals_from_poly_ref(&domain_4n, &self.lookup.q_table);
 
         let sigma1_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma1);
         let sigma2_coset = coset_evals_from_poly_ref(&domain_4n, &self.perm.sigma2);
@@ -130,8 +129,7 @@ impl<F: Field> ProverKey<F> {
             lookup: lookup::ExtendedProverKey {
                 q_lookup,
                 q_lookup_coset,
-                t_tag,
-                t_tag_coset,
+                q_table_coset,
             },
             perm: permutation::ExtendedProverKey {
                 sigma1,
@@ -224,14 +222,10 @@ where
         q_o: PC::Commitment,
         q_c: PC::Commitment,
         q_lookup: PC::Commitment,
-        t_tag: PC::Commitment,
+        q_table: PC::Commitment,
         sigma1: PC::Commitment,
         sigma2: PC::Commitment,
         sigma3: PC::Commitment,
-        t1: PC::Commitment,
-        t2: PC::Commitment,
-        t3: PC::Commitment,
-        t4: PC::Commitment,
     ) -> Self {
         assert!(n.is_power_of_two());
         Self {
@@ -251,11 +245,7 @@ where
             },
             lookup: lookup::VerifierKey {
                 q_lookup,
-                t_tag,
-                t1,
-                t2,
-                t3,
-                t4,
+                q_table,
             },
         }
     }
@@ -281,11 +271,7 @@ where
         transcript.append_commitment("sigma2_commit", &self.perm.sigma2);
         transcript.append_commitment("sigma3_commit", &self.perm.sigma3);
         transcript.append_commitment("q_lookup_commit", &self.lookup.q_lookup);
-        transcript.append_commitment("t_tag_commit", &self.lookup.t_tag);
-        transcript.append_commitment("t1_commit", &self.lookup.t1);
-        transcript.append_commitment("t2_commit", &self.lookup.t2);
-        transcript.append_commitment("t3_commit", &self.lookup.t3);
-        transcript.append_commitment("t4_commit", &self.lookup.t4);
+        transcript.append_commitment("q_table_commit", &self.lookup.q_table);
     }
 }
 

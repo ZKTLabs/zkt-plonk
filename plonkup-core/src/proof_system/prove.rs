@@ -27,7 +27,7 @@ use crate::{
     lookup::{MultiSet, compute_z2_poly},
     permutation::compute_z1_poly,
     transcript::TranscriptProtocol,
-    util::{EvaluationDomainExt, lc, poly_from_evals_ref, evals_from_poly_ref},
+    util::{EvaluationDomainExt, poly_from_evals_ref, evals_from_poly_ref},
     label_polynomial, label_commitment,
 };
 use super::{
@@ -96,14 +96,12 @@ where
         let sigma2 = evals_from_poly_ref(&domain, pk.perm.sigma2.polynomial());
         let sigma3 = evals_from_poly_ref(&domain, pk.perm.sigma3.polynomial());
         let q_lookup = evals_from_poly_ref(&domain, pk.lookup.q_lookup.polynomial());
-        let t_tag = evals_from_poly_ref(&domain, pk.lookup.t_tag.polynomial());
         let epk = pk.extend_prover_key(
             &domain,
             sigma1,
             sigma2,
             sigma3,
             q_lookup,
-            t_tag,
         )?;
         Rc::new(epk)
     };
@@ -151,11 +149,8 @@ where
 
     // 2. Derive lookup polynomials
 
-    // Generate table compression factor
-    let zeta = transcript.challenge_scalar("zeta");
-
     // Compress lookup table into vector of single elements
-    let t = cs.lookup_table.compress_to_multiset(n, zeta);
+    let t = cs.lookup_table.into_multiset(n);
     // Compute table poly
     let t_poly = t.clone().into_polynomial(&domain);
 
@@ -167,32 +162,19 @@ where
     //   is an element of the compressed lookup table even when
     //   q_lookup[i] is 0 so the lookup check will pass
 
-    let t_first = t.0[0];
     #[cfg(not(feature = "parallel"))]
     let f_args = itertools::izip!(
-        a_evals.iter(),
-        b_evals.iter(),
         c_evals.iter(),
         epk.lookup.q_lookup.iter(),
-        epk.lookup.t_tag.iter(),
     );
     #[cfg(feature = "parallel")]
     let f_args = crate::par_izip!(
-        a_evals.par_iter(),
-        b_evals.par_iter(),
         c_evals.par_iter(),
         epk.lookup.q_lookup.par_iter(),
-        epk.lookup.t_tag.par_iter(),
     );
 
     let f: MultiSet<_> = f_args
-        .map(|(a, b, c, q_lookup, t_tag)| {
-            if q_lookup.is_zero() {
-                t_first
-            } else {
-                lc(&[*a, *b, *c, *t_tag], zeta)
-            }
-        })
+        .map(|(c, q_lookup)| if q_lookup.is_zero() { F::zero() } else { *c })
         .collect();
 
     // Compute query poly
@@ -317,7 +299,6 @@ where
         gamma,
         delta,
         epsilon,
-        zeta,
         labeled_z1_poly.polynomial(),
         labeled_z2_poly.polynomial(),
         labeled_a_poly.polynomial(),
@@ -377,7 +358,6 @@ where
         gamma,
         delta,
         epsilon,
-        zeta,
         z,
         labeled_a_poly.polynomial(),
         labeled_b_poly.polynomial(),
@@ -408,7 +388,6 @@ where
     transcript.append_scalar("z1_next_eval", &evaluations.perm_evals.z1_next);
 
     // Third lookup evals
-    transcript.append_scalar("t_tag_eval", &evaluations.lookup_evals.t_tag);
     transcript.append_scalar("f_eval", &evaluations.lookup_evals.f);
     transcript.append_scalar("t_eval", &evaluations.lookup_evals.t);
     transcript.append_scalar("t_next_eval", &evaluations.lookup_evals.t_next);
@@ -434,7 +413,6 @@ where
 
     let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
     let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
-    let labeled_t_tag_commit = label_commitment!(vk.lookup.t_tag);
     let randomness = <PC::Randomness as PCRandomness>::empty();       
     let aw_opening = PC::open(
         ck,
@@ -445,7 +423,6 @@ where
             &labeled_c_poly,
             &pk.perm.sigma1,
             &pk.perm.sigma2,
-            &pk.lookup.t_tag,
             &labeled_f_poly,
             &labeled_h2_poly,
             &labeled_t_poly,
@@ -457,7 +434,6 @@ where
             &labeled_wire_commits[2],
             &labeled_sigma1_commit,
             &labeled_sigma2_commit,
-            &labeled_t_tag_commit,
             &labeled_f_h_commits[0],
             &labeled_f_h_commits[2],
             &labeled_r_t_commits[1],
@@ -465,7 +441,6 @@ where
         &z,
         v,
         vec![
-            &randomness,
             &randomness,
             &randomness,
             &randomness,
@@ -517,6 +492,7 @@ where
         b_commit: labeled_wire_commits[1].commitment().clone(),
         c_commit: labeled_wire_commits[2].commitment().clone(),
         f_commit: labeled_f_h_commits[0].commitment().clone(),
+        t_commit: labeled_r_t_commits[1].commitment().clone(),
         h1_commit: labeled_f_h_commits[1].commitment().clone(),
         h2_commit: labeled_f_h_commits[2].commitment().clone(),
         z1_commit: labeled_z_commits[0].commitment().clone(),

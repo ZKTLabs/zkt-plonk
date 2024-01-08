@@ -77,8 +77,6 @@ pub struct ExtendedProverKey<F: FftField> {
     pub q_lookup: Vec<F>,
     ///
     pub q_lookup_coset: Vec<F>,
-    /// Table selector
-    pub q_table: Vec<F>,
     ///
     pub q_table_coset: Vec<F>,
 }
@@ -167,7 +165,6 @@ where
         alpha: F,
         delta: F,
         epsilon: F,
-        zeta: F,
         l_1_eval: F,
         z2_comm: PC::Commitment,
         h1_comm: PC::Commitment,

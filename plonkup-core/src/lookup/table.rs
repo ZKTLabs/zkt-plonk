@@ -9,7 +9,6 @@ use ark_poly::{EvaluationDomain, univariate::DensePolynomial};
 use indexmap::IndexSet;
 
 use super::*;
-use crate::util::poly_from_evals;
 
 /// This struct is a table, contaning a vector, of arity 4 where each of the
 /// values is a scalar. The elements of the table are determined by the function
@@ -26,12 +25,11 @@ impl<F: Field> LookupTable<F> {
         Self::default()
     }
 
-    ///
-    pub(crate) fn with_capacity(size: usize) -> Self {
-        Self(IndexSet::with_capacity(size))
+    pub(crate) fn with_capacity(n: usize) -> Self {
+        Self(IndexSet::with_capacity(n))
     }
 
-    /// Returns the length of the `LookupTable` vector.
+    /// Returns the length of the `LookupTable` set.
     pub fn size(&self) -> usize {
         self.0.len()
     }
@@ -46,33 +44,20 @@ impl<F: Field> LookupTable<F> {
         self.0.get(x).unwrap_or_else(|| panic!("element not found in table"));
     }
 
+    ///
+    pub(crate) fn selectors(&self, n: usize) -> Vec<F> {
+        let mut evals = vec![F::one(); self.size()];
+        evals.resize(n, F::zero());
+        evals
+    }
+
     /// Takes in a table, which is a vector of slices containing all elements,
     /// turns them into multiset for c and extends the length to `n`, 
-    pub(super) fn into_multiset(self, n: usize) -> MultiSet<F> {
+    pub(crate) fn into_multiset(self, n: usize) -> MultiSet<F> {
         let mut t = MultiSet::from_iter(self.0.into_iter());
         t.pad_with_zero(n);
         
         t
-    }
-
-    /// 
-    pub(crate) fn into_polynomial<D>(self, domain: &D) -> DensePolynomial<F>
-    where
-        F: FftField,
-        D: EvaluationDomain<F>,
-    {
-        self.into_multiset(domain.size()).into_polynomial(domain)
-    }
-
-    ///
-    pub fn selector_polynomial<D>(&self, domain: &D) -> DensePolynomial<F>
-    where
-        F: FftField,
-        D: EvaluationDomain<F>,
-    {
-        let mut selectors = vec![F::one(); self.size()];
-        selectors.resize(domain.size(), F::zero());
-        poly_from_evals(domain, selectors)
     }
 }
 

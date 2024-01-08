@@ -121,6 +121,9 @@ where
     /// Commitment to the lookup query polynomial.
     pub f_commit: PC::Commitment,
 
+    /// Commitmet to the table polynomial.
+    pub t_commit: PC::Commitment,
+
     /// Commitment to first half of sorted polynomial
     pub h1_commit: PC::Commitment,
 
@@ -227,7 +230,6 @@ where
         gamma: F,
         delta: F,
         epsilon: F,
-        zeta: F,
         z: F,
         l_1_eval: F,
         zh_eval: F,
@@ -235,11 +237,11 @@ where
     ) -> PC::Commitment {
         //    5 + public input length for arithmetic
         // +  2 for permutation
-        // +  3 for lookup
+        // +  4 for lookup
         // +  3 for each piece of the quotient poly
-        // = 13 length of scalars and points
-        let mut scalars = Vec::with_capacity(13);
-        let mut points = Vec::with_capacity(13);
+        // = 14 length of scalars and points
+        let mut scalars = Vec::with_capacity(14);
+        let mut points = Vec::with_capacity(14);
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
@@ -266,7 +268,6 @@ where
             alpha,
             delta,
             epsilon,
-            zeta,
             l_1_eval,
             self.z2_commit.clone(),
             self.h1_commit.clone(),
@@ -391,17 +392,6 @@ where
             vk,
         );
 
-        let zeta_sq = zeta.square();
-        let t_commit = PC::multi_scalar_mul(
-            &[
-                vk.lookup.t1.clone(),
-                vk.lookup.t2.clone(),
-                vk.lookup.t3.clone(),
-                vk.lookup.t4.clone(),
-            ],
-            &[F::one(), zeta, zeta_sq, zeta_sq * zeta],
-        );
-
         // Compute linearisation commitment
         let r_commit = self.compute_linearisation_commitment(
             alpha,
@@ -409,7 +399,6 @@ where
             gamma,
             delta,
             epsilon,
-            zeta,
             z,
             l_1_eval,
             zh_eval,
@@ -425,7 +414,6 @@ where
         transcript.append_scalar("sigma2_eval", &self.evaluations.perm_evals.sigma2);
         transcript.append_scalar("z1_next_eval", &self.evaluations.perm_evals.z1_next);
 
-        transcript.append_scalar("t_tag_eval", &self.evaluations.lookup_evals.t_tag);
         transcript.append_scalar("f_eval", &self.evaluations.lookup_evals.f);
         transcript.append_scalar("t_eval", &self.evaluations.lookup_evals.t);
         transcript.append_scalar("t_next_eval", &self.evaluations.lookup_evals.t_next);
@@ -456,10 +444,9 @@ where
         let labeled_r_commit = label_commitment!(r_commit);
         let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
         let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
-        let labeled_t_tag_commit = label_commitment!(vk.lookup.t_tag);
         let labeled_f_commit = label_commitment!(self.f_commit);
         let labeled_h2_commit = label_commitment!(self.h2_commit);
-        let labeled_t_commit = label_commitment!(t_commit);
+        let labeled_t_commit = label_commitment!(self.t_commit);
         let labeled_a_commit = label_commitment!(self.a_commit);
         let labeled_b_commit = label_commitment!(self.b_commit);
         let labeled_c_commit = label_commitment!(self.c_commit);
@@ -473,7 +460,6 @@ where
                 &labeled_c_commit,
                 &labeled_sigma1_commit,
                 &labeled_sigma2_commit,
-                &labeled_t_tag_commit,
                 &labeled_f_commit,
                 &labeled_h2_commit,
                 &labeled_t_commit,
@@ -486,7 +472,6 @@ where
                 self.evaluations.wire_evals.c,
                 self.evaluations.perm_evals.sigma1,
                 self.evaluations.perm_evals.sigma2,
-                self.evaluations.lookup_evals.t_tag,
                 self.evaluations.lookup_evals.f,
                 self.evaluations.lookup_evals.h2,
                 self.evaluations.lookup_evals.t,

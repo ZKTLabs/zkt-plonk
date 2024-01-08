@@ -24,7 +24,6 @@ pub(crate) fn compute<F, D>(
     gamma: F,
     delta: F,
     epsilon: F,
-    zeta: F,
     z: F,
     a_poly: &DensePolynomial<F>,
     b_poly: &DensePolynomial<F>,
@@ -72,7 +71,6 @@ where
         z2_next: z2_poly.evaluate(&shifted_z),
         h1_next: h1_poly.evaluate(&shifted_z),
         h2: h2_poly.evaluate(&z),
-        t_tag: pk.lookup.t_tag.evaluate(&z),
         t: t_poly.evaluate(&z),
         t_next: t_poly.evaluate(&shifted_z),
     };
@@ -94,7 +92,6 @@ where
         alpha,
         delta,
         epsilon,
-        zeta,
         l_1_eval,
         &wire_evals,
         &lookup_evals,

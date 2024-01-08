@@ -34,7 +34,6 @@ impl<F: Field> SetupComposer<F> {
         self.q_o.resize(n, F::zero());
         self.q_c.resize(n, F::zero());
         self.q_lookup.resize(n, F::zero());
-        self.t_tag.resize(n, F::zero());
     }
 }
 
@@ -76,7 +75,6 @@ where
     let q_o_poly = poly_from_evals(&domain, composer.q_o);
     let q_c_poly = poly_from_evals(&domain, composer.q_c);
     let q_lookup_poly = poly_from_evals_ref(&domain, &composer.q_lookup);
-    let t_tag_poly = poly_from_evals_ref(&domain, &composer.t_tag);
 
     // 2. Compute the sigma polynomials
     let roots = domain.elements().collect_vec();
@@ -88,11 +86,9 @@ where
     let sigma3_poly = poly_from_evals_ref(&domain, &sigma3_evals);
 
     // 3. Compute lookup table polynomials
-    let mut t_polys = cs.lookup_table.into_polynomials(&domain);
-    let t4_poly = t_polys.pop().unwrap();
-    let t3_poly = t_polys.pop().unwrap();
-    let t2_poly = t_polys.pop().unwrap();
-    let t1_poly = t_polys.pop().unwrap();
+    let q_table = cs.lookup_table.selectors(n);
+    let q_table_poly = poly_from_evals(&domain, q_table);
+    drop(cs.lookup_table);
 
     let labeled_q_m_poly = label_polynomial!(q_m_poly);
     let labeled_q_l_poly = label_polynomial!(q_l_poly);
@@ -100,15 +96,11 @@ where
     let labeled_q_o_poly = label_polynomial!(q_o_poly);
     let labeled_q_c_poly = label_polynomial!(q_c_poly);
     let labeled_q_lookup_poly = label_polynomial!(q_lookup_poly);
-    let labeled_t_tag_poly = label_polynomial!(t_tag_poly);
+    let labeled_q_table_poly = label_polynomial!(q_table_poly);
     let labeled_sigma1_poly = label_polynomial!(sigma1_poly);
     let labeled_sigma2_poly = label_polynomial!(sigma2_poly);
     let labeled_sigma3_poly = label_polynomial!(sigma3_poly);
-    let labeled_t1_poly = label_polynomial!(t1_poly);
-    let labeled_t2_poly = label_polynomial!(t2_poly);
-    let labeled_t3_poly = label_polynomial!(t3_poly);
-    let labeled_t4_poly = label_polynomial!(t4_poly);
-
+    
     let (labeled_commits, _) =
         PC::commit(
             ck,
@@ -119,22 +111,14 @@ where
                 &labeled_q_o_poly,
                 &labeled_q_c_poly,
                 &labeled_q_lookup_poly,
-                &labeled_t_tag_poly,
+                &labeled_q_table_poly,
                 &labeled_sigma1_poly,
                 &labeled_sigma2_poly,
                 &labeled_sigma3_poly,
-                &labeled_t1_poly,
-                &labeled_t2_poly,
-                &labeled_t3_poly,
-                &labeled_t4_poly,
             ],
             None,
         )
         .map_err(to_pc_error::<F, PC>)?;
-    drop(labeled_t1_poly);
-    drop(labeled_t2_poly);
-    drop(labeled_t3_poly);
-    drop(labeled_t4_poly);
 
     let pi_roots = composer.pp.get_pos().map(|i| domain.element(*i)).collect();
     let vk = VerifierKey::from_polynomial_commitments(
@@ -146,14 +130,10 @@ where
         labeled_commits[3].commitment().clone(), // q_o
         labeled_commits[4].commitment().clone(), // q_c
         labeled_commits[5].commitment().clone(), // q_lookup
-        labeled_commits[6].commitment().clone(), // t_tag
+        labeled_commits[6].commitment().clone(), // q_table
         labeled_commits[7].commitment().clone(), // sigma1
         labeled_commits[8].commitment().clone(), // sigma2
         labeled_commits[9].commitment().clone(), // sigma3
-        labeled_commits[10].commitment().clone(), // t1
-        labeled_commits[11].commitment().clone(), // t2
-        labeled_commits[12].commitment().clone(), // t3
-        labeled_commits[13].commitment().clone(), // t4
     );
 
     let pk = ProverKey::from_polynomials(
@@ -163,7 +143,7 @@ where
         labeled_q_o_poly,
         labeled_q_c_poly,
         labeled_q_lookup_poly,
-        labeled_t_tag_poly,
+        labeled_q_table_poly,
         labeled_sigma1_poly,
         labeled_sigma2_poly,
         labeled_sigma3_poly,
@@ -176,7 +156,6 @@ where
             sigma2_evals,
             sigma3_evals,
             composer.q_lookup,
-            composer.t_tag,
         )?;
         Some(epk)
     } else {
