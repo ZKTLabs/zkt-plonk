@@ -246,7 +246,7 @@ where
         // Generate circuit constraint
         circuit.synthesize(&mut cs)?;
         
-        let transcript = &mut T::new("Plonkup");
+        let transcript = &mut T::new("Plonk");
         vk.seed_transcript(transcript);
 
         plonk_prove(ck, pk, epk, vk, cs, transcript, rng)

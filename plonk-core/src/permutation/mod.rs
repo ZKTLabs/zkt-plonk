@@ -93,7 +93,6 @@ impl Permutation {
         // `Variable` is added to the variable_map, this should never fail.
         let i = match var {
             Variable::Zero => 0,
-            Variable::One => 1,
             Variable::Var(i) => i + 2,
         };
         self.0[i].push(wire_data);

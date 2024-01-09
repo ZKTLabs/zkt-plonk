@@ -1,180 +1,81 @@
-use std::marker::PhantomData;
 use ark_ff::Field;
 use itertools::Itertools;
-use plonk_core::constraint_system::*;
+use plonk_core::constraint_system::{ConstraintSystem, Boolean, LTVariable};
 
-use crate::hasher::*;
-
-struct Bool {
-    var: Boolean,
-    value: bool,
-}
-
-impl<F: Field> Uint8<F> {
-    fn conditional_select(
-        cs: &mut ConstraintSystem<F>,
-        cond: &Bool,
-        choice_a: &Self,
-        choice_b: &Self,
-    ) -> Self {
-        let (out, out_value): (Variable, u8);
-        match (choice_a, choice_b) {
-            (Self::Constant(a), Self::Constant(b)) => {
-                // out = (a - b) * cond + b
-                out_value = if cond.value { *a } else { *b };
-                out = cs.assign_variable(out_value.into());
-
-                let sels = Selectors::new_arith()
-                    .with_left(F::from(*a) - F::from(*b))
-                    .with_constant(F::from(*b))
-                    .with_out(-F::one());
-
-                cs.arith_constrain(
-                    cond.var.0,
-                    Variable::Zero,
-                    out,
-                    sels,
-                    None,
-                );
-            }
-            (Self::Constant(a), Self::Variable(b)) => {
-                // out = -1 * cond * b + a * cond + b
-                out_value = if cond.value { *a } else { b.value };
-                out = cs.assign_variable(out_value.into());
-
-                let sels = Selectors::new_arith()
-                    .with_mul(-F::one())
-                    .with_left(F::from(*a))
-                    .with_right(F::one())
-                    .with_out(-F::one());
-
-                cs.arith_constrain(
-                    cond.var.0,
-                    b.var,
-                    out,
-                    sels,
-                    None,
-                );
-            }
-            (Self::Variable(a), Self::Constant(b)) => {
-                // out = cond * a - b * cond + b
-                out_value  = if cond.value { a.value } else { *b };
-                out = cs.assign_variable(out_value.into());
-
-                let sels = Selectors::new_arith()
-                    .with_mul(F::one())
-                    .with_left(-F::from(*b))
-                    .with_constant(F::from(*b))
-                    .with_out(-F::one());
-
-                cs.arith_constrain(
-                    cond.var.0,
-                    a.var,
-                    out,
-                    sels,
-                    None,
-                );
-            }
-            (Self::Variable(a), Self::Variable(b)) => {
-                out_value  = if cond.value { a.value } else { b.value };
-                out = cs.conditional_select(
-                    cond.var,
-                    &a.var.into(),
-                    &b.var.into(),
-                );
-            }
-        }
-
-        Self::Variable(Uint8Var::new(out, out_value))
-    }
-}
+use crate::hasher::FieldHasher;
 
 fn compute_merkle_paths<F, H>(
+    hasher: &mut H,
     cs: &mut ConstraintSystem<F>,
-    auth_elements: &[(Bool, BytesDigest<F>)],
-    leaf_node: &BytesDigest<F>,
-) -> Vec<BytesDigest<F>>
+    witness_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
+    leaf_node: &LTVariable<F>,
+) -> Vec<LTVariable<F>>
 where
     F: Field,
-    H: BytesHasher<F>,
+    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
-    let mut cur_hash = leaf_node.clone();
-    auth_elements
-        .iter()
+    let mut cur_hash = *leaf_node;
+    witness_elements
+        .into_iter()
         .map(|(is_left, node_hash)| {
-            let mut left_node = BytesDigest::with_capacity(cur_hash.len());
-            let mut right_node = BytesDigest::with_capacity(cur_hash.len());
-            node_hash
-                .iter()
-                .zip(cur_hash.iter())
-                .for_each(|(node, cur)| {
-                    left_node.push(Uint8::conditional_select(
-                        cs,
-                        is_left,
-                        node,
-                        cur,
-                    ));
-                    right_node.push(Uint8::conditional_select(
-                        cs,
-                        is_left,
-                        cur,
-                        node,
-                    ));
-                });
-            cur_hash = H::hash_two(cs, &left_node, &right_node);
+            let left_node = cs.conditional_select(is_left, &node_hash, &cur_hash);
+            let right_node = cs.conditional_select(is_left, &cur_hash, &node_hash);
+            cur_hash = hasher.hash_two(cs, &left_node.into(), &right_node.into());
+            hasher.reset();
 
-            cur_hash.clone()
+            cur_hash
         })
         .collect()
 }
 
-pub struct PoRCircuit<F, H>
+/// Proof of Existance Circuit
+pub struct PoECircuit<F, H, const HEIGHT: usize>
 where
     F: Field,
-    H: BytesHasher<F>,
+    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
     leaf_index: u64,
-    auth_nodes: Vec<[u8; 32]>,
-    _f: PhantomData<F>,
-    _h: PhantomData<H>,
+    witness_nodes: Vec<F>,
+    hasher: H,
 }
 
-impl<F, H> PoRCircuit<F, H>
+impl<F, H, const HEIGHT: usize> PoECircuit<F, H, HEIGHT>
 where
     F: Field,
-    H: BytesHasher<F>,
+    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
     pub fn synthesize(
-        self,
+        mut self,
         cs: &mut ConstraintSystem<F>,
-        leaf_node: &BytesDigest<F>,
-    ) -> (BytesDigest<F>, Vec<Boolean>) {
-        let auth_elements = self.auth_nodes
-            .into_iter()
-            .enumerate()
-            .map(|(layer, node)| {
+        leaf_node: &LTVariable<F>,
+    ) -> (LTVariable<F>, Vec<Boolean>) {
+        assert_eq!(self.witness_nodes.len(), HEIGHT, "invalid auth path length");
+
+        let positions = (0..HEIGHT)
+            .map(|layer| {
                 let value = (self.leaf_index >> layer) & 1 == 1;
                 let var = cs.assign_variable(value.into());
-                let var = cs.boolean_gate(var);
-                let is_left = Bool { var, value };
-
-                let node = node
-                    .into_iter()
-                    .map(|byte| Uint8::Variable(Uint8Var::assign(cs, byte)))
-                    .collect_vec();
-
-                (is_left, node)
+                cs.boolean_gate(var)
             })
             .collect_vec();
+        let witness_elements = positions
+            .clone()
+            .into_iter()
+            .zip(
+                self.witness_nodes
+                    .into_iter()
+                    .map(|node| cs.assign_variable(node).into())
+            )
+            .collect_vec();
 
-        let mut paths = compute_merkle_paths::<F, H>(cs, &auth_elements, leaf_node);
+        let mut paths = compute_merkle_paths(
+            &mut self.hasher,
+            cs,
+            witness_elements,
+            leaf_node,
+        );
         let root = paths.pop().unwrap();
 
-        let index_bits = auth_elements
-            .into_iter()
-            .map(|(is_left, _)| is_left.var)
-            .collect();
-
-        (root, index_bits)
+        (root, positions)
     }
 }

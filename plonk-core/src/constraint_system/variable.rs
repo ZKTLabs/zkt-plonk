@@ -17,8 +17,6 @@ pub enum Variable {
     ///
     Zero,
     ///
-    One,
-    ///
     Var(usize),
 }
 
@@ -38,7 +36,7 @@ impl Variable {
 }
 
 ///
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct LTVariable<F: Field> {
     ///
     pub var: Variable,
@@ -59,6 +57,21 @@ impl<F: Field> From<Variable> for LTVariable<F> {
 }
 
 impl<F: Field> LTVariable<F> {
+
+    ///
+    pub fn zero() -> Self {
+        Variable::Zero.into()
+    }
+
+    ///
+    pub fn constant(value: F) -> Self {
+        Self {
+            var: Variable::Zero,
+            coeff: F::one(),
+            offset: value,
+        }
+    }
+
     ///
     pub fn linear_transform(&self, coeff: F, offset: F) -> Self {
         let coeff = self.coeff * coeff;
@@ -76,7 +89,7 @@ impl<F: Field> LTVariable<F> {
 #[derivative(Debug)]
 ///
 pub struct VariableMap<F: Field> {
-    map: Vec<F>,
+    values: Vec<F>,
     #[cfg(feature = "trace")]
     backtrace: Vec<backtrace::Backtrace>,
 }
@@ -85,7 +98,7 @@ impl<F: Field> VariableMap<F> {
     ///
     pub(crate) fn new() -> Self {
         Self {
-            map: Vec::new(),
+            values: Vec::new(),
             #[cfg(feature = "trace")]
             backtrace: Vec::new(),
         }
@@ -94,7 +107,7 @@ impl<F: Field> VariableMap<F> {
     ///
     pub(crate) fn with_capacity(size: usize) -> Self {
         Self {
-            map: Vec::with_capacity(size),
+            values: Vec::with_capacity(size),
             #[cfg(feature = "trace")]
             backtrace: Vec::with_capacity(size),
         }
@@ -102,38 +115,30 @@ impl<F: Field> VariableMap<F> {
 
     ///
     pub fn assign_variable(&mut self, value: F) -> Variable {
-        if value.is_zero() {
-            Variable::Zero
-        } else if value.is_one() {
-            Variable::One
-        } else {
-            let var = Variable::Var(self.map.len());
-            self.map.push(value);
-            #[cfg(feature = "trace")]
-            {
-                let backtrace = backtrace::Backtrace::new_unresolved();
-                self.backtrace.push(backtrace);
-            }
-
-            var
+        let var = Variable::Var(self.values.len());
+        self.values.push(value);
+        #[cfg(feature = "trace")]
+        {
+            let backtrace = backtrace::Backtrace::new_unresolved();
+            self.backtrace.push(backtrace);
         }
+
+        var
     }
 
     ///
     pub fn value_of_var(&self, var: Variable) -> F {
         match var {
-            Variable::Var(i) => self.map[i],
+            Variable::Var(i) => self.values[i],
             Variable::Zero => F::zero(),
-            Variable::One => F::one(),
         }
     }
 
     ///
     pub fn value_of_lt_var(&self, lt_var: &LTVariable<F>) -> F {
         let value = match lt_var.var {
-            Variable::Var(i) => self.map[i],
+            Variable::Var(i) => self.values[i],
             Variable::Zero => F::zero(),
-            Variable::One => F::one(),
         };
 
         value * lt_var.coeff + lt_var.offset
@@ -144,7 +149,6 @@ impl<F: Field> VariableMap<F> {
         match var {
             Variable::Var(i) => Some(self.backtrace[i].clone()),
             Variable::Zero => None,
-            Variable::One => None,
         }
     }
 }

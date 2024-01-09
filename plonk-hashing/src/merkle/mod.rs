@@ -1,1 +1,2 @@
-mod binary;
+
+pub mod binary;

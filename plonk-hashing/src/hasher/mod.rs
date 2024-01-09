@@ -1,49 +1,21 @@
-mod uint8;
-mod sha256;
+use core::fmt::Debug;
 
-pub use uint8::{Uint8, Uint8Var};
-pub use sha256::sha256;
+pub mod poseidon;
 
-use ark_ff::Field;
-use plonk_core::constraint_system::ConstraintSystem;
+pub trait FieldHasher<CS, F: Debug + Clone> {
 
-///
-pub type BytesDigest<F> = Vec<Uint8<F>>;
+    fn empty_hash() -> F;
 
-///
-pub trait BytesHasher<F: Field> {
-    ///
-    fn empty_hash() -> BytesDigest<F>;
+    fn reset(&mut self);
 
-    ///
-    fn hash(
-        cs: &mut ConstraintSystem<F>,
-        input: &[Uint8<F>],
-    ) -> BytesDigest<F>;
+    fn hash(&mut self, cs: &mut CS, input: &[F]) -> F;
 
-    ///
     fn hash_two(
-        cs: &mut ConstraintSystem<F>,
-        left: &BytesDigest<F>,
-        right: &BytesDigest<F>,
-    ) -> BytesDigest<F> {
-        let input = [&left[..], &right[..]].concat();
-        Self::hash(cs, &input)
-    }
-}
-
-///
-pub struct Sha256Hasher;
-
-impl<F: Field> BytesHasher<F> for Sha256Hasher {
-    fn empty_hash() -> BytesDigest<F> {
-        vec![Uint8::Constant(0); 32]
-    }
-
-    fn hash(
-        cs: &mut ConstraintSystem<F>,
-        input: &[Uint8<F>],
-    ) -> BytesDigest<F> {
-        sha256(cs, input)
+        &mut self,
+        cs: &mut CS,
+        left: &F,
+        right: &F,
+    ) -> F {
+        self.hash(cs, &[left.clone(), right.clone()])
     }
 }
