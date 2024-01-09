@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use ark_ff::Field;
 use bitvec::prelude::*;
-use plonkup_core::{
+use plonk_core::{
     lookup::*,
     impl_uint_operation_table,
     constraint_system::{ConstraintSystem, LTVariable, Selectors},
@@ -1041,7 +1041,7 @@ mod test {
     use ark_std::{UniformRand, test_rng};
     use ark_bn254::Bn254;
     use ark_bls12_381::Bls12_381;
-    use plonkup_core::{batch_test_field, constraint_system::test_gate_constraints};
+    use plonk_core::{batch_test_field, constraint_system::test_gate_constraints};
 
     use super::*;
 

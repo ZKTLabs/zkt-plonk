@@ -4,8 +4,7 @@
 //
 // Copyright (c) DUSK NETWORK. All rights reserved.
 
-use ark_ff::{Field, FftField};
-use ark_poly::{EvaluationDomain, univariate::DensePolynomial};
+use ark_ff::Field;
 use indexmap::IndexSet;
 
 use super::*;
@@ -40,8 +39,8 @@ impl<F: Field> LookupTable<F> {
     }
 
     ///
-    pub fn contains(&self, x: &F) {
-        self.0.get(x).unwrap_or_else(|| panic!("element not found in table"));
+    pub fn contains(&self, entry: &F) {
+        self.0.get(entry).unwrap_or_else(|| panic!("element not found in table"));
     }
 
     ///

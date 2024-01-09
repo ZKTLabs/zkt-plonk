@@ -27,13 +27,13 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 [workspace]
 resolver = "2"
 members = [
-    "plonkup-core",
-    "plonkup-hashing",
+    "plonk-core",
+    "plonk-hashing",
 ]
 
 [dependencies]
-plonkup-core = { path = "plonkup-core" }
-plonkup-hashing = { path = "plonkup-hashing" }
+plonk-core = { path = "./plonk-core" }
+plonk-hashing = { path = "./plonk-hashing" }
 
 [dev-dependencies]
 ark-ff = "0.3"
@@ -50,11 +50,9 @@ blake2 = "0.9"
 criterion = "0.3"
 derivative = "2.2.0"
 paste = "1.0.6"
-rand_core = {version = "0.6", default-features=false, features = ["getrandom"] }
+rand_core = { version = "0.6", default-features=false, features = ["getrandom"] }
 tempdir = "0.3"
 ark-vesta = "0.3"
-
-
 
 [[bench]]
 name = "plonk"

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use ark_ff::Field;
 use itertools::Itertools;
-use plonkup_core::constraint_system::*;
+use plonk_core::constraint_system::*;
 
 use crate::hasher::*;
 

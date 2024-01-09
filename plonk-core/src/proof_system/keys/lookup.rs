@@ -89,8 +89,6 @@ impl<F: FftField> ExtendedProverKey<F> {
         alpha: F,
         delta: F,
         epsilon: F,
-        a_i: F,
-        b_i: F,
         c_i: F,
         f_i: F,
         t_i: F,

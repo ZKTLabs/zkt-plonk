@@ -1,5 +1,5 @@
 [package]
-name = "plonkup-hashing"
+name = "plonk-hashing"
 version = "0.8.2"
 authors = ["ZK-GARAGE Authors"]
 readme = "README.md"
@@ -17,7 +17,7 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
-plonkup-core = { path = "../plonkup-core" }
+plonk-core = { path = "../plonk-core" }
 ark-ff = "0.3"
 ark-std = { version = "0.3", features = ["std"] }
 ark-ec = { version = "0.3", default-features = false }
@@ -35,5 +35,5 @@ sha2 = { version = "0.10", features = ["default", "compress"] }
 
 [features]
 default = []
-trace = ["plonkup-core/trace"]
-check-lookup = ["plonkup-core/check-lookup"]
+trace = ["plonk-core/trace"]
+check-lookup = ["plonk-core/check-lookup"]

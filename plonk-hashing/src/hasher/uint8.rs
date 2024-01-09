@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use plonkup_core::{
+use plonk_core::{
     lookup::*,
     constraint_system::{ConstraintSystem, Variable},
 };

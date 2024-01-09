@@ -328,9 +328,6 @@ where
         transcript.append_commitment("b_commit", &self.b_commit);
         transcript.append_commitment("c_commit", &self.c_commit);
 
-        // Compute table compression challenge `zeta`.
-        let zeta = transcript.challenge_scalar("zeta");
-
         // Add f and h commitment to transcript
         transcript.append_commitment("f_commit", &self.f_commit);
         transcript.append_commitment("h1_commit", &self.h1_commit);

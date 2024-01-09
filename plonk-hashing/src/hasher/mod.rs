@@ -5,7 +5,7 @@ pub use uint8::{Uint8, Uint8Var};
 pub use sha256::sha256;
 
 use ark_ff::Field;
-use plonkup_core::constraint_system::ConstraintSystem;
+use plonk_core::constraint_system::ConstraintSystem;
 
 ///
 pub type BytesDigest<F> = Vec<Uint8<F>>;

@@ -1,4 +1,4 @@
-use plonkup_core::{
+use plonk_core::{
     lookup::*,
     impl_uint_operation_table,
     constraint_system::ConstraintSystem,
