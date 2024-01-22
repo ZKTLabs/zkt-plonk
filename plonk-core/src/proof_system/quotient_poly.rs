@@ -31,7 +31,6 @@ pub fn compute<F, D>(
     b_poly: &DensePolynomial<F>,
     c_poly: &DensePolynomial<F>,
     pi_poly: &DensePolynomial<F>,
-    f_poly: &DensePolynomial<F>,
     h1_poly: &DensePolynomial<F>,
     h2_poly: &DensePolynomial<F>,
     t_poly: &DensePolynomial<F>,
@@ -81,8 +80,6 @@ where
     c_coset.push(c_coset[3]);
 
     let pi_coset = coset_evals_from_poly_ref(&domain_4n, pi_poly);
-
-    let f_coset = coset_evals_from_poly_ref(&domain_4n, f_poly);
 
     let mut t_coset = coset_evals_from_poly_ref(&domain_4n, t_poly);
     t_coset.push(t_coset[0]);
@@ -164,7 +161,6 @@ where
     #[cfg(not(feature = "parallel"))]
     let lookup = itertools::izip!(
         c_coset.iter(),
-        f_coset,
         t_coset.iter(),
         t_coset.iter().skip(4),
         h1_coset.iter(),
@@ -177,7 +173,6 @@ where
     #[cfg(feature = "parallel")]
     let lookup = crate::par_izip!(
         c_coset.par_iter(),
-        f_coset,
         t_coset.par_iter(),
         t_coset.par_iter().skip(4),
         h1_coset.par_iter(),
@@ -190,14 +185,13 @@ where
     let lookup = lookup
         .take(4 * n)
         .enumerate()
-        .map(|(i, (c, f, t, t_next, h1, h1_next, h2, z2, z2_next, l_1))| {
+        .map(|(i, (c, t, t_next, h1, h1_next, h2, z2, z2_next, l_1))| {
             epk.lookup.compute_quotient_i(
                 i,
                 alpha,
                 delta,
                 epsilon,
                 *c,
-                f,
                 *t,
                 *t_next,
                 *h1,

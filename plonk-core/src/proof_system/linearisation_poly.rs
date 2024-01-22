@@ -24,7 +24,7 @@ pub(crate) fn compute<F, D>(
     gamma: F,
     delta: F,
     epsilon: F,
-    z: F,
+    xi: F,
     a_poly: &DensePolynomial<F>,
     b_poly: &DensePolynomial<F>,
     c_poly: &DensePolynomial<F>,
@@ -33,7 +33,6 @@ pub(crate) fn compute<F, D>(
     q_hi_poly: &DensePolynomial<F>,
     z1_poly: &DensePolynomial<F>,
     z2_poly: &DensePolynomial<F>,
-    f_poly: &DensePolynomial<F>,
     h1_poly: &DensePolynomial<F>,
     h2_poly: &DensePolynomial<F>,
     t_poly: &DensePolynomial<F>,
@@ -42,37 +41,37 @@ where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
 {
-    let shifted_z = z * domain.group_gen();
+    let shifted_xi = xi * domain.group_gen();
 
-    let zh_eval = domain.evaluate_vanishing_polynomial(z);
+    let zh_eval = domain.evaluate_vanishing_polynomial(xi);
     let l_1_eval = compute_lagrange_evaluation(
         domain.size(),
         F::one(),
         zh_eval,
-        z,
+        xi,
     );
 
     // Wire evaluations
     let wire_evals = WireEvaluations {
-        a: a_poly.evaluate(&z),
-        b: b_poly.evaluate(&z),
-        c: c_poly.evaluate(&z),
+        a: a_poly.evaluate(&xi),
+        b: b_poly.evaluate(&xi),
+        c: c_poly.evaluate(&xi),
     };
 
     // Permutation evaluations
     let perm_evals = PermutationEvaluations {
-        sigma1: pk.perm.sigma1.evaluate(&z),
-        sigma2: pk.perm.sigma2.evaluate(&z),
-        z1_next: z1_poly.evaluate(&shifted_z),
+        sigma1: pk.perm.sigma1.evaluate(&xi),
+        sigma2: pk.perm.sigma2.evaluate(&xi),
+        z1_next: z1_poly.evaluate(&shifted_xi),
     };
 
     let lookup_evals = LookupEvaluations {
-        f: f_poly.evaluate(&z),
-        z2_next: z2_poly.evaluate(&shifted_z),
-        h1_next: h1_poly.evaluate(&shifted_z),
-        h2: h2_poly.evaluate(&z),
-        t: t_poly.evaluate(&z),
-        t_next: t_poly.evaluate(&shifted_z),
+        q_lookup: pk.lookup.q_lookup.evaluate(&xi),
+        t: t_poly.evaluate(&xi),
+        t_next: t_poly.evaluate(&shifted_xi),
+        z2_next: z2_poly.evaluate(&shifted_xi),
+        h1_next: h1_poly.evaluate(&shifted_xi),
+        h2: h2_poly.evaluate(&xi),
     };
 
     let arith = pk.arith.compute_linearisation(&wire_evals);
@@ -81,7 +80,7 @@ where
         alpha,
         beta,
         gamma,
-        z,
+        xi,
         l_1_eval,
         &wire_evals,
         &perm_evals,
@@ -101,11 +100,11 @@ where
 
     // Compute the last term in the linearisation polynomial
     // (negative_quotient_term):
-    // - zh(z) * [q_low(x) + z^(n+2)*q_mid(x) + z^(2n+4)*q_high(x)]
-    let z_exp_n_plus_2 = (zh_eval + F::one()) * z.square();
-    let quotient_term = &(&(&(&(q_hi_poly * z_exp_n_plus_2)
+    // - zh(ξ) * [q_low(x) + ξ^(n+2)*q_mid(x) + ξ^(2n+4)*q_high(x)]
+    let xi_exp_n_plus_2 = (zh_eval + F::one()) * xi.square();
+    let quotient_term = &(&(&(&(q_hi_poly * xi_exp_n_plus_2)
         + q_mid_poly)
-        * z_exp_n_plus_2)
+        * xi_exp_n_plus_2)
         + q_lo_poly)
         * -zh_eval;
 

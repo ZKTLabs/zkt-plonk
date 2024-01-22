@@ -56,8 +56,14 @@ pub struct PermutationEvaluations<F: Field> {
 /// Probably all of these should go into CustomEvals
 #[derive(Debug, Clone, Default, Eq, PartialEq, CanonicalDeserialize, CanonicalSerialize)]
 pub struct LookupEvaluations<F: Field> {
-    /// Evaluations of the query polynomial at `z`
-    pub f: F,
+    /// Evaluations of the query polynomial at `q_lookup`
+    pub q_lookup: F,
+
+    /// Evaluations of the table polynomial at `z`
+    pub t: F,
+
+    /// (Shifted) Evaluation of the table polynomial at `z * root of unity`
+    pub t_next: F,
 
     /// (Shifted) Evaluation of the lookup permutation polynomial at `z * root
     /// of unity`
@@ -70,12 +76,6 @@ pub struct LookupEvaluations<F: Field> {
     /// Evaluations of the odd indexed half of sorted plonkup poly at `z
     /// root of unity
     pub h2: F,
-
-    /// Evaluations of the table polynomial at `z`
-    pub t: F,
-
-    /// (Shifted) Evaluation of the table polynomial at `z * root of unity`
-    pub t_next: F,
 }
 
 /// Set of evaluations that form the [`Proof`](super::Proof).
@@ -117,9 +117,6 @@ where
 
     /// Commitment to the witness polynomial for the output wires.
     pub c_commit: PC::Commitment,
-
-    /// Commitment to the lookup query polynomial.
-    pub f_commit: PC::Commitment,
 
     /// Commitmet to the table polynomial.
     pub t_commit: PC::Commitment,
@@ -170,7 +167,7 @@ where
         gamma: F,
         delta: F,
         epsilon: F,
-        z: F,
+        xi: F,
         l_1_eval: F,
         zh_eval: F,
         pub_inputs: &[F],
@@ -179,7 +176,7 @@ where
         let alpha_sq = alpha.square();
         let alpha_qu = alpha_sq.square();
 
-        // PI(z)
+        // PI(ξ)
         let part_1 = pub_inputs
             .iter()
             .zip(vk.pi_roots.iter())
@@ -188,35 +185,35 @@ where
                     vk.n,
                     *point,
                     zh_eval,
-                    z,
+                    xi,
                 );
                 lagrange * pi
             })
             .sum::<F>()
             .neg();
 
-        // (a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * (c(z) + γ) * α * z1(ωz)
+        // (a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ) * (c(ξ) + γ) * α * z1(ωξ)
         let part_2 = alpha
             * (beta * self.evaluations.perm_evals.sigma1 + self.evaluations.wire_evals.a + gamma)
             * (beta * self.evaluations.perm_evals.sigma2 + self.evaluations.wire_evals.b + gamma)
             * (self.evaluations.wire_evals.c + gamma)
             * self.evaluations.perm_evals.z1_next;
 
-        // L_1(z) * α^2
+        // L_1(ξ) * α^2
         let part_3 = l_1_eval * alpha_sq;
 
-        // (ε(1+δ) + δ * h2(z)) * (ε(1+δ) + h2(z) + δ * h1(ωz)) * α^4 * z2(ωz)
+        // (ε(1+δ) + δ * h2(ξ)) * (ε(1+δ) + h2(ξ) + δ * h1(ωξ)) * α^3 * z2(ωξ)
         let part_4 = {
             let epsilon_one_plus_delta = epsilon * (F::one() + delta);
-            alpha_qu
+            alpha_sq * alpha
                 * self.evaluations.lookup_evals.z2_next
                 * (delta * self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
                 * (delta * self.evaluations.lookup_evals.h1_next
                     + self.evaluations.lookup_evals.h2 + epsilon_one_plus_delta)
         };
 
-        // L_1(z) * α^5
-        let part_5 = l_1_eval * alpha_qu * alpha;
+        // L_1(z) * α^4
+        let part_5 = l_1_eval * alpha_qu;
 
         // Return r_0
         part_1 + part_2 + part_3 + part_4 + part_5

@@ -180,14 +180,15 @@ where
 /// ```text
 /// L_k(X) = (x^n - 1) * omega^k / n * (x - omega^k)
 /// ```
+#[inline]
 pub(crate) fn compute_lagrange_evaluation<F: Field>(
     n: usize,
     point: F,
     zh_eval: F,
-    z: F,
+    xi: F,
 ) -> F {
     let numinator = zh_eval * point;
-    let dominator = F::from(n as u64) * (z - point);
+    let dominator = F::from(n as u64) * (xi - point);
     numinator * dominator.inverse().unwrap()
 }
 

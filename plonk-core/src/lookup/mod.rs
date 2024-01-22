@@ -126,6 +126,7 @@ mod test {
         ]);
 
         let (h1, h2) = t.combine_split(&f).unwrap();
+        drop(f);
 
         let domain = GeneralEvaluationDomain::new(8).unwrap();
         let roots = domain.elements().collect_vec();

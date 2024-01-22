@@ -162,27 +162,11 @@ where
     //   is an element of the compressed lookup table even when
     //   q_lookup[i] is 0 so the lookup check will pass
 
-    #[cfg(not(feature = "parallel"))]
-    let f_args = itertools::izip!(
-        c_evals.iter(),
-        epk.lookup.q_lookup.iter(),
-    );
-    #[cfg(feature = "parallel")]
-    let f_args = crate::par_izip!(
-        c_evals.par_iter(),
-        epk.lookup.q_lookup.par_iter(),
-    );
-
-    let f: MultiSet<_> = f_args
+    let f: MultiSet<_> = c_evals
+        .iter()
+        .zip(epk.lookup.q_lookup.iter())
         .map(|(c, q_lookup)| if q_lookup.is_zero() { F::zero() } else { *c })
         .collect();
-
-    // Compute query poly
-    let mut f_poly = f.clone().into_polynomial(&domain);
-
-    // Add blinding factors
-    add_blinders_to_poly(rng, 2, &mut f_poly);
-
     // Compute s, as the sorted and concatenated version of f and t
     let (h1, h2) = t.combine_split(&f)?;
 
@@ -194,23 +178,23 @@ where
     add_blinders_to_poly(rng, 3, &mut h1_poly);
     add_blinders_to_poly(rng, 2, &mut h2_poly);
 
-    // Commit to f and h polys
-    let labeled_f_poly = label_polynomial!(f_poly);
+    // Commit to t, h1 and h2 polys
+    let labeled_t_poly = label_polynomial!(t_poly);
     let labeled_h1_poly = label_polynomial!(h1_poly);
     let labeled_h2_poly = label_polynomial!(h2_poly);
     // Commit to polynomials
-    let (labeled_f_h_commits, _) =
+    let (labeled_t_h_commits, _) =
         PC::commit(ck, vec![
-            &labeled_f_poly,
+            &labeled_t_poly,
             &labeled_h1_poly,
-            &labeled_h2_poly,
+            &labeled_h2_poly
         ], None)
         .map_err(to_pc_error::<F, PC>)?;
 
     // Add commitments to transcript
-    transcript.append_commitment("f_commit", labeled_f_h_commits[0].commitment());
-    transcript.append_commitment("h1_commit", labeled_f_h_commits[1].commitment());
-    transcript.append_commitment("h2_commit", labeled_f_h_commits[2].commitment());
+    transcript.append_commitment("t_commit", labeled_t_h_commits[0].commitment());
+    transcript.append_commitment("h1_commit", labeled_t_h_commits[1].commitment());
+    transcript.append_commitment("h2_commit", labeled_t_h_commits[2].commitment());
 
     // 3. Compute permutation polynomial
     //
@@ -305,10 +289,9 @@ where
         labeled_b_poly.polynomial(),
         labeled_c_poly.polynomial(),
         &pi_poly,
-        labeled_f_poly.polynomial(),
         labeled_h1_poly.polynomial(),
         labeled_h2_poly.polynomial(),
-        &t_poly,
+        &labeled_t_poly.polynomial(),
     )?;
     drop(pi_poly);
 
@@ -347,8 +330,8 @@ where
 
     // 4. Compute linearisation polynomial
     //
-    // Compute evaluation challenge; `z`.
-    let z = transcript.challenge_scalar("z");
+    // Compute evaluation challenge ξ.
+    let xi = transcript.challenge_scalar("xi");
 
     let (r_poly, evaluations) = linearisation_poly::compute(
         &domain,
@@ -358,7 +341,7 @@ where
         gamma,
         delta,
         epsilon,
-        z,
+        xi,
         labeled_a_poly.polynomial(),
         labeled_b_poly.polynomial(),
         labeled_c_poly.polynomial(),
@@ -367,10 +350,9 @@ where
         labeled_q_hi_poly.polynomial(),
         labeled_z1_poly.polynomial(),
         labeled_z2_poly.polynomial(),
-        labeled_f_poly.polynomial(),
         labeled_h1_poly.polynomial(),
         labeled_h2_poly.polynomial(),
-        &t_poly,
+        &labeled_t_poly.polynomial(),
     );
     drop(labeled_q_lo_poly);
     drop(labeled_q_mid_poly);
@@ -388,7 +370,7 @@ where
     transcript.append_scalar("z1_next_eval", &evaluations.perm_evals.z1_next);
 
     // Third lookup evals
-    transcript.append_scalar("f_eval", &evaluations.lookup_evals.f);
+    transcript.append_scalar("q_lookup_eval", &evaluations.lookup_evals.q_lookup);
     transcript.append_scalar("t_eval", &evaluations.lookup_evals.t);
     transcript.append_scalar("t_next_eval", &evaluations.lookup_evals.t_next);
     transcript.append_scalar("z2_next_eval", &evaluations.lookup_evals.z2_next);
@@ -397,23 +379,21 @@ where
 
     // 5. Compute Openings using KZG10
     //
-    // We merge the quotient polynomial using the `z_challenge` so the SRS
+    // We merge the quotient polynomial using the `ξ` so the SRS
     // is linear in the circuit size `n`
 
-    // Compute aggregate witness to polynomials evaluated at the evaluation
-    // challenge `z`
-    let v = transcript.challenge_scalar("v");
+    // Compute aggregate witness to polynomials evaluated at the evaluation challenge `ξ`
+    let eta = transcript.challenge_scalar("eta");
 
     let labeled_r_poly = label_polynomial!(r_poly);
-    let labeled_t_poly = label_polynomial!(t_poly);
-
-    let (labeled_r_t_commits, _) =
-        PC::commit(ck, vec![&labeled_r_poly, &labeled_t_poly], None)
+    let (labeled_r_commit, _) =
+        PC::commit(ck, vec![&labeled_r_poly], None)
             .map_err(to_pc_error::<F, PC>)?;
 
     let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
     let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
-    let randomness = <PC::Randomness as PCRandomness>::empty();       
+    let labeled_q_lookup_commit = label_commitment!(vk.lookup.q_lookup);
+    let randomness = <PC::Randomness as PCRandomness>::empty();
     let aw_opening = PC::open(
         ck,
         vec![
@@ -423,23 +403,23 @@ where
             &labeled_c_poly,
             &pk.perm.sigma1,
             &pk.perm.sigma2,
-            &labeled_f_poly,
-            &labeled_h2_poly,
+            &pk.lookup.q_lookup,
             &labeled_t_poly,
+            &labeled_h2_poly,
         ],
         vec![
-            &labeled_r_t_commits[0],
+            &labeled_r_commit[0],
             &labeled_wire_commits[0],
             &labeled_wire_commits[1],
             &labeled_wire_commits[2],
             &labeled_sigma1_commit,
             &labeled_sigma2_commit,
-            &labeled_f_h_commits[0],
-            &labeled_f_h_commits[2],
-            &labeled_r_t_commits[1],
+            &labeled_q_lookup_commit,
+            &labeled_t_h_commits[0],
+            &labeled_t_h_commits[2],
         ],
-        &z,
-        v,
+        &xi,
+        eta,
         vec![
             &randomness,
             &randomness,
@@ -458,31 +438,25 @@ where
     drop(labeled_a_poly);
     drop(labeled_b_poly);
     drop(labeled_c_poly);
-    drop(labeled_f_poly);
     drop(labeled_h2_poly);
 
     let saw_opening = PC::open(
         ck,
         vec![
-            &labeled_z1_poly,
             &labeled_t_poly,
+            &labeled_z1_poly,
             &labeled_z2_poly,
             &labeled_h1_poly,
         ],
         vec![
+            &labeled_t_h_commits[0],
             &labeled_z_commits[0],
-            &labeled_r_t_commits[1],
             &labeled_z_commits[1],
-            &labeled_f_h_commits[1],
+            &labeled_t_h_commits[1],
         ],
-        &(z * domain.group_gen()),
-        v,
-        vec![
-            &randomness,
-            &randomness,
-            &randomness,
-            &randomness,
-        ],
+        &(xi * domain.group_gen()),
+        eta,
+        vec![&randomness, &randomness, &randomness],
         None,
     )
     .map_err(to_pc_error::<F, PC>)?;
@@ -491,10 +465,9 @@ where
         a_commit: labeled_wire_commits[0].commitment().clone(),
         b_commit: labeled_wire_commits[1].commitment().clone(),
         c_commit: labeled_wire_commits[2].commitment().clone(),
-        f_commit: labeled_f_h_commits[0].commitment().clone(),
-        t_commit: labeled_r_t_commits[1].commitment().clone(),
-        h1_commit: labeled_f_h_commits[1].commitment().clone(),
-        h2_commit: labeled_f_h_commits[2].commitment().clone(),
+        t_commit: labeled_t_h_commits[0].commitment().clone(),
+        h1_commit: labeled_t_h_commits[1].commitment().clone(),
+        h2_commit: labeled_t_h_commits[2].commitment().clone(),
         z1_commit: labeled_z_commits[0].commitment().clone(),
         z2_commit: labeled_z_commits[1].commitment().clone(),
         q_lo_commit: labeled_q_commits[0].commitment().clone(),

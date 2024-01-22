@@ -36,27 +36,27 @@ impl<F: Field> ProverKey<F> {
         alpha: F,
         beta: F,
         gamma: F,
-        z: F,
+        xi: F,
         l_1_eval: F,
         wire_evals: &WireEvaluations<F>,
         perm_evals: &PermutationEvaluations<F>,
         z1_poly: &DensePolynomial<F>,
     ) -> DensePolynomial<F> {
         // Computes the following:
-        // ((a(z) + β*z + γ) * (b(z) + β*K1*z + γ) * (c(z) + β*K2*z + γ) * α + L_1(z) * α^2) * z1(x)
+        // ((a(ξ) + β*ξ + γ) * (b(ξ) + β*K1*ξ + γ) * (c(ξ) + β*K2*ξ + γ) * α + L_1(ξ) * α^2) * z1(x)
         let part_1 = {
-            let beta_mul_z = beta * z;
+            let beta_mul_xi = beta * xi;
             z1_poly * (
                 alpha
-                    * (beta_mul_z + wire_evals.a + gamma)
-                    * (beta_mul_z * K1::<F>() + wire_evals.b + gamma)
-                    * (beta_mul_z * K2::<F>() + wire_evals.c + gamma)
+                    * (beta_mul_xi + wire_evals.a + gamma)
+                    * (beta_mul_xi * K1::<F>() + wire_evals.b + gamma)
+                    * (beta_mul_xi * K2::<F>() + wire_evals.c + gamma)
                     + (l_1_eval * alpha.square())
             )
         };
 
         // Computes the following:
-        // -(a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * β * z1(ωz) * α * σ3(x)
+        // -(a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ) * β * z1(ωξ) * α * σ3(x)
         let part_2 =
             self.sigma3.polynomial() * (
                 -alpha
