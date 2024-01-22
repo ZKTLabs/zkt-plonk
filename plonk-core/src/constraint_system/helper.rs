@@ -70,8 +70,8 @@ where
     F: Field,
     P: FnMut(&mut ConstraintSystem<F>) -> Vec<(LTVariable<F>, F)>,
 {
-    let mut setup = ConstraintSystem::new(true);
-    let mut proving = ConstraintSystem::new(false);
+    let mut setup = ConstraintSystem::new(true, Default::default());
+    let mut proving = ConstraintSystem::new(false, Default::default());
 
     process(&mut setup);
     let setup: SetupComposer<F> = setup.composer.into();

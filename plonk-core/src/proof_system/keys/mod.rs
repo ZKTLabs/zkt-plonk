@@ -31,11 +31,11 @@ pub struct ProverKey<F: Field> {
     /// Arithmetic Prover Key
     pub arith: arithmetic::ProverKey<F>,
 
-    /// Lookup selector
-    pub lookup: lookup::ProverKey<F>,
-
     /// ProverKey for permutation checks
     pub perm: permutation::ProverKey<F>,
+
+    /// Lookup selector
+    pub lookup: lookup::ProverKey<F>,
 }
 
 impl<F: Field> ProverKey<F> {
@@ -48,11 +48,11 @@ impl<F: Field> ProverKey<F> {
         q_r: LabeledPolynomial<F, DensePolynomial<F>>,
         q_o: LabeledPolynomial<F, DensePolynomial<F>>,
         q_c: LabeledPolynomial<F, DensePolynomial<F>>,
-        q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
-        q_table: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma1: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma2: LabeledPolynomial<F, DensePolynomial<F>>,
         sigma3: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_lookup: LabeledPolynomial<F, DensePolynomial<F>>,
+        q_table: LabeledPolynomial<F, DensePolynomial<F>>,
     ) -> Self {
         Self {
             arith: arithmetic::ProverKey {
@@ -62,14 +62,14 @@ impl<F: Field> ProverKey<F> {
                 q_o,
                 q_c,
             },
-            lookup: lookup::ProverKey {
-                q_lookup,
-                q_table,
-            },
             perm: permutation::ProverKey {
                 sigma1,
                 sigma2,
                 sigma3,
+            },
+            lookup: lookup::ProverKey {
+                q_lookup,
+                q_table,
             },
         }
     }

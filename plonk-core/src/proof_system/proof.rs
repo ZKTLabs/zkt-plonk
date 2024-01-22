@@ -169,7 +169,7 @@ where
         epsilon: F,
         xi: F,
         l_1_eval: F,
-        zh_eval: F,
+        vh_eval: F,
         pub_inputs: &[F],
         vk: &VerifierKey<F, PC>,
     ) -> F {
@@ -184,7 +184,7 @@ where
                 let lagrange = compute_lagrange_evaluation(
                     vk.n,
                     *point,
-                    zh_eval,
+                    vh_eval,
                     xi,
                 );
                 lagrange * pi
@@ -227,18 +227,18 @@ where
         gamma: F,
         delta: F,
         epsilon: F,
-        z: F,
+        xi: F,
         l_1_eval: F,
-        zh_eval: F,
+        vh_eval: F,
         vk: &VerifierKey<F, PC>,
     ) -> PC::Commitment {
         //    5 + public input length for arithmetic
         // +  2 for permutation
-        // +  4 for lookup
+        // +  3 for lookup
         // +  3 for each piece of the quotient poly
-        // = 14 length of scalars and points
-        let mut scalars = Vec::with_capacity(14);
-        let mut points = Vec::with_capacity(14);
+        // = 13 length of scalars and points
+        let mut scalars = Vec::with_capacity(13);
+        let mut points = Vec::with_capacity(13);
 
         vk.arith.compute_linearisation_commitment(
             &mut scalars,
@@ -253,7 +253,7 @@ where
             alpha,
             beta,
             gamma,
-            z,
+            xi,
             l_1_eval,
             self.z1_commit.clone(),
         );
@@ -270,10 +270,10 @@ where
             self.h1_commit.clone(),
         );
 
-        let z_exp_n_plus_2 = (zh_eval + F::one()) * z.square();
-        let scalar_1 = -zh_eval;
-        let scalar_2 = -zh_eval * z_exp_n_plus_2;
-        let scalar_3 = -zh_eval * z_exp_n_plus_2.square();
+        let xi_exp_n_plus_2 = (vh_eval + F::one()) * xi.square();
+        let scalar_1 = -vh_eval;
+        let scalar_2 = -vh_eval * xi_exp_n_plus_2;
+        let scalar_3 = -vh_eval * xi_exp_n_plus_2.square();
         scalars.extend(vec![scalar_1, scalar_2, scalar_3]);
         points.extend(vec![
             self.q_lo_commit.clone(),
@@ -325,8 +325,8 @@ where
         transcript.append_commitment("b_commit", &self.b_commit);
         transcript.append_commitment("c_commit", &self.c_commit);
 
-        // Add f and h commitment to transcript
-        transcript.append_commitment("f_commit", &self.f_commit);
+        // Add t and h commitment to transcript
+        transcript.append_commitment("t_commit", &self.t_commit);
         transcript.append_commitment("h1_commit", &self.h1_commit);
         transcript.append_commitment("h2_commit", &self.h2_commit);
 
@@ -365,13 +365,13 @@ where
         transcript.append_commitment("q_hi_commit", &self.q_hi_commit);
 
         // Compute evaluation point challenge
-        let z = transcript.challenge_scalar("z");
+        let xi = transcript.challenge_scalar("xi");
 
-        // Compute zero polynomial evaluated at `z_challenge`
-        let zh_eval = domain.evaluate_vanishing_polynomial(z);
+        // Compute zero polynomial evaluated at `ξ`
+        let vh_eval = domain.evaluate_vanishing_polynomial(xi);
 
-        // Compute first lagrange polynomial evaluated at `z_challenge`
-        let l_1_eval = compute_lagrange_evaluation(vk.n, F::one(), zh_eval, z);
+        // Compute first lagrange polynomial evaluated at `ξ`
+        let l_1_eval = compute_lagrange_evaluation(vk.n, F::one(), vh_eval, xi);
 
         let r0 = self.compute_r0(
             alpha,
@@ -379,9 +379,9 @@ where
             gamma,
             delta,
             epsilon,
-            z,
+            xi,
             l_1_eval,
-            zh_eval,
+            vh_eval,
             pub_inputs,
             vk,
         );
@@ -393,9 +393,9 @@ where
             gamma,
             delta,
             epsilon,
-            z,
+            xi,
             l_1_eval,
-            zh_eval,
+            vh_eval,
             vk,
         );
 
@@ -408,7 +408,7 @@ where
         transcript.append_scalar("sigma2_eval", &self.evaluations.perm_evals.sigma2);
         transcript.append_scalar("z1_next_eval", &self.evaluations.perm_evals.z1_next);
 
-        transcript.append_scalar("f_eval", &self.evaluations.lookup_evals.f);
+        transcript.append_scalar("q_lookup_eval", &self.evaluations.lookup_evals.q_lookup);
         transcript.append_scalar("t_eval", &self.evaluations.lookup_evals.t);
         transcript.append_scalar("t_next_eval", &self.evaluations.lookup_evals.t_next);
         transcript.append_scalar("z2_next_eval", &self.evaluations.lookup_evals.z2_next);
@@ -420,31 +420,30 @@ where
         // checking two proofs.
         //
         // The `AggregateProof`, which proves that all the necessary
-        // polynomials evaluated at `z_challenge` are
+        // polynomials evaluated at `ξ` are
         // correct and a `Proof` which is proof that the
         // permutation polynomial evaluated at the shifted root of unity is
         // correct
 
         // Generation of the first aggregated proof: It ensures that the
-        // polynomials evaluated at `z_challenge` are correct.
+        // polynomials evaluated at `ξ` are correct.
 
         // Reconstruct the Aggregated Proof commitments and evals
         // The proof consists of the witness commitment with no blinder
 
-        // Compute aggregate witness to polynomials evaluated at the evaluation
-        // challenge `z`
-        let v = transcript.challenge_scalar("v");
+        // Compute aggregate witness to polynomials evaluated at the evaluation challenge `ξ`
+        let eta = transcript.challenge_scalar("eta");
 
         let labeled_r_commit = label_commitment!(r_commit);
-        let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
-        let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
-        let labeled_f_commit = label_commitment!(self.f_commit);
-        let labeled_h2_commit = label_commitment!(self.h2_commit);
-        let labeled_t_commit = label_commitment!(self.t_commit);
         let labeled_a_commit = label_commitment!(self.a_commit);
         let labeled_b_commit = label_commitment!(self.b_commit);
         let labeled_c_commit = label_commitment!(self.c_commit);
-
+        let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
+        let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
+        let labeled_q_lookup_commit = label_commitment!(vk.lookup.q_lookup);
+        let labeled_t_commit = label_commitment!(self.t_commit);
+        let labeled_h2_commit = label_commitment!(self.h2_commit);
+        
         match PC::check(
             cvk,
             vec![
@@ -454,11 +453,11 @@ where
                 &labeled_c_commit,
                 &labeled_sigma1_commit,
                 &labeled_sigma2_commit,
-                &labeled_f_commit,
-                &labeled_h2_commit,
+                &labeled_q_lookup_commit,
                 &labeled_t_commit,
+                &labeled_h2_commit,
             ],
-            &z,
+            &xi,
             vec![
                 r0,
                 self.evaluations.wire_evals.a,
@@ -466,12 +465,12 @@ where
                 self.evaluations.wire_evals.c,
                 self.evaluations.perm_evals.sigma1,
                 self.evaluations.perm_evals.sigma2,
-                self.evaluations.lookup_evals.f,
-                self.evaluations.lookup_evals.h2,
+                self.evaluations.lookup_evals.q_lookup,
                 self.evaluations.lookup_evals.t,
+                self.evaluations.lookup_evals.h2,
             ],
             &self.aw_opening,
-            v,
+            eta,
             None,
         ) {
             Ok(true) => Ok(()),
@@ -486,12 +485,12 @@ where
             match PC::check(
                 cvk,
                 vec![
-                    &labeled_z1_commit,
                     &labeled_t_commit,
+                    &labeled_z1_commit,
                     &labeled_z2_commit,
                     &labeled_h1_commit,
                 ],
-                &(z * domain.group_gen()),
+                &(xi * domain.group_gen()),
                 vec![
                     self.evaluations.perm_evals.z1_next,
                     self.evaluations.lookup_evals.t_next,
@@ -499,7 +498,7 @@ where
                     self.evaluations.lookup_evals.h1_next,
                 ],
                 &self.saw_opening,
-                v,
+                eta,
                 None,
             ) {
                 Ok(true) => Ok(()),

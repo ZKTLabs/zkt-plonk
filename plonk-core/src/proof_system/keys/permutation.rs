@@ -175,12 +175,12 @@ where
         alpha: F,
         beta: F,
         gamma: F,
-        z: F,
+        xi: F,
         l_1_eval: F,
         z1_comm: PCC,
     ) {
-        // (a(z) + β*z + γ) * (b(z) + β*K1*z + γ) * (c(z) + β*K2*z + γ) * α + L_1(z) * α^2
-        let beta_mul_z = beta * z;
+        // (a(ξ) + β*ξ + γ) * (b(ξ) + β*K1*ξ + γ) * (c(ξ) + β*K2*ξ + γ) * α + L_1(ξ) * α^2
+        let beta_mul_z = beta * xi;
         let scalar = alpha
             * (beta_mul_z + evaluations.wire_evals.a + gamma)
             * (beta_mul_z * K1::<F>() + evaluations.wire_evals.b + gamma)
@@ -189,7 +189,7 @@ where
         scalars.push(scalar);
         points.push(z1_comm);
 
-        // -(a(z) + β*σ1(z) + γ) * (b(z) + β*σ2(z) + γ) * z1(ωz) * α * β
+        // -(a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ) * z1(ωξ) * α * β
         let scalar = -alpha
             * beta
             * evaluations.perm_evals.z1_next

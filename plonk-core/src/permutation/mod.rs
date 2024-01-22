@@ -274,7 +274,7 @@ mod test {
     use super::*;
 
     fn test_compute_sigma_permutations<F: FftField>() {
-        let cs = ConstraintSystem::<F>::new(true);
+        let cs = ConstraintSystem::<F>::new(true, Default::default());
         let mut composer: SetupComposer<_> = cs.composer.into();
 
         // x1 * x4 = x2
@@ -328,7 +328,7 @@ mod test {
     fn test_compute_z1_poly<F: FftField>() {
         let rng = &mut test_rng();
 
-        let cs = ConstraintSystem::<F>::new(true);
+        let cs = ConstraintSystem::<F>::new(true, Default::default());
         let mut composer: SetupComposer<_> = cs.composer.into();
 
         // x1 * x4 = x2

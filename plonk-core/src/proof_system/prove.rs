@@ -191,7 +191,7 @@ where
         ], None)
         .map_err(to_pc_error::<F, PC>)?;
 
-    // Add commitments to transcript
+    // Add t and h commitment to transcript
     transcript.append_commitment("t_commit", labeled_t_h_commits[0].commitment());
     transcript.append_commitment("h1_commit", labeled_t_h_commits[1].commitment());
     transcript.append_commitment("h2_commit", labeled_t_h_commits[2].commitment());
@@ -330,7 +330,7 @@ where
 
     // 4. Compute linearisation polynomial
     //
-    // Compute evaluation challenge ξ.
+    // Compute evaluation challenge.
     let xi = transcript.challenge_scalar("xi");
 
     let (r_poly, evaluations) = linearisation_poly::compute(

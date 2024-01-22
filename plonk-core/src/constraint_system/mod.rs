@@ -61,17 +61,14 @@ pub struct ConstraintSystem<F: Field> {
 
 impl<F: Field> ConstraintSystem<F> {
     ///
-    pub fn new(setup: bool) -> Self {
+    pub fn new(setup: bool, lookup_table: LookupTable<F>) -> Self {
         let composer = if setup {
             Composer::Setup(SetupComposer::new())
         } else {
             Composer::Proving(ProvingComposer::new())
         };
 
-        Self {
-            composer,
-            lookup_table: LookupTable::new(),
-        }
+        Self { composer, lookup_table }
     }
 
     ///
@@ -79,7 +76,7 @@ impl<F: Field> ConstraintSystem<F> {
         setup: bool,
         constraint_size: usize,
         variable_size: usize,
-        table_size: usize,
+        lookup_table: LookupTable<F>,
     ) -> Self {
         let composer = if setup {
             Composer::Setup(
@@ -91,10 +88,7 @@ impl<F: Field> ConstraintSystem<F> {
             )
         };
 
-        Self {
-            composer,
-            lookup_table: LookupTable::with_capacity(table_size),
-        }
+        Self { composer, lookup_table }
     }
 
     /// Returns the length of the circuit that can accomodate the lookup table.

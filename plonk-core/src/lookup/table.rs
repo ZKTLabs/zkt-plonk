@@ -18,6 +18,7 @@ use super::*;
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LookupTable<F: Field>(pub IndexSet<F>);
 
+#[allow(dead_code)]
 impl<F: Field> LookupTable<F> {
     /// Create a new, empty Plookup table
     pub(crate) fn new() -> Self {
@@ -31,11 +32,6 @@ impl<F: Field> LookupTable<F> {
     /// Returns the length of the `LookupTable` set.
     pub fn size(&self) -> usize {
         self.0.len()
-    }
-
-    /// 
-    pub fn insert(&mut self, element: F) -> bool {
-        self.0.insert(element)
     }
 
     ///
@@ -59,6 +55,18 @@ impl<F: Field> LookupTable<F> {
         t
     }
 }
+
+impl<F: Field, I: IntoIterator<Item = F>> From<I> for LookupTable<F> {
+    fn from(iter: I) -> Self {
+        LookupTable(IndexSet::from_iter(iter))
+    }
+}
+
+// impl<'a, F: Field, I: IntoIterator<Item = &'a F>> From<I> for LookupTable<F> {
+//     fn from(iter: I) -> Self {
+//         LookupTable(IndexSet::from_iter(iter))
+//     }
+// }
 
 // #[cfg(test)]
 // mod test {

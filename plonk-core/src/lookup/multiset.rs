@@ -28,6 +28,7 @@ use crate::{error::Error, util::poly_from_evals};
 )]
 pub struct MultiSet<F: Field>(pub Vec<F>);
 
+#[allow(dead_code)]
 impl<F: Field> MultiSet<F> {
     /// Creates an empty vector with a multiset wrapper around it
     pub fn new() -> Self {

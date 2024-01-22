@@ -18,11 +18,11 @@ use crate::{
     proof_system::{
         Proof,
         ProverKey, ExtendedProverKey, VerifierKey,
-        setup as plonk_setup,
-        prove as plonk_prove,
+        setup as snark_setup,
+        prove as snark_prove,
     },
     transcript::TranscriptProtocol,
-    util::EvaluationDomainExt,
+    util::EvaluationDomainExt, lookup::LookupTable,
 };
 
 /// Trait that should be implemented for any circuit function to provide to it
@@ -176,7 +176,7 @@ pub trait Circuit<F: Field>: Default {
 
 ///
 #[derive(Debug, Default)]
-pub struct Plonkup<F, D, PC, T, C>
+pub struct ZKTPlonkup<F, D, PC, T, C>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
@@ -191,7 +191,7 @@ where
     _c: PhantomData<C>,
 }
 
-impl<F, D, PC, T, C> Plonkup<F, D, PC, T, C>
+impl<F, D, PC, T, C> ZKTPlonkup<F, D, PC, T, C>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
@@ -201,9 +201,10 @@ where
 {
     ///
     #[allow(clippy::type_complexity)]
-    pub fn compile(
+    pub fn compile<I: Into<LookupTable<F>>>(
         extend: bool,
         pp: &PC::UniversalParams,
+        table: I,
     ) -> Result<
         (
             PC::CommitterKey,
@@ -214,7 +215,7 @@ where
         ),
         Error
     > {
-        let mut cs = ConstraintSystem::new(true);
+        let mut cs = ConstraintSystem::new(true, table.into());
         // Generate circuit constraint
         let circuit = C::default();
         circuit.synthesize(&mut cs)?;
@@ -228,28 +229,29 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            plonk_setup::<_, D, _>(&ck, cs, extend)?;
+            snark_setup::<_, D, _>(&ck, cs, extend)?;
 
         Ok((ck, cvk, pk, epk, vk))
     }
 
     ///
-    pub fn prove<R: CryptoRng + RngCore>(
+    pub fn prove<I: Into<LookupTable<F>>, R: CryptoRng + RngCore>(
         ck: &PC::CommitterKey,
         pk: &ProverKey<F>,
         epk: Option<Rc<ExtendedProverKey<F>>>,
         vk: &VerifierKey<F, PC>,
+        table: I,
         circuit: C,
         rng: &mut R,
     ) -> Result<Proof<F, D, PC>, Error> {
-        let mut cs = ConstraintSystem::new(false);
+        let mut cs = ConstraintSystem::new(false, table.into());
         // Generate circuit constraint
         circuit.synthesize(&mut cs)?;
-        
-        let transcript = &mut T::new("Plonk");
+
+        let transcript = &mut T::new("ZKT Plonkup");
         vk.seed_transcript(transcript);
 
-        plonk_prove(ck, pk, epk, vk, cs, transcript, rng)
+        snark_prove(ck, pk, epk, vk, cs, transcript, rng)
     }
 
     ///
@@ -259,7 +261,7 @@ where
         proof: &Proof<F, D, PC>,
         pub_inputs: &[F],
     ) -> Result<(), Error> {
-        let transcript = &mut T::new("Plonkup");
+        let transcript = &mut T::new("ZKT Plonkup");
         vk.seed_transcript(transcript);
 
         proof.verify(cvk, vk, transcript, pub_inputs)
@@ -277,7 +279,6 @@ mod test {
 
     use crate::{
         constraint_system::{Variable, Selectors},
-        lookup::UintRangeTable,
         transcript::MerlinTranscript,
         batch_test_kzg,
         batch_test_ipa,
@@ -286,9 +287,8 @@ mod test {
 
     // Implements a circuit that checks:
     // 1) a + b = c
-    // 2) a is in 8 bit range (lookup)
-    // 3) b is in 8 bit range (lookup)
-    // 4) d = a * c, d is a PI
+    // 2) d = a * c, d is a PI
+    // 3) c exists in table
     #[derive(derivative::Derivative)]
     #[derivative(Debug(bound = ""), Default(bound = ""))]
     pub struct TestCircuit {
@@ -302,21 +302,18 @@ mod test {
         fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
             let a = cs.assign_variable(self.a.into());
             let b = cs.assign_variable(self.b.into());
-
-            let c = cs.add_gate(&a.into(), &b.into());
-
-            cs.contains_gate::<UintRangeTable<8>>(a);
-            cs.contains_gate::<UintRangeTable<8>>(b);
             
+            let c = cs.add_gate(&a.into(), &b.into());
             let sels = Selectors::new_arith()
                 .with_mul(-F::one());
             cs.arith_constrain(a, c, Variable::Zero, sels, Some(self.d.into()));
+            cs.lookup_constrain(c);
 
             Ok(())
         }
     }
 
-    type PlonkupInstance<F, PC> = Plonkup<
+    type ZKTPlonkupInstance<F, PC> = ZKTPlonkup<
         F,
         GeneralEvaluationDomain<F>,
         PC,
@@ -325,6 +322,7 @@ mod test {
     >;
 
     fn test_full<F: PrimeField, PC: HomomorphicCommitment<F>>() {
+        let table = vec![F::from(1u64), F::from(3u64), F::from(5u64)];
         let rng = &mut test_rng();
         // setup
         let pp =
@@ -335,7 +333,7 @@ mod test {
             pk,
             epk,
             vk,
-        ) = PlonkupInstance::<F, PC>::compile(true, &pp).unwrap();
+        ) = ZKTPlonkupInstance::<F, PC>::compile(true, &pp, table.clone()).unwrap();
 
         // prove
         let circuit = TestCircuit {
@@ -346,10 +344,10 @@ mod test {
         };
         let epk = epk.map(|epk| Rc::new(epk));
         let proof =
-            PlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, circuit, rng).unwrap();
+            ZKTPlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng).unwrap();
 
         // verify
-        PlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u8.into()]).unwrap();
+        ZKTPlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u8.into()]).unwrap();
     }
 
     batch_test_kzg!(

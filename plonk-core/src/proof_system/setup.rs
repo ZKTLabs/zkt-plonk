@@ -95,12 +95,12 @@ where
     let labeled_q_r_poly = label_polynomial!(q_r_poly);
     let labeled_q_o_poly = label_polynomial!(q_o_poly);
     let labeled_q_c_poly = label_polynomial!(q_c_poly);
-    let labeled_q_lookup_poly = label_polynomial!(q_lookup_poly);
-    let labeled_q_table_poly = label_polynomial!(q_table_poly);
     let labeled_sigma1_poly = label_polynomial!(sigma1_poly);
     let labeled_sigma2_poly = label_polynomial!(sigma2_poly);
     let labeled_sigma3_poly = label_polynomial!(sigma3_poly);
-    
+    let labeled_q_lookup_poly = label_polynomial!(q_lookup_poly);
+    let labeled_q_table_poly = label_polynomial!(q_table_poly);
+
     let (labeled_commits, _) =
         PC::commit(
             ck,
@@ -110,17 +110,17 @@ where
                 &labeled_q_r_poly,
                 &labeled_q_o_poly,
                 &labeled_q_c_poly,
-                &labeled_q_lookup_poly,
-                &labeled_q_table_poly,
                 &labeled_sigma1_poly,
                 &labeled_sigma2_poly,
                 &labeled_sigma3_poly,
+                &labeled_q_lookup_poly,
+                &labeled_q_table_poly,
             ],
             None,
         )
         .map_err(to_pc_error::<F, PC>)?;
 
-    let pi_roots = composer.pp.get_pos().map(|i| domain.element(*i)).collect();
+    let pi_roots = composer.pp.get_pos().map(|i: &usize| domain.element(*i)).collect();
     let vk = VerifierKey::from_polynomial_commitments(
         n,
         pi_roots,
@@ -129,11 +129,11 @@ where
         labeled_commits[2].commitment().clone(), // q_r
         labeled_commits[3].commitment().clone(), // q_o
         labeled_commits[4].commitment().clone(), // q_c
-        labeled_commits[5].commitment().clone(), // q_lookup
-        labeled_commits[6].commitment().clone(), // q_table
-        labeled_commits[7].commitment().clone(), // sigma1
-        labeled_commits[8].commitment().clone(), // sigma2
-        labeled_commits[9].commitment().clone(), // sigma3
+        labeled_commits[5].commitment().clone(), // sigma1
+        labeled_commits[6].commitment().clone(), // sigma2
+        labeled_commits[7].commitment().clone(), // sigma3
+        labeled_commits[8].commitment().clone(), // q_lookup
+        labeled_commits[9].commitment().clone(), // q_table
     );
 
     let pk = ProverKey::from_polynomials(
@@ -142,11 +142,11 @@ where
         labeled_q_r_poly,
         labeled_q_o_poly,
         labeled_q_c_poly,
-        labeled_q_lookup_poly,
-        labeled_q_table_poly,
         labeled_sigma1_poly,
         labeled_sigma2_poly,
         labeled_sigma3_poly,
+        labeled_q_lookup_poly,
+        labeled_q_table_poly,
     );
 
     let epk = if extend {
