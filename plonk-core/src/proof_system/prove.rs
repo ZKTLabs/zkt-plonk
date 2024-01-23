@@ -161,7 +161,7 @@ where
     let f: MultiSet<_> = c_evals
         .iter()
         .zip(epk.lookup.q_lookup.iter())
-        .map(|(c, q_lookup)| if q_lookup.is_zero() { F::zero() } else { *c })
+        .map(|(c, q_lookup)| *q_lookup * c)
         .collect();
     // Compute s, as the sorted and concatenated version of f and t
     let (h1, h2) = t.combine_split(&f)?;

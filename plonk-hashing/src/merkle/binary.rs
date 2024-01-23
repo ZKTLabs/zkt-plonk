@@ -29,24 +29,16 @@ where
 }
 
 /// Proof of Existance Circuit
-pub struct PoECircuit<F, H, const HEIGHT: usize>
-where
-    F: Field,
-    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
-{
+pub struct PoECircuit<F: Field, const HEIGHT: usize> {
     leaf_index: u64,
     witness_nodes: Vec<F>,
-    hasher: H,
 }
 
-impl<F, H, const HEIGHT: usize> PoECircuit<F, H, HEIGHT>
-where
-    F: Field,
-    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
-{
-    pub fn synthesize(
-        mut self,
+impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
+    pub fn synthesize<H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>>(
+        self,
         cs: &mut ConstraintSystem<F>,
+        hasher: &mut H,
         leaf_node: &LTVariable<F>,
     ) -> (LTVariable<F>, Vec<Boolean>) {
         assert_eq!(self.witness_nodes.len(), HEIGHT, "invalid auth path length");
@@ -69,7 +61,7 @@ where
             .collect_vec();
 
         let mut paths = compute_merkle_paths(
-            &mut self.hasher,
+            hasher,
             cs,
             witness_elements,
             leaf_node,

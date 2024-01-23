@@ -22,6 +22,7 @@ pub use helper::*;
 pub use pi::*;
 
 use ark_ff::Field;
+use bitvec::{field::BitField, prelude::*};
 
 use crate::lookup::LookupTable;
 
@@ -173,6 +174,51 @@ impl<F: Field> ConstraintSystem<F> {
             .by_right_lt(y);
         
         self.arith_constrain(x.var, y.var, Variable::Zero, sels, None);
+    }
+
+    ///
+    pub fn from_bits(&mut self, bits: &[Boolean]) -> Variable {
+        assert!(bits.len().is_power_of_two(), "bits length must be a power of two");
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                
+
+
+
+                let (var, _) = bits
+                    .fold((Variable::Zero, F::one()), |(acc_var, scale), bit_var| {
+                        let new_var = composer.perm.new_variable();
+                        let sels = Selectors::new_arith()
+                            .with_mul(F::zero())
+                            .with_left(F::one())
+                            .with_right(scale)
+                            .with_out(-F::one());
+
+                        composer.gate_constrain(acc_var, bit_var.0, new_var, sels, false);
+
+                        (new_var, scale * F::from(2u64))
+                    });
+
+                var
+            }
+            Composer::Proving(composer) => {
+                let (var, _, _) = bits
+                    .into_iter()
+                    .fold(
+                        (Variable::Zero, F::zero(), F::one()),
+                        |(acc_var, acc, scale), bit_var| {
+                            let bit = composer.var_map.value_of_var(bit_var.0);
+                            let new_val = acc + scale * bit;
+                            let new_var = composer.var_map.assign_variable(new_val);
+
+                            composer.input_wires(acc_var, bit_var.0, new_var, None);
+
+                            (new_var, new_val, scale * F::from(2u64))
+                    });
+
+                var
+            }
+        }
     }
 
     /// x = public input
