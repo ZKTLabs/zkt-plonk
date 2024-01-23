@@ -112,8 +112,8 @@ impl<F: Field> ProverKey<F> {
         );
 
         // Compute 4n evaluations for x^n - 1
-        let vh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
-        let vh_coset = coset_evals_from_poly(&domain_4n, vh_poly);
+        let zh_poly: DensePolynomial<_> = domain.vanishing_polynomial().into();
+        let zh_coset = coset_evals_from_poly(&domain_4n, zh_poly);
 
         let l_1_poly = compute_first_lagrange_poly(domain);
         let l_1_coset = coset_evals_from_poly(&domain_4n, l_1_poly);
@@ -140,7 +140,7 @@ impl<F: Field> ProverKey<F> {
                 sigma3_coset,
                 x_coset,
             },
-            vh_coset,
+            zh_coset,
             l_1_coset,
         })
     }
@@ -167,7 +167,7 @@ pub struct ExtendedProverKey<F: FftField> {
     /// NOTE: With this, we can combine all parts of the quotient polynomial
     /// in their evaluation phase and divide by the quotient
     /// polynomial without having to perform IFFT
-    pub vh_coset: Vec<F>,
+    pub zh_coset: Vec<F>,
 
     ///
     pub l_1_coset: Vec<F>,
@@ -221,11 +221,11 @@ where
         q_r: PC::Commitment,
         q_o: PC::Commitment,
         q_c: PC::Commitment,
-        q_lookup: PC::Commitment,
-        q_table: PC::Commitment,
         sigma1: PC::Commitment,
         sigma2: PC::Commitment,
         sigma3: PC::Commitment,
+        q_lookup: PC::Commitment,
+        q_table: PC::Commitment,
     ) -> Self {
         assert!(n.is_power_of_two());
         Self {

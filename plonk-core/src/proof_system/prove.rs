@@ -131,16 +131,12 @@ where
     add_blinders_to_poly(rng, 2, &mut c_poly);
 
     // Commit to witness polynomials.
-    let labeled_a_poly = label_polynomial!(a_poly);
-    let labeled_b_poly = label_polynomial!(b_poly);
-    let labeled_c_poly = label_polynomial!(c_poly);
+    let labeled_a_poly = label_polynomial!("a", a_poly);
+    let labeled_b_poly = label_polynomial!("b", b_poly);
+    let labeled_c_poly = label_polynomial!("c", c_poly);
     let (labeled_wire_commits, _) =
-        PC::commit(ck, vec![
-            &labeled_a_poly,
-            &labeled_b_poly,
-            &labeled_c_poly,
-        ], None)
-        .map_err(to_pc_error::<F, PC>)?;
+        PC::commit(ck, [&labeled_a_poly, &labeled_b_poly, &labeled_c_poly], None)
+            .map_err(to_pc_error::<F, PC>)?;
 
     // Add witness polynomial commitments to transcript.
     transcript.append_commitment("a_commit", labeled_wire_commits[0].commitment());
@@ -179,17 +175,13 @@ where
     add_blinders_to_poly(rng, 2, &mut h2_poly);
 
     // Commit to t, h1 and h2 polys
-    let labeled_t_poly = label_polynomial!(t_poly);
-    let labeled_h1_poly = label_polynomial!(h1_poly);
-    let labeled_h2_poly = label_polynomial!(h2_poly);
+    let labeled_t_poly = label_polynomial!("t", t_poly);
+    let labeled_h1_poly = label_polynomial!("h1", h1_poly);
+    let labeled_h2_poly = label_polynomial!("h2", h2_poly);
     // Commit to polynomials
     let (labeled_t_h_commits, _) =
-        PC::commit(ck, vec![
-            &labeled_t_poly,
-            &labeled_h1_poly,
-            &labeled_h2_poly
-        ], None)
-        .map_err(to_pc_error::<F, PC>)?;
+        PC::commit(ck, [&labeled_t_poly, &labeled_h1_poly, &labeled_h2_poly], None)
+            .map_err(to_pc_error::<F, PC>)?;
 
     // Add t and h commitment to transcript
     transcript.append_commitment("t_commit", labeled_t_h_commits[0].commitment());
@@ -256,10 +248,10 @@ where
     add_blinders_to_poly(rng, 3, &mut z2_poly);
 
     // Commit to permutation and lookup polynomials.
-    let labeled_z1_poly = label_polynomial!(z1_poly);
-    let labeled_z2_poly = label_polynomial!(z2_poly);
+    let labeled_z1_poly = label_polynomial!("z1", z1_poly);
+    let labeled_z2_poly = label_polynomial!("z2", z2_poly);
     let (labeled_z_commits, _) =
-        PC::commit(ck, vec![&labeled_z1_poly, &labeled_z2_poly], None)
+        PC::commit(ck, [&labeled_z1_poly, &labeled_z2_poly], None)
             .map_err(to_pc_error::<F, PC>)?;
 
     // Add permutation polynomial commitment to transcript.
@@ -312,16 +304,12 @@ where
     q_hi_poly.coeffs[0] -= b1;
 
     // Commit to splitted quotient polynomial
-    let labeled_q_lo_poly = label_polynomial!(q_lo_poly);
-    let labeled_q_mid_poly = label_polynomial!(q_mid_poly);
-    let labeled_q_hi_poly = label_polynomial!(q_hi_poly);
+    let labeled_q_lo_poly = label_polynomial!("q_lo", q_lo_poly);
+    let labeled_q_mid_poly = label_polynomial!("q_mid", q_mid_poly);
+    let labeled_q_hi_poly = label_polynomial!("q_hi", q_hi_poly);
     let (labeled_q_commits, _) =
-        PC::commit(ck, vec![
-            &labeled_q_lo_poly,
-            &labeled_q_mid_poly,
-            &labeled_q_hi_poly,
-        ], None)
-        .map_err(to_pc_error::<F, PC>)?;
+        PC::commit(ck, [&labeled_q_lo_poly, &labeled_q_mid_poly, &labeled_q_hi_poly], None)
+            .map_err(to_pc_error::<F, PC>)?;
 
     // Add quotient polynomial commitments to transcript
     transcript.append_commitment("q_lo_commit", labeled_q_commits[0].commitment());
@@ -385,18 +373,18 @@ where
     // Compute aggregate witness to polynomials evaluated at the evaluation challenge `ξ`
     let eta = transcript.challenge_scalar("eta");
 
-    let labeled_r_poly = label_polynomial!(r_poly);
+    let labeled_r_poly = label_polynomial!("r", r_poly);
     let (labeled_r_commit, _) =
-        PC::commit(ck, vec![&labeled_r_poly], None)
+        PC::commit(ck, [&labeled_r_poly], None)
             .map_err(to_pc_error::<F, PC>)?;
 
-    let labeled_sigma1_commit = label_commitment!(vk.perm.sigma1);
-    let labeled_sigma2_commit = label_commitment!(vk.perm.sigma2);
-    let labeled_q_lookup_commit = label_commitment!(vk.lookup.q_lookup);
+    let labeled_sigma1_commit = label_commitment!("sigma1", vk.perm.sigma1);
+    let labeled_sigma2_commit = label_commitment!("sigma2", vk.perm.sigma2);
+    let labeled_q_lookup_commit = label_commitment!("q_lookup", vk.lookup.q_lookup);
     let randomness = <PC::Randomness as PCRandomness>::empty();
     let aw_opening = PC::open(
         ck,
-        vec![
+        [
             &labeled_r_poly,
             &labeled_a_poly,
             &labeled_b_poly,
@@ -407,7 +395,7 @@ where
             &labeled_t_poly,
             &labeled_h2_poly,
         ],
-        vec![
+        [
             &labeled_r_commit[0],
             &labeled_wire_commits[0],
             &labeled_wire_commits[1],
@@ -420,7 +408,7 @@ where
         ],
         &xi,
         eta,
-        vec![
+        [
             &randomness,
             &randomness,
             &randomness,
@@ -442,21 +430,26 @@ where
 
     let saw_opening = PC::open(
         ck,
-        vec![
-            &labeled_t_poly,
+        [
             &labeled_z1_poly,
             &labeled_z2_poly,
+            &labeled_t_poly,
             &labeled_h1_poly,
         ],
-        vec![
-            &labeled_t_h_commits[0],
+        [
             &labeled_z_commits[0],
             &labeled_z_commits[1],
+            &labeled_t_h_commits[0],
             &labeled_t_h_commits[1],
         ],
         &(xi * domain.group_gen()),
         eta,
-        vec![&randomness, &randomness, &randomness],
+        [
+            &randomness,
+            &randomness,
+            &randomness,
+            &randomness,
+        ],
         None,
     )
     .map_err(to_pc_error::<F, PC>)?;

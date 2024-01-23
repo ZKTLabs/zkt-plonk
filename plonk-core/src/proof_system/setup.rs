@@ -86,25 +86,25 @@ where
     let sigma3_poly = poly_from_evals_ref(&domain, &sigma3_evals);
 
     // 3. Compute lookup table polynomials
-    let q_table = cs.lookup_table.selectors(n);
+    let q_table = cs.lookup_table.masks(n);
     let q_table_poly = poly_from_evals(&domain, q_table);
     drop(cs.lookup_table);
 
-    let labeled_q_m_poly = label_polynomial!(q_m_poly);
-    let labeled_q_l_poly = label_polynomial!(q_l_poly);
-    let labeled_q_r_poly = label_polynomial!(q_r_poly);
-    let labeled_q_o_poly = label_polynomial!(q_o_poly);
-    let labeled_q_c_poly = label_polynomial!(q_c_poly);
-    let labeled_sigma1_poly = label_polynomial!(sigma1_poly);
-    let labeled_sigma2_poly = label_polynomial!(sigma2_poly);
-    let labeled_sigma3_poly = label_polynomial!(sigma3_poly);
-    let labeled_q_lookup_poly = label_polynomial!(q_lookup_poly);
-    let labeled_q_table_poly = label_polynomial!(q_table_poly);
+    let labeled_q_m_poly = label_polynomial!("q_m", q_m_poly);
+    let labeled_q_l_poly = label_polynomial!("q_l", q_l_poly);
+    let labeled_q_r_poly = label_polynomial!("q_r", q_r_poly);
+    let labeled_q_o_poly = label_polynomial!("q_o", q_o_poly);
+    let labeled_q_c_poly = label_polynomial!("q_c", q_c_poly);
+    let labeled_sigma1_poly = label_polynomial!("sigma1", sigma1_poly);
+    let labeled_sigma2_poly = label_polynomial!("sigma2", sigma2_poly);
+    let labeled_sigma3_poly = label_polynomial!("sigma3", sigma3_poly);
+    let labeled_q_lookup_poly = label_polynomial!("q_lookup", q_lookup_poly);
+    let labeled_q_table_poly = label_polynomial!("q_table", q_table_poly);
 
     let (labeled_commits, _) =
         PC::commit(
             ck,
-            vec![
+            [
                 &labeled_q_m_poly,
                 &labeled_q_l_poly,
                 &labeled_q_r_poly,
@@ -120,7 +120,7 @@ where
         )
         .map_err(to_pc_error::<F, PC>)?;
 
-    let pi_roots = composer.pp.get_pos().map(|i: &usize| domain.element(*i)).collect();
+    let pi_roots = composer.pp.get_pos().map(|i| domain.element(*i)).collect();
     let vk = VerifierKey::from_polynomial_commitments(
         n,
         pi_roots,

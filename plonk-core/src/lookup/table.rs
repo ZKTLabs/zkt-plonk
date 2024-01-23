@@ -40,9 +40,12 @@ impl<F: Field> LookupTable<F> {
     }
 
     ///
-    pub(crate) fn selectors(&self, n: usize) -> Vec<F> {
-        let mut evals = vec![F::one(); self.size()];
-        evals.resize(n, F::zero());
+    pub(crate) fn masks(&self, n: usize) -> Vec<F> {
+        let size = self.size();
+        assert!(size < n, "table size is equal or larger than n");
+
+        let mut evals = vec![F::zero(); size];
+        evals.resize(n, F::one());
         evals
     }
 
@@ -50,8 +53,9 @@ impl<F: Field> LookupTable<F> {
     /// turns them into multiset for c and extends the length to `n`, 
     pub(crate) fn into_multiset(self, n: usize) -> MultiSet<F> {
         let mut t = MultiSet::from_iter(self.0.into_iter());
+        assert!(t.len() < n, "table size is equal or larger than n");
+
         t.pad_with_zero(n);
-        
         t
     }
 }

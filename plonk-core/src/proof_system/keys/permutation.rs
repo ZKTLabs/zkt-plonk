@@ -59,8 +59,7 @@ impl<F: Field> ProverKey<F> {
         // -(a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ) * β * z1(ωξ) * α * σ3(x)
         let part_2 =
             self.sigma3.polynomial() * (
-                -alpha
-                    * beta
+                -alpha * beta
                     * perm_evals.z1_next
                     * (beta * perm_evals.sigma1 + wire_evals.a + gamma)
                     * (beta * perm_evals.sigma2 + wire_evals.b + gamma)
@@ -112,8 +111,7 @@ impl<F: FftField> ExtendedProverKey<F> {
         // (a(x) + β*x + γ) * (b(x) + β*k1*x + γ) * (c(x) + β*k2*x + γ) * z1(x) * α
         let part_1 = {
             let beta_mul_x = beta * self.x_coset[i];
-            alpha
-                * z1_i
+            alpha * z1_i
                 * (beta_mul_x + a_i + gamma)
                 * (beta_mul_x * K1::<F>() + b_i + gamma)
                 * (beta_mul_x * K2::<F>() + c_i + gamma)
@@ -125,8 +123,7 @@ impl<F: FftField> ExtendedProverKey<F> {
             let sigma1_eval = self.sigma1_coset[i];
             let sigma2_eval = self.sigma2_coset[i];
             let sigma3_eval = self.sigma3_coset[i];
-            -alpha
-                * z1_i_next
+            -alpha * z1_i_next
                 * (beta * sigma1_eval + a_i + gamma)
                 * (beta * sigma2_eval + b_i + gamma)
                 * (beta * sigma3_eval + c_i + gamma)
@@ -189,9 +186,8 @@ where
         scalars.push(scalar);
         points.push(z1_comm);
 
-        // -(a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ) * z1(ωξ) * α * β
-        let scalar = -alpha
-            * beta
+        // -α * β * z1(ωξ) * (a(ξ) + β*σ1(ξ) + γ) * (b(ξ) + β*σ2(ξ) + γ)
+        let scalar = -alpha * beta
             * evaluations.perm_evals.z1_next
             * (beta * evaluations.perm_evals.sigma1 + evaluations.wire_evals.a + gamma)
             * (beta * evaluations.perm_evals.sigma2 + evaluations.wire_evals.b + gamma);

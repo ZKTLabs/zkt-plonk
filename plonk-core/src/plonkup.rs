@@ -18,8 +18,8 @@ use crate::{
     proof_system::{
         Proof,
         ProverKey, ExtendedProverKey, VerifierKey,
-        setup as snark_setup,
-        prove as snark_prove,
+        setup as plonkup_setup,
+        prove as plonkup_prove,
     },
     transcript::TranscriptProtocol,
     util::EvaluationDomainExt, lookup::LookupTable,
@@ -229,7 +229,7 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            snark_setup::<_, D, _>(&ck, cs, extend)?;
+            plonkup_setup::<_, D, _>(&ck, cs, extend)?;
 
         Ok((ck, cvk, pk, epk, vk))
     }
@@ -251,7 +251,7 @@ where
         let transcript = &mut T::new("ZKT Plonkup");
         vk.seed_transcript(transcript);
 
-        snark_prove(ck, pk, epk, vk, cs, transcript, rng)
+        plonkup_prove(ck, pk, epk, vk, cs, transcript, rng)
     }
 
     ///
@@ -288,14 +288,16 @@ mod test {
     // Implements a circuit that checks:
     // 1) a + b = c
     // 2) d = a * c, d is a PI
-    // 3) c exists in table
+    // 3) if (e) { f = a } else { f = b }, f is a PI
+    // 4) c exists in table
     #[derive(derivative::Derivative)]
     #[derivative(Debug(bound = ""), Default(bound = ""))]
     pub struct TestCircuit {
-        a: u8,
-        b: u8,
-        c: u8,
-        d: u8,
+        a: u64,
+        b: u64,
+        c: u64,
+        d: u64,
+        e: bool,
     }
 
     impl<F: Field> Circuit<F> for TestCircuit {
@@ -307,6 +309,12 @@ mod test {
             let sels = Selectors::new_arith()
                 .with_mul(-F::one());
             cs.arith_constrain(a, c, Variable::Zero, sels, Some(self.d.into()));
+
+            let e = cs.assign_variable(self.e.into());
+            let e = cs.boolean_gate(e);
+            let f = cs.conditional_select(e, &a.into(), &b.into());
+            cs.set_variable_public(&f.into());
+
             cs.lookup_constrain(c);
 
             Ok(())
@@ -322,18 +330,20 @@ mod test {
     >;
 
     fn test_full<F: PrimeField, PC: HomomorphicCommitment<F>>() {
-        let table = vec![F::from(1u64), F::from(3u64), F::from(5u64)];
+        let table = [F::from(1u64), F::from(5u64), F::from(7u64)];
         let rng = &mut test_rng();
         // setup
         let pp =
-            PC::setup(1 << 10, None, rng).unwrap();
+            PC::setup(1 << 10, None, rng)
+                .unwrap_or_else(|e| panic!("setup failed: {e}"));
         let (
             ck,
             cvk,
             pk,
             epk,
             vk,
-        ) = ZKTPlonkupInstance::<F, PC>::compile(true, &pp, table.clone()).unwrap();
+        ) = ZKTPlonkupInstance::<F, PC>::compile(true, &pp, table.clone())
+            .unwrap_or_else(|e| panic!("compile failed: {e}"));
 
         // prove
         let circuit = TestCircuit {
@@ -341,13 +351,16 @@ mod test {
             b: 3,
             c: 5,
             d: 10,
+            e: true,
         };
         let epk = epk.map(|epk| Rc::new(epk));
         let proof =
-            ZKTPlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng).unwrap();
+            ZKTPlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng)
+                .unwrap_or_else(|e| panic!("prove failed: {e}"));
 
         // verify
-        ZKTPlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u8.into()]).unwrap();
+        ZKTPlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u64.into(), 2u64.into()])
+            .unwrap_or_else(|e| panic!("verify failed: {e}"));
     }
 
     batch_test_kzg!(

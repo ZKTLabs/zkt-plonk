@@ -208,18 +208,18 @@ where
         arith,
         perm,
         lookup,
-        epk.vh_coset.iter(),
+        epk.zh_coset.iter(),
     );
     #[cfg(feature = "parallel")]
     let quotient = crate::par_izip!(
         arith,
         perm,
         lookup,
-        epk.vh_coset.par_iter(),
+        epk.zh_coset.par_iter(),
     );
     let quotient = quotient
-        .map(|(arith, perm, lookup, vh)| {
-            (arith + perm + lookup) * vh.inverse().unwrap()
+        .map(|(arith, perm, lookup, zh)| {
+            (arith + perm + lookup) * zh.inverse().unwrap()
         })
         .collect();
 

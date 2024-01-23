@@ -43,11 +43,11 @@ where
 {
     let shifted_xi = xi * domain.group_gen();
 
-    let vh_eval = domain.evaluate_vanishing_polynomial(xi);
+    let zh_eval = domain.evaluate_vanishing_polynomial(xi);
     let l_1_eval = compute_lagrange_evaluation(
         domain.size(),
         F::one(),
-        vh_eval,
+        zh_eval,
         xi,
     );
 
@@ -101,12 +101,12 @@ where
     // Compute the last term in the linearisation polynomial
     // (negative_quotient_term):
     // - zh(ξ) * [q_low(x) + ξ^(n+2)*q_mid(x) + ξ^(2n+4)*q_high(x)]
-    let xi_exp_n_plus_2 = (vh_eval + F::one()) * xi.square();
+    let xi_exp_n_plus_2 = (zh_eval + F::one()) * xi.square();
     let quotient_term = &(&(&(&(q_hi_poly * xi_exp_n_plus_2)
         + q_mid_poly)
         * xi_exp_n_plus_2)
         + q_lo_poly)
-        * -vh_eval;
+        * -zh_eval;
 
     let linearisation_polynomial = arith + permutation + lookup + quotient_term;
 

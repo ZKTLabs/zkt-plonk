@@ -185,10 +185,10 @@ where
 pub(crate) fn compute_lagrange_evaluation<F: Field>(
     n: usize,
     point: F,
-    vh_eval: F,
+    zh_eval: F,
     tau: F,
 ) -> F {
-    let numinator = vh_eval * point;
+    let numinator = zh_eval * point;
     let dominator = F::from(n as u64) * (tau - point);
     numinator * dominator.inverse().unwrap()
 }
@@ -215,6 +215,14 @@ macro_rules! label_polynomial {
             None,
         )
     };
+    ($label:expr, $poly:expr) => {
+        ark_poly_commit::LabeledPolynomial::new(
+            $label.to_string(),
+            $poly,
+            None,
+            None,
+        )
+    };
 }
 
 /// Macro to quickly label polynomial commitments
@@ -223,6 +231,13 @@ macro_rules! label_commitment {
     ($comm:expr) => {
         ark_poly_commit::LabeledCommitment::new(
             stringify!($comm).to_owned(),
+            $comm.clone(),
+            None,
+        )
+    };
+    ($label:expr, $comm:expr) => {
+        ark_poly_commit::LabeledCommitment::new(
+            $label.to_string(),
             $comm.clone(),
             None,
         )
