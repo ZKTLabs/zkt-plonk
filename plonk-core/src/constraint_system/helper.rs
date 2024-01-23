@@ -65,10 +65,11 @@ pub fn check_arith_gate<F: Field>(
 }
 
 ///
-pub fn test_gate_constraints<F, P>(mut process: P, pub_inputs: &[F])
+pub fn test_gate_constraints<F, I, P>(process: P, pub_inputs: &[F])
 where
     F: Field,
-    P: FnMut(&mut ConstraintSystem<F>) -> Vec<(LTVariable<F>, F)>,
+    I: IntoIterator<Item = (LTVariable<F>, F)>,
+    P: Fn(&mut ConstraintSystem<F>) -> I,
 {
     let mut setup = ConstraintSystem::new(true, Default::default());
     let mut proving = ConstraintSystem::new(false, Default::default());

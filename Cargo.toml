@@ -28,7 +28,7 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 resolver = "2"
 members = [
     "plonk-core",
-    "plonk-hashing",
+    "plonk-hashing", "privacy-pools",
 ]
 
 [dependencies]
