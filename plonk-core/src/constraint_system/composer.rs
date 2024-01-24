@@ -33,7 +33,7 @@ pub struct Selectors<F: Field> {
 
 impl<F: Field> Selectors<F> {
     ///
-    pub fn new_arith() -> Self {
+    pub fn new() -> Self {
         Self {
             q_m: F::zero(),
             q_l: F::zero(),
@@ -41,18 +41,6 @@ impl<F: Field> Selectors<F> {
             q_o: F::zero(),
             q_c: F::zero(),
             q_lookup: F::zero(),
-        }
-    }
-
-    ///
-    pub fn new_lookup() -> Self {
-        Self {
-            q_m: F::zero(),
-            q_l: F::zero(),
-            q_r: F::zero(),
-            q_o: F::zero(),
-            q_c: F::zero(),
-            q_lookup: F::one(),
         }
     }
 
@@ -77,6 +65,12 @@ impl<F: Field> Selectors<F> {
     ///
     pub fn with_out(mut self, q_o: F) -> Self {
         self.q_o = q_o;
+        self
+    }
+
+    ///
+    pub fn with_lookup(mut self) -> Self {
+        self.q_lookup = F::one();
         self
     }
 

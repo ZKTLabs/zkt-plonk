@@ -18,7 +18,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_left(F::one())
                     .with_right(F::one())
                     .with_out(-F::one())
@@ -48,7 +48,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_left(F::one())
                     .with_right(-F::one())
                     .with_out(-F::one())
@@ -78,7 +78,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one())
                     .by_left_lt(x)
@@ -107,7 +107,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one())
                     .by_left_lt(y)
@@ -136,7 +136,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 y = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one())
                     .by_left_lt(x)
@@ -171,7 +171,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_left(a)
                     .with_right(b)
                     .with_out(-F::one())

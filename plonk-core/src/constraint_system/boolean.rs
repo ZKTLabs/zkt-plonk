@@ -12,7 +12,7 @@ use super::{Selectors, Composer, Variable, ConstraintSystem};
 
 ///
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Boolean(pub Variable);
+pub struct Boolean(pub(crate) Variable);
 
 impl<F: Field> ConstraintSystem<F> {
     /// Adds a boolean constraint (also known as binary constraint) where
@@ -24,7 +24,7 @@ impl<F: Field> ConstraintSystem<F> {
     /// fail.
     /// x * (x - 1) = 0 => x * x - x = 0
     pub fn boolean_gate(&mut self, x: Variable) -> Boolean {
-        let sels = Selectors::new_arith()
+        let sels = Selectors::new()
             .with_mul(F::one())
             .with_out(-F::one());
         
@@ -40,7 +40,7 @@ impl<F: Field> ConstraintSystem<F> {
         
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one());
 
@@ -69,7 +69,7 @@ impl<F: Field> ConstraintSystem<F> {
         
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_left(-F::one())
                     .with_right(-F::one())
@@ -100,7 +100,7 @@ impl<F: Field> ConstraintSystem<F> {
         
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::from(2u64))
                     .with_left(-F::one())
                     .with_right(-F::one())
@@ -131,7 +131,7 @@ impl<F: Field> ConstraintSystem<F> {
 
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(-F::one())
                     .with_right(F::one())
                     .with_out(-F::one());
@@ -161,7 +161,7 @@ impl<F: Field> ConstraintSystem<F> {
 
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_left(-F::one())
                     .with_right(-F::one())

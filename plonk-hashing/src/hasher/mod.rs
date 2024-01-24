@@ -6,8 +6,6 @@ pub trait FieldHasher<CS, F: Debug + Clone> {
 
     fn empty_hash() -> F;
 
-    fn reset(&mut self);
-
     fn hash(&mut self, cs: &mut CS, input: &[F]) -> F;
 
     fn hash_two(

@@ -10,7 +10,7 @@ use ark_ff::{BigInteger, PrimeField};
 /// * `rf`: binary representation of rf. b30..=b39
 /// * `rp`: binary representation of rp. b40..=b49
 /// * `ones`: set to 1. b50..=b79
-pub fn generate_constants<F: PrimeField>(
+pub(crate) fn generate_constants<F: PrimeField>(
     field: u8,
     sbox: u8,
     field_size: u16,

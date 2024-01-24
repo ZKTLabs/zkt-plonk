@@ -39,11 +39,11 @@ impl Variable {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct LTVariable<F: Field> {
     ///
-    pub var: Variable,
+    pub(crate) var: Variable,
     ///
-    pub coeff: F,
+    pub(crate) coeff: F,
     ///
-    pub offset: F,
+    pub(crate) offset: F,
 }
 
 impl<F: Field> From<Variable> for LTVariable<F> {

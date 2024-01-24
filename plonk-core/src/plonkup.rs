@@ -306,7 +306,7 @@ mod test {
             let b = cs.assign_variable(self.b.into());
             
             let c = cs.add_gate(&a.into(), &b.into());
-            let sels = Selectors::new_arith()
+            let sels = Selectors::new()
                 .with_mul(-F::one());
             cs.arith_constrain(a, c, Variable::Zero, sels, Some(self.d.into()));
 
@@ -315,7 +315,7 @@ mod test {
             let f = cs.conditional_select(e, &a.into(), &b.into());
             cs.set_variable_public(&f.into());
 
-            cs.lookup_constrain(c);
+            cs.lookup_constrain(&c.into());
 
             Ok(())
         }

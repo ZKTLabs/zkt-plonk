@@ -331,11 +331,8 @@ impl<
         S::zero()
     }
 
-    fn reset(&mut self) {
-        self.reset()
-    }
-
     fn hash(&mut self, cs: &mut CS, input: &[S::Field]) -> S::Field {
+        self.reset();
         for element in input {
             self.input(element.clone()).unwrap_or_else(|e| panic!("input failed: {}", e));
         }
@@ -358,28 +355,30 @@ mod tests {
     fn sanity_test() {
         const ARITY: usize = 4;
         const WIDTH: usize = ARITY + 1;
-        let mut rng = test_rng();
-
-        let param = PoseidonConstants::generate::<WIDTH>();
-        let mut poseidon =
-            PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param.clone());
-        let inputs = (0..ARITY).map(|_| Fr::rand(&mut rng)).collect::<Vec<_>>();
-
-        inputs.iter().for_each(|x| {
-            let _ = poseidon.input(*x).unwrap();
-        });
-        let native_hash = poseidon.output_hash(&mut ());
 
         test_gate_constraints(
             |cs| {
+                let rng = &mut test_rng();
+
+                // native poseidon
+                let param = PoseidonConstants::generate::<WIDTH>();
+                let mut poseidon =
+                    PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param.clone());
+                let inputs = (0..ARITY).map(|_| Fr::rand(rng)).collect::<Vec<_>>();
+                inputs.iter().for_each(|x| {
+                    let _ = poseidon.input(*x).unwrap();
+                });
+                let native_hash = poseidon.output_hash(&mut ());
+
+                // poseidon circuit
                 let inputs_var =
                     inputs.iter().map(|x| cs.assign_variable(*x)).collect::<Vec<_>>();
-                let mut poseidon_circuit =
+                let mut poseidon =
                     PoseidonRef::<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH>::new(param.clone());
                 inputs_var.into_iter().for_each(|x| {
-                    let _ = poseidon_circuit.input(x.into()).unwrap();
+                    let _ = poseidon.input(x.into()).unwrap();
                 });
-                let plonk_hash = poseidon_circuit.output_hash(cs);
+                let plonk_hash = poseidon.output_hash(cs);
     
                 [(plonk_hash, native_hash)]
             },
@@ -403,70 +402,4 @@ mod tests {
         });
         let _ = poseidon.output_hash(&mut ());
     }
-
-    // use crate::tests::{
-    //     conversion::cast_field,
-    //     neptune_hyper_parameter::collect_neptune_constants,
-    // };
-    // use neptune::{
-    //     poseidon::{HashMode, PoseidonConstants as NeptunePoseidonConstants},
-    //     Strength,
-    // };
-    // let constants = NeptunePoseidonConstants::<Fr,
-    // A>::new_with_strength(strength); let mut p = NeptunePoseidon::<Fr,
-    // A>::new(&constants); let mut p2 = NeptunePoseidon::<Fr,
-    // A>::new(&constants); let mut p3 = NeptunePoseidon::<Fr,
-    // A>::new(&constants); let mut p4 = NeptunePoseidon::<Fr,
-    // A>::new(&constants);
-
-    //     let test_arity = constants.arity();
-    //     for n in 0..test_arity {
-    //         let scalar = Fr::from(n as u64);
-    //         p.input(scalar).unwrap();
-    //         p2.input(scalar).unwrap();
-    //         p3.input(scalar).unwrap();
-    //         p4.input(scalar).unwrap();
-    //     }
-
-    //     let digest = p.hash();
-    //     let digest2 = p2.hash_in_mode(Correct);
-    //     let digest3 = p3.hash_in_mode(OptimizedStatic);
-    //     let digest4 = p4.hash_in_mode(OptimizedDynamic);
-
-    // #[test]
-    // fn compare_with_neptune() {
-    //     const ARITY: usize = 2;
-    //     const WIDTH: usize = ARITY + 1;
-    //     type NepArity = generic_array::typenum::U2;
-
-    //     let (nep_consts, ark_consts) =
-    //         collect_neptune_constants::<NepArity>(Strength::Standard);
-
-    //     let mut rng = test_rng();
-    //     let inputs_ff = (0..ARITY)
-    //         .map(|_| blstrs::Scalar::random(&mut rng))
-    //         .collect::<Vec<_>>();
-    //     let inputs =
-    //         inputs_ff.iter().map(|&x| cast_field(x)).collect::<Vec<_>>();
-
-    //     let mut neptune_poseidon =
-    //         neptune::Poseidon::<blstrs::Scalar, NepArity>::new(&nep_consts);
-    //     let mut ark_poseidon = PoseidonRef::<(), NativeSpecRef<Fr>,
-    // WIDTH>::new(         &mut (),
-    //         ark_consts,
-    //     );
-
-    //     inputs_ff.iter().for_each(|x| {
-    //         neptune_poseidon.input(*x).unwrap();
-    //     });
-    //     inputs.iter().for_each(|x| {
-    //         ark_poseidon.input(*x).unwrap();
-    //     });
-
-    //     let digest_expected =
-    //         cast_field(neptune_poseidon.hash_in_mode(HashMode::Correct));
-    //     let digest_actual = ark_poseidon.output_hash(&mut ());
-
-    //     assert_eq!(digest_expected, digest_actual);
-    // }
 }

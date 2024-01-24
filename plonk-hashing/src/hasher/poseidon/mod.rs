@@ -1,10 +1,15 @@
-pub mod constants;
-pub mod matrix;
-pub mod mds;
-pub mod spec;
-pub mod preprocessing;
-pub mod round_constant;
-pub mod round_numbers;
+mod spec;
+mod preprocessing;
+mod constants;
+mod matrix;
+mod mds;
+mod round_constant;
+mod round_numbers;
+
+pub use constants::*;
+pub use matrix::*;
+pub use mds::*;
+pub use spec::*;
 
 use thiserror::Error;
 

@@ -22,7 +22,7 @@ pub use helper::*;
 pub use pi::*;
 
 use ark_ff::Field;
-use bitvec::{field::BitField, prelude::*};
+use itertools::Itertools;
 
 use crate::lookup::LookupTable;
 
@@ -125,49 +125,43 @@ impl<F: Field> ConstraintSystem<F> {
     ) {
         match &mut self.composer {
             Composer::Setup(composer) => {
-                composer.gate_constrain(
-                    w_l,
-                    w_r,
-                    w_o,
-                    sels,
-                    pi.is_some(),
-                );
+                composer.gate_constrain(w_l, w_r, w_o, sels, pi.is_some());
             }
             Composer::Proving(composer) => {
-                composer.input_wires(
-                    w_l,
-                    w_r,
-                    w_o,
-                    pi,
-                );
-            }
-        }
-    }
-
-    ///
-    pub fn lookup_constrain(&mut self, w_o: Variable) {
-        match &mut self.composer {
-            Composer::Setup(composer) => {
-                let sels = Selectors::new_lookup();
-                composer.gate_constrain(Variable::Zero, Variable::Zero, w_o, sels, false);
-            }
-            Composer::Proving(composer) => {
-                #[cfg(feature = "check-lookup")]
-                {
-                    let value = composer.var_map.value_of_var(w_o);
-                    self.lookup_table.contains::<T>(&value);
-                }
-                composer.input_wires(Variable::Zero, Variable::Zero, w_o, None);
+                composer.input_wires(w_l, w_r, w_o, pi);
             }
         }
     }
 }
 
 impl<F: Field> ConstraintSystem<F> {
-/// Add a constraint into the circuit description that states that two
+
+    /// Constrain a value in the lookup table.
+    pub fn lookup_constrain(&mut self, x: &LTVariable<F>) {
+        match &mut self.composer {
+            Composer::Setup(composer) => {
+                let w_o = composer.perm.new_variable();
+                let sels = Selectors::new()
+                    .with_left(F::one())
+                    .with_out(-F::one())
+                    .with_lookup()
+                    .by_left_lt(x);
+                composer.gate_constrain(x.var, Variable::Zero, w_o, sels, false);
+            }
+            Composer::Proving(composer) => {
+                let out = composer.var_map.value_of_lt_var(x);
+                // confirm that the value is in the lookup table
+                self.lookup_table.contains(&out);
+                let w_o = composer.var_map.assign_variable(out);
+                composer.input_wires(x.var, Variable::Zero, w_o, None);
+            }
+        }
+    }
+
+    /// Add a constraint into the circuit description that states that two
     /// [`Variable`]s are equal.
     pub fn equal_constrain(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) {
-        let sels = Selectors::new_arith()
+        let sels = Selectors::new()
             .with_left(F::one())
             .with_right(-F::one())
             .by_left_lt(x)
@@ -177,55 +171,51 @@ impl<F: Field> ConstraintSystem<F> {
     }
 
     ///
-    pub fn from_bits(&mut self, bits: &[Boolean]) -> Variable {
+    pub fn bits_le_constrain(&mut self, bits: &[Boolean]) -> Variable {
+        // We restrict the length of the bits to be a power of two, so that we
+        // can use a recursive construction.
         assert!(bits.len().is_power_of_two(), "bits length must be a power of two");
-        match &mut self.composer {
-            Composer::Setup(composer) => {
-                
 
+        let mut vars = bits.iter().map(|bit| bit.0).collect_vec();
+        while vars.len() > 1 {
+            vars = vars
+                .chunks(2)
+                .map(|chunk| {
+                    match &mut self.composer {
+                        Composer::Setup(composer) => {
+                            let new_var = composer.perm.new_variable();
+                            let sels = Selectors::new()
+                                .with_left(F::one())
+                                .with_right(F::from(2u64))
+                                .with_out(-F::one());
 
+                            composer.gate_constrain(chunk[0], chunk[1], new_var, sels, false);
 
-                let (var, _) = bits
-                    .fold((Variable::Zero, F::one()), |(acc_var, scale), bit_var| {
-                        let new_var = composer.perm.new_variable();
-                        let sels = Selectors::new_arith()
-                            .with_mul(F::zero())
-                            .with_left(F::one())
-                            .with_right(scale)
-                            .with_out(-F::one());
-
-                        composer.gate_constrain(acc_var, bit_var.0, new_var, sels, false);
-
-                        (new_var, scale * F::from(2u64))
-                    });
-
-                var
-            }
-            Composer::Proving(composer) => {
-                let (var, _, _) = bits
-                    .into_iter()
-                    .fold(
-                        (Variable::Zero, F::zero(), F::one()),
-                        |(acc_var, acc, scale), bit_var| {
-                            let bit = composer.var_map.value_of_var(bit_var.0);
-                            let new_val = acc + scale * bit;
+                            new_var
+                        }
+                        Composer::Proving(composer) => {
+                            let left = composer.var_map.value_of_var(chunk[0]);
+                            let right = composer.var_map.value_of_var(chunk[1]);
+                            let new_val = left + right * F::from(2u64);
                             let new_var = composer.var_map.assign_variable(new_val);
 
-                            composer.input_wires(acc_var, bit_var.0, new_var, None);
+                            composer.input_wires(chunk[0], chunk[1], new_var, None);
 
-                            (new_var, new_val, scale * F::from(2u64))
-                    });
-
-                var
-            }
+                            new_var
+                        }
+                    }
+                })
+                .collect_vec();
         }
+
+        vars[0]
     }
 
     /// x = public input
     pub fn set_variable_public(&mut self, x: &LTVariable<F>) {
         match &mut self.composer {
             Composer::Setup(composer) => {
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_out(-F::one())
                     .by_out_lt(x);
 
@@ -261,7 +251,7 @@ impl<F: Field> ConstraintSystem<F> {
                 y = composer.perm.new_variable();
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(F::one())
                     .with_constant(-F::one())
@@ -269,7 +259,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.gate_constrain(x.var, y, z, sels, false);
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .by_out_lt(x);
 
@@ -324,14 +314,14 @@ impl<F: Field> ConstraintSystem<F> {
                 y = composer.perm.new_variable();
                 z = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one())
                     .by_right_lt(choice_a);
 
                 composer.gate_constrain(bit.0, choice_a.var, x, sels, false);
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(-F::one())
                     .with_right(F::one())
                     .with_out(-F::one())
@@ -339,7 +329,7 @@ impl<F: Field> ConstraintSystem<F> {
 
                 composer.gate_constrain(bit.0, choice_b.var, y, sels, false);
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_left(F::one())
                     .with_right(F::one())
                     .with_out(-F::one());
@@ -388,7 +378,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 out = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_out(-F::one())
                     .by_right_lt(value);
@@ -433,7 +423,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Setup(composer) => {
                 out = composer.perm.new_variable();
 
-                let sels = Selectors::new_arith()
+                let sels = Selectors::new()
                     .with_mul(F::one())
                     .with_left(-F::one())
                     .with_out(-F::one())

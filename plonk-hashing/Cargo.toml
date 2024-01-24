@@ -34,11 +34,10 @@ ark-r1cs-std = "0.3.1"
 thiserror = "1.0.30"
 
 [dev-dependencies]
-ark-bls12-381 = { version = "0.3", features = ["curve"] }
-ark-ed-on-bls12-381 = { version = "0.3" }
-neptune = { version = "7.2.0" }
+ark-bn254 = "0.3"
+ark-bls12-381 = "0.3"
+bitvec = "1.0.0"
 
 [features]
 default = []
 trace = ["plonk-core/trace"]
-check-lookup = ["plonk-core/check-lookup"]
