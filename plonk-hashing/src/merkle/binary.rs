@@ -4,7 +4,7 @@ use plonk_core::constraint_system::{ConstraintSystem, Boolean, LTVariable};
 
 use crate::hasher::FieldHasher;
 
-pub fn native_compute_merkle_paths<F, H>(
+pub fn compute_native_merkle_paths<F, H>(
     hasher: &mut H,
     witness_elements: impl IntoIterator<Item = (bool, F)>,
     leaf_node: F,
@@ -131,8 +131,8 @@ mod tests {
 
                 // native merkle path computation
                 let leaf = Fr::rand(rng);
-                let witness_nodes = random_merkle_witness(rng);
-                let mut paths = native_compute_merkle_paths(
+                let witness_nodes: Vec<(bool, ark_ff::Fp256<ark_bn254::FrParameters>)> = random_merkle_witness(rng);
+                let mut paths = compute_native_merkle_paths(
                     &mut hasher,
                     witness_nodes.clone(),
                     leaf,
