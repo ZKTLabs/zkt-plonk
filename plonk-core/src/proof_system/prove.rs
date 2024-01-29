@@ -203,12 +203,12 @@ where
     let epsilon = transcript.challenge_scalar("epsilon");
 
     // Challenges must be different
-    assert!(beta != gamma, "challenges must be different");
-    assert!(beta != delta, "challenges must be different");
-    assert!(beta != epsilon, "challenges must be different");
-    assert!(gamma != delta, "challenges must be different");
-    assert!(gamma != epsilon, "challenges must be different");
-    assert!(delta != epsilon, "challenges must be different");
+    assert_ne!(beta, gamma, "challenges must be different");
+    assert_ne!(beta, delta, "challenges must be different");
+    assert_ne!(beta, epsilon, "challenges must be different");
+    assert_ne!(gamma, delta, "challenges must be different");
+    assert_ne!(gamma, epsilon, "challenges must be different");
+    assert_ne!(delta, epsilon, "challenges must be different");
 
     let mut z1_poly = compute_z1_poly(
         &domain,
@@ -283,7 +283,7 @@ where
         &pi_poly,
         labeled_h1_poly.polynomial(),
         labeled_h2_poly.polynomial(),
-        &labeled_t_poly.polynomial(),
+        labeled_t_poly.polynomial(),
     )?;
     drop(pi_poly);
 
@@ -340,7 +340,7 @@ where
         labeled_z2_poly.polynomial(),
         labeled_h1_poly.polynomial(),
         labeled_h2_poly.polynomial(),
-        &labeled_t_poly.polynomial(),
+        labeled_t_poly.polynomial(),
     );
     drop(labeled_q_lo_poly);
     drop(labeled_q_mid_poly);
@@ -478,7 +478,7 @@ where
     F: Field,
     R: RngCore + CryptoRng,
 {
-    let blinders = (0..k).into_iter().map(|_| F::rand(rng)).collect_vec();
+    let blinders = (0..k).map(|_| F::rand(rng)).collect_vec();
     poly.coeffs.extend_from_slice(&blinders);
     
     cfg_iter_mut!(poly.coeffs)
@@ -503,7 +503,7 @@ mod test {
         let rng = &mut test_rng();
         // 8 degree poly
         let domain = GeneralEvaluationDomain::new(8).unwrap();
-        let evals = (0..8).into_iter().map(|_| F::rand(rng)).collect_vec();
+        let evals = (0..8).map(|_| F::rand(rng)).collect_vec();
         let poly = poly_from_evals_ref(&domain, &evals);
 
         // add 1 blinder

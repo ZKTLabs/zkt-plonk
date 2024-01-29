@@ -4,9 +4,9 @@ use plonk_core::constraint_system::{ConstraintSystem, Boolean, LTVariable};
 
 use crate::hasher::FieldHasher;
 
-pub fn compute_native_merkle_paths<F, H>(
+pub fn native_merkle_proof<F, H>(
     hasher: &mut H,
-    witness_elements: impl IntoIterator<Item = (bool, F)>,
+    path_elements: impl IntoIterator<Item = (bool, F)>,
     leaf_node: F,
 ) -> Vec<F>
 where
@@ -14,7 +14,7 @@ where
     H: FieldHasher<(), F>,
 {
     let mut cur_hash = leaf_node;
-    witness_elements
+    path_elements
         .into_iter()
         .map(|(is_left, node_hash)| {
             cur_hash = if is_left {
@@ -28,10 +28,10 @@ where
         .collect()
 }
 
-fn compute_merkle_paths<F, H>(
+fn merkle_proof<F, H>(
     hasher: &mut H,
     cs: &mut ConstraintSystem<F>,
-    witness_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
+    path_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
     leaf_node: &LTVariable<F>,
 ) -> Vec<LTVariable<F>>
 where
@@ -39,7 +39,7 @@ where
     H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
     let mut cur_hash = *leaf_node;
-    witness_elements
+    path_elements
         .into_iter()
         .map(|(is_left, node_hash)| {
             let left_node = cs.conditional_select(is_left, &node_hash, &cur_hash);
@@ -54,7 +54,7 @@ where
 /// Proof of Existance Circuit
 pub struct PoECircuit<F: Field, const HEIGHT: usize> {
     leaf_index: u64,
-    witness_nodes: Vec<F>,
+    path_elements: Vec<F>,
 }
 
 impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
@@ -64,7 +64,7 @@ impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
         hasher: &mut H,
         leaf_node: &LTVariable<F>,
     ) -> (LTVariable<F>, Vec<Boolean>) {
-        assert_eq!(self.witness_nodes.len(), HEIGHT, "invalid auth path length");
+        assert_eq!(self.path_elements.len(), HEIGHT, "invalid auth path length");
 
         let positions = (0..HEIGHT)
             .map(|layer| {
@@ -77,13 +77,13 @@ impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
             .clone()
             .into_iter()
             .zip(
-                self.witness_nodes
+                self.path_elements
                     .into_iter()
                     .map(|node| cs.assign_variable(node).into())
             )
             .collect_vec();
 
-        let mut paths = compute_merkle_paths(
+        let mut paths = merkle_proof(
             hasher,
             cs,
             witness_elements,
@@ -132,7 +132,7 @@ mod tests {
                 // native merkle path computation
                 let leaf = Fr::rand(rng);
                 let witness_nodes: Vec<(bool, ark_ff::Fp256<ark_bn254::FrParameters>)> = random_merkle_witness(rng);
-                let mut paths = compute_native_merkle_paths(
+                let mut paths = native_merkle_proof(
                     &mut hasher,
                     witness_nodes.clone(),
                     leaf,
@@ -145,7 +145,7 @@ mod tests {
                     = witness_nodes.into_iter().unzip();
                 let circuit = PoECircuit::<Fr, HEIGHT> {
                     leaf_index: BitVec::<u8>::from_iter(index_iter).load_le(),
-                    witness_nodes: nodes_iter,
+                    path_elements: nodes_iter,
                 };
                 let leaf_var = cs.assign_variable(leaf);
                 let (root_var, _) = circuit.synthesize(

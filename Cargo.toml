@@ -1,19 +1,12 @@
 [package]
-name = "plonk"
-version = "0.8.2"
-authors = [
-    "Kevaundray Wedderburn <kevtheappdev@gmail.com>",
-    "Luke Pearson <luke@polychain.capital>",
-    "Jules De Smit <jules@aleo.org>",
-    "Joshua Fitzgerald <joshua@heliax.dev>",
-    "Carlos Perez <carlos.perezbaro@iohk.io>",
-    "David Nevado <david.nevado@iohk.io>"
-]
+name = "zkt-plonk"
+version = "0.0.1"
+authors = ["ZK-GARAGE Authors", "Lone G"]
 readme = "README.md"
-repository = "https://github.com/zk-garage/plonk"
-keywords = ["cryptography", "plonk", "zk-snarks", "zero-knowledge", "crypto"]
-categories =["algorithms", "cryptography", "science"]
-description = "A pure-Rust implementation of the PLONK ZK-Proof algorithm."
+repository = "https://github.com/ZKTNetwork/zkt-plonk"
+keywords = ["plonk", "zk-snarks", "privacy", "compliance"]
+categories =["algorithms", "cryptography"]
+description = "A Plonkish ZK-SNARK implementation of the ZKT Protocol."
 license = "MPL"
 edition = "2021"
 include = ["src", "LICENSE-*", "README.md"]
@@ -26,12 +19,11 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [workspace]
 resolver = "2"
-members = [
-    "plonk-core",
-    "plonk-hashing", "privacy-pools",
-]
+members = ["plonk-core", "plonk-hashing", "circuits", "wasm"]
 
 [dependencies]
+circuits = { path = "./circuits" }
+wasm = { path = "./wasm" }
 plonk-core = { path = "./plonk-core" }
 plonk-hashing = { path = "./plonk-hashing" }
 

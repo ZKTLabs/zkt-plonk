@@ -1,0 +1,31 @@
+[package]
+name = "circuits"
+version = "0.1.0"
+authors = ["Lone G"]
+repository = "https://github.com/ZKTNetwork/zkt-plonk"
+keywords = ["plonk", "zk-snarks", "privacy", "compliance"]
+categories =["algorithms", "cryptography"]
+description = "A Plonkish ZK-SNARK implementation of the ZKT Protocol."
+license = "MPL"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-ff = "0.3"
+bitvec = "1.0.0"
+itertools = { version = "0.10.1", default-features = false }
+plonk-core = { path = "../plonk-core" }
+plonk-hashing = { path = "../plonk-hashing" }
+
+[dev-dependencies]
+ark-bn254 = "0.3"
+ark-bls12-381 = "0.3"
+bitvec = "1.0.0"
+
+[features]
+default = ["std", "asm", "itertools/default", "parallel"]
+std = ["ark-ff/std", "plonk-core/std", "plonk-hashing/std"]
+asm = ["ark-ff/asm", "plonk-core/asm", "plonk-hashing/asm"]
+parallel = ["ark-ff/parallel", "plonk-core/parallel", "plonk-hashing/parallel"]
+trace = ["plonk-core/trace", "plonk-hashing/trace"]

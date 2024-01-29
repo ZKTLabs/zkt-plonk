@@ -1,7 +1,7 @@
-
+// Copyright (c) Lone G. All rights reserved.
 use core::{iter::Sum, ops::Sub};
 use ark_ff::Field;
-use bitvec::{prelude::Lsb0, view::BitViewSized};
+use bitvec::{prelude::Lsb0, view::BitView};
 use itertools::{Itertools, izip};
 use plonk_core::constraint_system::*;
 use plonk_hashing::{hasher::FieldHasher, merkle::binary::PoECircuit};
@@ -14,12 +14,12 @@ pub struct WithdrawCircuit<
     const SIZE: usize,
 > where
     F: Field,
-    A: Clone + BitViewSized + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    A: Clone + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
 {
     secrets: [F; INPUTS],
     identifiers: [F; INPUTS],
     amount_inputs: [A; INPUTS],
-    poe_witness: [PoECircuit<F, HEIGHT>; INPUTS],
+    poe_circuits: [PoECircuit<F, HEIGHT>; INPUTS],
     new_secret: F,
     new_identifier: F,
     withdraw_amount: A,
@@ -34,18 +34,18 @@ impl<
 > WithdrawCircuit<F, A, INPUTS, HEIGHT, SIZE>
 where
     F: Field,
-    A: Clone + BitViewSized + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    A: Clone + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
 {
     pub fn synthesize<H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>>(
         self,
         cs: &mut ConstraintSystem<F>,
         hasher: &mut H,
     ) {
-        let amount_in = self.amount_inputs.iter().map(|i| i.clone()).sum::<A>();
+        let amount_in = self.amount_inputs.iter().cloned().sum::<A>();
         assert!(amount_in >= self.withdraw_amount, "invalid withdraw amount");
         let amount_out = amount_in - self.withdraw_amount;
 
-        // step 1: Existance proof of inputs
+        // step 1: Existence proof of inputs
 
         // assign variables
         let amount_in_vars = self.amount_inputs
@@ -62,8 +62,8 @@ where
             &amount_var,
             identifier_var,
             secret,
-            poe_witness,
-        ) in izip!(&amount_in_vars, identifier_vars, self.secrets, self.poe_witness) {
+            poe_circuit,
+        ) in izip!(&amount_in_vars, identifier_vars, self.secrets, self.poe_circuits) {
             let secret_var = cs.assign_variable(secret).into();
             let commitment_var = hasher.hash(cs, &[secret_var]);
             
@@ -74,15 +74,15 @@ where
 
             let leaf_var = hasher.hash(
                 cs,
-                &[identifier_var.into(), amount_var.into(), commitment_var.into()],
+                &[identifier_var.into(), amount_var.into(), commitment_var],
             );
 
-            let (root_var, _) = poe_witness.synthesize(cs, hasher, &leaf_var);
+            let (root_var, _) = poe_circuit.synthesize(cs, hasher, &leaf_var);
             // make root public
             cs.set_variable_public(&root_var);
 
             // lookup identifier from subset
-            cs.lookup_constrain(&commitment_var);
+            cs.lookup_constrain(&identifier_var.into());
         }
 
         // step 2: Balance proof

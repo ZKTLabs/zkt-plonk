@@ -1,7 +1,7 @@
 [package]
 name = "plonk-core"
 version = "0.1.0"
-authors = ["Lone G"]
+authors = ["ZK-GARAGE Authors", "Lone G"]
 readme = "README.md"
 repository = "https://github.com/gyllone/plonk"
 keywords = ["cryptography", "plonk", "zk-snarks", "zero-knowledge", "crypto"]
@@ -18,12 +18,12 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
 blake2 = "0.9"
-ark-std = { version = "0.3", default-features = false }
 ark-ec = "0.3"
 ark-ff = "0.3"
 ark-poly = "0.3"
 ark-poly-commit = { version = "0.3", default-features = false }
 ark-serialize = { version = "0.3", features = ["derive"] }
+ark-std = { version = "0.3", default-features = false }
 backtrace = { version = "0.3", optional = true }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 indexmap = { version = "1.8.1", default-features = false }
@@ -44,26 +44,7 @@ cfg-if = "0.1"
 
 [features]
 # Default Features
-default = [
-    "std",
-    "asm",
-    "itertools/default",
-    "parallel",
-]
-
-# Raw Assembly
-asm = ["ark-ff/asm"]
-
-# Parallelism Features
-parallel = [
-    "rayon",
-    "ark-std/parallel",
-    "ark-ec/parallel",
-    "ark-ff/parallel",
-    "ark-poly/parallel",
-    "ark-poly-commit/parallel",
-]
-
+default = ["std", "asm", "itertools/default", "parallel"]
 # Enable Standard Library
 std = [
     "ark-std/std",
@@ -73,6 +54,16 @@ std = [
     "ark-poly-commit/std",
     "ark-serialize/std",
 ]
-
+# Raw Assembly
+asm = ["ark-ff/asm"]
+# Parallelism Features
+parallel = [
+    "rayon",
+    "ark-std/parallel",
+    "ark-ec/parallel",
+    "ark-ff/parallel",
+    "ark-poly/parallel",
+    "ark-poly-commit/parallel",
+]
 # Trace
 trace = ["backtrace", "ark-std/print-trace"]

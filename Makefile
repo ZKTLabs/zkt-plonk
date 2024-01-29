@@ -7,8 +7,4 @@ doc: ## Generate documentation
 doc-internal: ## Generate documentation with private items
 	@cargo rustdoc --lib -- --document-private-items -D warnings
 
-book: ## Generate book
-	@mdbook build plonk-book
-	
-
-.PHONY: help doc doc-internal book
+.PHONY: help doc doc-internal

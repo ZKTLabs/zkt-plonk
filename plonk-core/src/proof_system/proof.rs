@@ -342,12 +342,12 @@ where
         let epsilon = transcript.challenge_scalar("epsilon");
 
         // Challenges must be different
-        assert!(beta != gamma, "challenges must be different");
-        assert!(beta != delta, "challenges must be different");
-        assert!(beta != epsilon, "challenges must be different");
-        assert!(gamma != delta, "challenges must be different");
-        assert!(gamma != epsilon, "challenges must be different");
-        assert!(delta != epsilon, "challenges must be different");
+        assert_ne!(beta, gamma, "challenges must be different");
+        assert_ne!(beta, delta, "challenges must be different");
+        assert_ne!(beta, epsilon, "challenges must be different");
+        assert_ne!(gamma, delta, "challenges must be different");
+        assert_ne!(gamma, epsilon, "challenges must be different");
+        assert_ne!(delta, epsilon, "challenges must be different");
 
         // Add commitment to permutation polynomial to transcript
         transcript.append_commitment("z1_commit", &self.z1_commit);

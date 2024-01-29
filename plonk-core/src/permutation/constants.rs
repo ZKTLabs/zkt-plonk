@@ -11,12 +11,12 @@ use ark_ff::Field;
 
 #[inline]
 pub(crate) fn K1<F: Field>() -> F {
-    F::from(7_u64)
+    F::from(7u64)
 }
 
 #[inline]
 pub(crate) fn K2<F: Field>() -> F {
-    F::from(13_u64)
+    F::from(13u64)
 }
 
 #[cfg(test)]
