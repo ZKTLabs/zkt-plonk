@@ -18,8 +18,8 @@ use crate::{
     proof_system::{
         Proof,
         ProverKey, ExtendedProverKey, VerifierKey,
-        setup as plonkup_setup,
-        prove as plonkup_prove,
+        setup as plonk_setup,
+        prove as plonk_prove,
     },
     transcript::TranscriptProtocol,
     util::EvaluationDomainExt, lookup::LookupTable,
@@ -176,7 +176,7 @@ pub trait Circuit<F: Field>: Default {
 
 ///
 #[derive(Debug, Default)]
-pub struct ZKTPlonkup<F, D, PC, T, C>
+pub struct ZKTPlonk<F, D, PC, T, C>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
@@ -191,7 +191,7 @@ where
     _c: PhantomData<C>,
 }
 
-impl<F, D, PC, T, C> ZKTPlonkup<F, D, PC, T, C>
+impl<F, D, PC, T, C> ZKTPlonk<F, D, PC, T, C>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
@@ -229,7 +229,7 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            plonkup_setup::<_, D, _>(&ck, cs, extend)?;
+            plonk_setup::<_, D, _>(&ck, cs, extend)?;
 
         Ok((ck, cvk, pk, epk, vk))
     }
@@ -248,10 +248,10 @@ where
         // Generate circuit constraint
         circuit.synthesize(&mut cs)?;
 
-        let transcript = &mut T::new("ZKT Plonkup");
+        let transcript = &mut T::new("ZKT Plonk");
         vk.seed_transcript(transcript);
 
-        plonkup_prove(ck, pk, epk, vk, cs, transcript, rng)
+        plonk_prove(ck, pk, epk, vk, cs, transcript, rng)
     }
 
     ///
@@ -261,7 +261,7 @@ where
         proof: &Proof<F, D, PC>,
         pub_inputs: &[F],
     ) -> Result<(), Error> {
-        let transcript = &mut T::new("ZKT Plonkup");
+        let transcript = &mut T::new("ZKT Plonk");
         vk.seed_transcript(transcript);
 
         proof.verify(cvk, vk, transcript, pub_inputs)
@@ -321,7 +321,7 @@ mod test {
         }
     }
 
-    type ZKTPlonkupInstance<F, PC> = ZKTPlonkup<
+    type ZKTPlonkInstance<F, PC> = ZKTPlonk<
         F,
         GeneralEvaluationDomain<F>,
         PC,
@@ -342,7 +342,7 @@ mod test {
             pk,
             epk,
             vk,
-        ) = ZKTPlonkupInstance::<F, PC>::compile(true, &pp, table.clone())
+        ) = ZKTPlonkInstance::<F, PC>::compile(true, &pp, table)
             .unwrap_or_else(|e| panic!("compile failed: {e}"));
 
         // prove
@@ -353,13 +353,13 @@ mod test {
             d: 10,
             e: true,
         };
-        let epk = epk.map(|epk| Rc::new(epk));
+        let epk = epk.map(Rc::new);
         let proof =
-            ZKTPlonkupInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng)
+            ZKTPlonkInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng)
                 .unwrap_or_else(|e| panic!("prove failed: {e}"));
 
         // verify
-        ZKTPlonkupInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u64.into(), 2u64.into()])
+        ZKTPlonkInstance::<F, PC>::verify(&cvk, &vk, &proof, &[10u64.into(), 2u64.into()])
             .unwrap_or_else(|e| panic!("verify failed: {e}"));
     }
 
