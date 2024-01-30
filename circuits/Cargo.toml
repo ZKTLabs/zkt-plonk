@@ -2,7 +2,6 @@
 name = "circuits"
 version = "0.1.0"
 authors = ["Lone G"]
-repository = "https://github.com/ZKTNetwork/zkt-plonk"
 keywords = ["plonk", "zk-snarks", "privacy", "compliance"]
 categories =["algorithms", "cryptography"]
 description = "A Plonkish ZK-SNARK implementation of the ZKT Protocol."

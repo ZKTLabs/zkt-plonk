@@ -1,0 +1,14 @@
+[package]
+name = "wasm"
+version = "0.1.0"
+authors = ["Lone G"]
+repository = "https://github.com/ZKTNetwork/zkt-plonk"
+keywords = ["plonk", "zk-snarks", "privacy", "compliance"]
+categories =["algorithms", "cryptography"]
+description = "A Plonkish ZK-SNARK implementation of the ZKT Protocol."
+license = "MPL"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

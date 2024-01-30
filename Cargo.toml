@@ -19,7 +19,7 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [workspace]
 resolver = "2"
-members = ["plonk-core", "plonk-hashing", "circuits", "wasm"]
+members = ["plonk-core", "plonk-hashing"]
 
 [dependencies]
 circuits = { path = "./circuits" }
@@ -47,7 +47,7 @@ tempdir = "0.3"
 ark-vesta = "0.3"
 
 [[bench]]
-name = "plonk"
+name = "zkt-plonk"
 harness = false
 
 [profile.bench]
