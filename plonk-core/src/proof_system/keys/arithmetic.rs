@@ -32,9 +32,9 @@ pub struct ProverKey<F: Field> {
 }
 
 impl<F: Field> ProverKey<F> {
-    /// Computes the arithmetic gate contribution to the linearisation
+    /// Computes the arithmetic gate contribution to the linearization
     /// polynomial at the given evaluation points.
-    pub(crate) fn compute_linearisation(
+    pub(crate) fn compute_linearization(
         &self,
         wire_evals: &WireEvaluations<F>,
     ) -> DensePolynomial<F> {
@@ -111,9 +111,9 @@ where
     F: Field,
     PC: HomomorphicCommitment<F>,
 {
-    /// Computes arithmetic gate contribution to the linearisation polynomial
+    /// Computes arithmetic gate contribution to the linearization polynomial
     /// commitment.
-    pub(crate) fn compute_linearisation_commitment(
+    pub(crate) fn compute_linearization_commitment(
         &self,
         scalars: &mut Vec<F>,
         points: &mut Vec<PC::Commitment>,

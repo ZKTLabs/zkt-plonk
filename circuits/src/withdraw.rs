@@ -1,24 +1,34 @@
 // Copyright (c) Lone G. All rights reserved.
-use core::{iter::Sum, ops::Sub};
+use core::{iter::Sum, ops::Sub, fmt::Debug};
 use ark_ff::Field;
 use bitvec::{prelude::Lsb0, view::BitView};
 use itertools::{Itertools, izip};
-use plonk_core::constraint_system::*;
-use plonk_hashing::{hasher::FieldHasher, merkle::binary::PoECircuit};
+use derivative::Derivative;
+use plonk_core::{constraint_system::*, plonk::Circuit, error::Error};
+use plonk_hashing::{hasher::FieldHasher, merkle::PoECircuit};
 
+#[derive(Derivative)]
+#[derivative(Debug(bound = ""), Default(bound = ""))]
 pub struct WithdrawCircuit<
     F,
     A,
+    H,
     const INPUTS: usize,
     const HEIGHT: usize,
     const SIZE: usize,
 > where
     F: Field,
-    A: Clone + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    A: Copy + Debug + Default + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
+    hasher: H,
+    #[derivative(Default(value = "[F::default(); INPUTS]"))]
     secrets: [F; INPUTS],
+    #[derivative(Default(value = "[F::default(); INPUTS]"))]
     identifiers: [F; INPUTS],
+    #[derivative(Default(value = "[A::default(); INPUTS]"))]
     amount_inputs: [A; INPUTS],
+    #[derivative(Default(value = "[PoECircuit::<F, HEIGHT>::default(); INPUTS]"))]
     poe_circuits: [PoECircuit<F, HEIGHT>; INPUTS],
     new_secret: F,
     new_identifier: F,
@@ -28,20 +38,18 @@ pub struct WithdrawCircuit<
 impl<
     F,
     A,
+    H,
     const INPUTS: usize,
     const HEIGHT: usize,
     const SIZE: usize,
-> WithdrawCircuit<F, A, INPUTS, HEIGHT, SIZE>
+> Circuit<F> for WithdrawCircuit<F, A, H, INPUTS, HEIGHT, SIZE>
 where
     F: Field,
-    A: Clone + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    A: Copy + Debug + Default + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
-    pub fn synthesize<H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>>(
-        self,
-        cs: &mut ConstraintSystem<F>,
-        hasher: &mut H,
-    ) {
-        let amount_in = self.amount_inputs.iter().cloned().sum::<A>();
+    fn synthesize(mut self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
+        let amount_in = self.amount_inputs.iter().copied().sum::<A>();
         assert!(amount_in >= self.withdraw_amount, "invalid withdraw amount");
         let amount_out = amount_in - self.withdraw_amount;
 
@@ -65,19 +73,19 @@ where
             poe_circuit,
         ) in izip!(&amount_in_vars, identifier_vars, self.secrets, self.poe_circuits) {
             let secret_var = cs.assign_variable(secret).into();
-            let commitment_var = hasher.hash(cs, &[secret_var]);
+            let commitment_var = self.hasher.hash(cs, &[secret_var])?;
             
             let secret_var_inv = cs.div_gate(&one_var, &secret_var);
-            let nullifier_var = hasher.hash(cs, &[secret_var_inv.into()]);
+            let nullifier_var = self.hasher.hash(cs, &[secret_var_inv.into()])?;
             // make nullifier public
             cs.set_variable_public(&nullifier_var);
 
-            let leaf_var = hasher.hash(
+            let leaf_var = self.hasher.hash(
                 cs,
                 &[identifier_var.into(), amount_var.into(), commitment_var],
-            );
+            )?;
 
-            let (root_var, _) = poe_circuit.synthesize(cs, hasher, &leaf_var);
+            let (root_var, _) = poe_circuit.synthesize(cs, &mut self.hasher, &leaf_var)?;
             // make root public
             cs.set_variable_public(&root_var);
 
@@ -119,13 +127,15 @@ where
 
         let new_secret_var = cs.assign_variable(self.new_secret).into();
         let new_identifier_var = cs.assign_variable(self.new_identifier).into();
-        let new_commitment_var = hasher.hash(cs, &[new_secret_var]);
-        let new_leaf_var = hasher.hash(
+        let new_commitment_var = self.hasher.hash(cs, &[new_secret_var])?;
+        let new_leaf_var = self.hasher.hash(
             cs,
             &[new_identifier_var, amount_out_var.into(), new_commitment_var],
-        );
+        )?;
         // set new leaf public
         cs.set_variable_public(&new_leaf_var);
+
+        Ok(())
     }
 }
 

@@ -1,2 +1,4 @@
 
-pub mod withdraw;
+mod withdraw;
+
+pub use withdraw::*;

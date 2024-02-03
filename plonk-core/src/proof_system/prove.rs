@@ -31,7 +31,7 @@ use crate::{
     label_polynomial, label_commitment,
 };
 use super::{
-    linearisation_poly, quotient_poly,
+    linearization_poly, quotient_poly,
     ProverKey, ExtendedProverKey, VerifierKey, proof::Proof,
 };
 
@@ -316,12 +316,12 @@ where
     transcript.append_commitment("q_mid_commit", labeled_q_commits[1].commitment());
     transcript.append_commitment("q_hi_commit", labeled_q_commits[2].commitment());
 
-    // 4. Compute linearisation polynomial
+    // 4. Compute linearization polynomial
     //
     // Compute evaluation challenge.
     let xi = transcript.challenge_scalar("xi");
 
-    let (r_poly, evaluations) = linearisation_poly::compute(
+    let (r_poly, evaluations) = linearization_poly::compute(
         &domain,
         pk,
         alpha,

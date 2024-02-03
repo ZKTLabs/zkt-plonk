@@ -1,6 +1,7 @@
 use ark_ff::Field;
 use itertools::Itertools;
-use plonk_core::constraint_system::{ConstraintSystem, Boolean, LTVariable};
+use derivative::Derivative;
+use plonk_core::{constraint_system::{ConstraintSystem, Boolean, LTVariable}, error::Error};
 
 use crate::hasher::FieldHasher;
 
@@ -8,7 +9,7 @@ pub fn native_merkle_proof<F, H>(
     hasher: &mut H,
     path_elements: impl IntoIterator<Item = (bool, F)>,
     leaf_node: F,
-) -> Vec<F>
+) -> Result<Vec<F>, Error>
 where
     F: Field,
     H: FieldHasher<(), F>,
@@ -18,12 +19,12 @@ where
         .into_iter()
         .map(|(is_left, node_hash)| {
             cur_hash = if is_left {
-                hasher.hash_two(&mut (), &node_hash, &cur_hash)
+                hasher.hash_two(&mut (), &node_hash, &cur_hash)?
             } else {
-                hasher.hash_two(&mut (), &cur_hash, &node_hash)
+                hasher.hash_two(&mut (), &cur_hash, &node_hash)?
             };
 
-            cur_hash
+            Ok(cur_hash)
         })
         .collect()
 }
@@ -33,7 +34,7 @@ fn merkle_proof<F, H>(
     cs: &mut ConstraintSystem<F>,
     path_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
     leaf_node: &LTVariable<F>,
-) -> Vec<LTVariable<F>>
+) -> Result<Vec<LTVariable<F>>, Error>
 where
     F: Field,
     H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
@@ -44,17 +45,20 @@ where
         .map(|(is_left, node_hash)| {
             let left_node = cs.conditional_select(is_left, &node_hash, &cur_hash);
             let right_node = cs.conditional_select(is_left, &cur_hash, &node_hash);
-            cur_hash = hasher.hash_two(cs, &left_node.into(), &right_node.into());
+            cur_hash = hasher.hash_two(cs, &left_node.into(), &right_node.into())?;
 
-            cur_hash
+            Ok(cur_hash)
         })
         .collect()
 }
 
 /// Proof of Existance Circuit
+#[derive(Derivative, Clone, Copy)]
+#[derivative(Debug(bound = ""), Default(bound = ""))]
 pub struct PoECircuit<F: Field, const HEIGHT: usize> {
     leaf_index: u64,
-    path_elements: Vec<F>,
+    #[derivative(Default(value = "[F::default(); HEIGHT]"))]
+    path_elements: [F; HEIGHT],
 }
 
 impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
@@ -63,9 +67,7 @@ impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
         cs: &mut ConstraintSystem<F>,
         hasher: &mut H,
         leaf_node: &LTVariable<F>,
-    ) -> (LTVariable<F>, Vec<Boolean>) {
-        assert_eq!(self.path_elements.len(), HEIGHT, "invalid auth path length");
-
+    ) -> Result<(LTVariable<F>, Vec<Boolean>), Error> {
         let positions = (0..HEIGHT)
             .map(|layer| {
                 let value = (self.leaf_index >> layer) & 1 == 1;
@@ -88,10 +90,10 @@ impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
             cs,
             witness_elements,
             leaf_node,
-        );
+        )?;
         let root = paths.pop().unwrap();
 
-        (root, positions)
+        Ok((root, positions))
     }
 }
 
@@ -101,16 +103,17 @@ mod tests {
     use ark_bn254::Fr;
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use bitvec::{field::BitField, prelude::BitVec};
+    use array_init::{array_init, map_array_init};
     use plonk_core::constraint_system::test_gate_constraints;
 
-    use crate::hasher::poseidon::*;
+    use crate::hasher::*;
     use super::*;
 
     const WIDTH: usize = 5;
     const HEIGHT: usize = 20;
 
-    fn random_merkle_witness(rng: &mut StdRng) -> Vec<(bool, Fr)> {
-        (0..HEIGHT).map(|_| (bool::rand(rng), Fr::rand(rng))).collect()
+    fn random_merkle_witness(rng: &mut StdRng) -> [(bool, Fr); HEIGHT] {
+        array_init(|_| (bool::rand(rng), Fr::rand(rng)))
     }
 
     fn native_poseidon_hasher(param: PoseidonConstants<Fr>) -> PoseidonRef<(), NativeSpecRef<Fr>, WIDTH> {
@@ -131,28 +134,28 @@ mod tests {
 
                 // native merkle path computation
                 let leaf = Fr::rand(rng);
-                let witness_nodes: Vec<(bool, ark_ff::Fp256<ark_bn254::FrParameters>)> = random_merkle_witness(rng);
+                let witness_nodes= random_merkle_witness(rng);
                 let mut paths = native_merkle_proof(
                     &mut hasher,
                     witness_nodes.clone(),
                     leaf,
-                );
+                ).expect("native merkle proof failed");
                 let root = paths.pop().unwrap();
 
                 // circuit merkle path computation
                 let mut hasher = poseidon_hasher(param);
-                let (index_iter, nodes_iter): (Vec<_>, Vec<_>)
-                    = witness_nodes.into_iter().unzip();
+                let index_array = map_array_init(&witness_nodes, |(index, _)| *index);
+                let nodes_array = map_array_init(&witness_nodes, |(_, node)| *node);
                 let circuit = PoECircuit::<Fr, HEIGHT> {
-                    leaf_index: BitVec::<u8>::from_iter(index_iter).load_le(),
-                    path_elements: nodes_iter,
+                    leaf_index: BitVec::<u8>::from_iter(index_array).load_le(),
+                    path_elements: nodes_array,
                 };
                 let leaf_var = cs.assign_variable(leaf);
                 let (root_var, _) = circuit.synthesize(
                     cs,
                     &mut hasher,
                     &leaf_var.into(),
-                );
+                ).expect("circuit merkle proof failed");
 
                 [(root_var, root)]
             },

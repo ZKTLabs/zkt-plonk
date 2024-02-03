@@ -290,8 +290,8 @@ mod test {
     // 2) d = a * c, d is a PI
     // 3) if (e) { f = a } else { f = b }, f is a PI
     // 4) c exists in table
-    #[derive(derivative::Derivative)]
-    #[derivative(Debug(bound = ""), Default(bound = ""))]
+    #[derive(derivative::Derivative, Default)]
+    #[derivative(Debug(bound = ""))]
     pub struct TestCircuit {
         a: u64,
         b: u64,

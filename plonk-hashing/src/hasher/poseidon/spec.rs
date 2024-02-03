@@ -3,7 +3,7 @@
 use ark_ff::PrimeField;
 use core::{fmt::Debug, marker::PhantomData};
 use derivative::Derivative;
-use plonk_core::constraint_system::{ConstraintSystem, LTVariable};
+use plonk_core::{constraint_system::{ConstraintSystem, LTVariable}, error::Error};
 
 use crate::hasher::FieldHasher;
 use super::{PoseidonError, constants::PoseidonConstants};
@@ -325,18 +325,31 @@ impl<
     CS,
     S: PoseidonRefSpec<CS, WIDTH>,
     const WIDTH: usize,
+> Default for PoseidonRef<CS, S, WIDTH> {
+    fn default() -> Self {
+        let param = PoseidonConstants::generate::<WIDTH>();
+        PoseidonRef::new(param)
+    }
+}
+
+impl<
+    CS,
+    S: PoseidonRefSpec<CS, WIDTH>,
+    const WIDTH: usize,
 > FieldHasher<CS, S::Field> for PoseidonRef<CS, S, WIDTH> {
 
     fn empty_hash() -> S::Field {
         S::zero()
     }
 
-    fn hash(&mut self, cs: &mut CS, input: &[S::Field]) -> S::Field {
+    fn hash(&mut self, cs: &mut CS, input: &[S::Field]) -> Result<S::Field, Error> {
         self.reset();
         for element in input {
-            self.input(element.clone()).unwrap_or_else(|e| panic!("input failed: {}", e));
+            self.input(element.clone()).map_err(|e| Error::SynthesisError {
+                error: format!("Poseidon Error: {:?}", e),
+            })?;
         }
-        self.output_hash(cs)
+        Ok(self.output_hash(cs))
     }
 }
 

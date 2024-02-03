@@ -6,7 +6,7 @@
 
 //! PLONK Proving System
 
-mod linearisation_poly;
+mod linearization_poly;
 mod quotient_poly;
 mod keys;
 mod prove;

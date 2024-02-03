@@ -188,9 +188,10 @@ pub(crate) fn compute_lagrange_evaluation<F: Field>(
     zh_eval: F,
     tau: F,
 ) -> F {
-    let numinator = zh_eval * point;
+    assert!(n > 0, "n must be greater than 0");
+    let numerator = zh_eval * point;
     let dominator = F::from(n as u64) * (tau - point);
-    numinator * dominator.inverse().unwrap()
+    numerator * dominator.inverse().unwrap()
 }
 
 /// Computes first lagrange polynomial over `domain` of `index`.

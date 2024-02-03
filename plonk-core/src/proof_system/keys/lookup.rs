@@ -26,7 +26,7 @@ pub struct ProverKey<F: Field> {
 
 impl<F: Field> ProverKey<F> {
     /// Compute linearization for lookup gates
-    pub(crate) fn compute_linearisation(
+    pub(crate) fn compute_linearization(
         &self,
         alpha: F,
         delta: F,
@@ -146,8 +146,8 @@ where
     F: Field,
     PC: HomomorphicCommitment<F>,
 {
-    /// Computes the linearisation commitments.
-    pub(crate) fn compute_linearisation_commitment(
+    /// Computes the linearization commitments.
+    pub(crate) fn compute_linearization_commitment(
         &self,
         scalars: &mut Vec<F>,
         points: &mut Vec<PC::Commitment>,

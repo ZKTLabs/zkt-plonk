@@ -30,8 +30,8 @@ pub struct ProverKey<F: Field> {
 }
 
 impl<F: Field> ProverKey<F> {
-    /// Computes the permutation term of the linearisation polynomial.
-    pub(crate) fn compute_linearisation(
+    /// Computes the permutation term of the linearization polynomial.
+    pub(crate) fn compute_linearization(
         &self,
         alpha: F,
         beta: F,
@@ -163,8 +163,8 @@ impl<PCC> VerifierKey<PCC>
 where
     PCC: PCCommitment,
 {
-    /// Computes the linearisation commitments.
-    pub(crate) fn compute_linearisation_commitment<F: Field>(
+    /// Computes the linearization commitments.
+    pub(crate) fn compute_linearization_commitment<F: Field>(
         &self,
         scalars: &mut Vec<F>,
         points: &mut Vec<PCC>,

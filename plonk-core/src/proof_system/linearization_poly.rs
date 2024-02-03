@@ -15,7 +15,7 @@ use crate::{
     util::{EvaluationDomainExt, compute_lagrange_evaluation},
 };
 
-/// Compute the linearisation polynomial.
+/// Compute the linearization polynomial.
 pub(crate) fn compute<F, D>(
     domain: &D,
     pk: &ProverKey<F>,
@@ -74,9 +74,9 @@ where
         h2: h2_poly.evaluate(&xi),
     };
 
-    let arith = pk.arith.compute_linearisation(&wire_evals);
+    let arith = pk.arith.compute_linearization(&wire_evals);
 
-    let permutation = pk.perm.compute_linearisation(
+    let permutation = pk.perm.compute_linearization(
         alpha,
         beta,
         gamma,
@@ -87,7 +87,7 @@ where
         z1_poly,
     );
 
-    let lookup = pk.lookup.compute_linearisation(
+    let lookup = pk.lookup.compute_linearization(
         alpha,
         delta,
         epsilon,
@@ -98,7 +98,7 @@ where
         h1_poly,
     );
 
-    // Compute the last term in the linearisation polynomial
+    // Compute the last term in the linearization polynomial
     // (negative_quotient_term):
     // - zh(ξ) * [q_low(x) + ξ^(n+2)*q_mid(x) + ξ^(2n+4)*q_high(x)]
     let xi_exp_n_plus_2 = (zh_eval + F::one()) * xi.square();
@@ -108,10 +108,10 @@ where
         + q_lo_poly)
         * -zh_eval;
 
-    let linearisation_polynomial = arith + permutation + lookup + quotient_term;
+    let linearization_polynomial = arith + permutation + lookup + quotient_term;
 
     (
-        linearisation_polynomial,
+        linearization_polynomial,
         ProofEvaluations {
             wire_evals,
             perm_evals,

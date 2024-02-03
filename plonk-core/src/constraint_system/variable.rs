@@ -12,9 +12,10 @@ use ark_ff::Field;
 
 /// The value is a reference to the actual value that was added to the
 /// constraint system
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Variable {
     ///
+    #[default]
     Zero,
     ///
     Var(usize),
@@ -36,7 +37,7 @@ impl Variable {
 }
 
 ///
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Hash)]
 pub struct LTVariable<F: Field> {
     ///
     pub(crate) var: Variable,

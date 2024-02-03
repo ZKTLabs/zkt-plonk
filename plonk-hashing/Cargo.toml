@@ -32,6 +32,7 @@ thiserror = "1.0.30"
 ark-bn254 = "0.3"
 ark-bls12-381 = "0.3"
 bitvec = "1.0.0"
+array-init = "2.1.0"
 
 [features]
 default = ["std", "asm", "itertools/default", "parallel"]

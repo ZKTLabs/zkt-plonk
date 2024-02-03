@@ -217,7 +217,7 @@ where
     }
 
     /// Computes the commitment to `[r]_1`.
-    fn compute_linearisation_commitment(
+    fn compute_linearization_commitment(
         &self,
         alpha: F,
         beta: F,
@@ -237,13 +237,13 @@ where
         let mut scalars = Vec::with_capacity(13);
         let mut points = Vec::with_capacity(13);
 
-        vk.arith.compute_linearisation_commitment(
+        vk.arith.compute_linearization_commitment(
             &mut scalars,
             &mut points,
             &self.evaluations,
         );
 
-        vk.perm.compute_linearisation_commitment(
+        vk.perm.compute_linearization_commitment(
             &mut scalars,
             &mut points,
             &self.evaluations,
@@ -255,7 +255,7 @@ where
             self.z1_commit.clone(),
         );
 
-        vk.lookup.compute_linearisation_commitment(
+        vk.lookup.compute_linearization_commitment(
             &mut scalars,
             &mut points,
             &self.evaluations,
@@ -383,8 +383,8 @@ where
             vk,
         );
 
-        // Compute linearisation commitment
-        let r_commit = self.compute_linearisation_commitment(
+        // Compute linearization commitment
+        let r_commit = self.compute_linearization_commitment(
             alpha,
             beta,
             gamma,
