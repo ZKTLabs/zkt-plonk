@@ -19,7 +19,7 @@ rustdoc-args = ["--cfg", "doc_cfg"]
 
 [workspace]
 resolver = "2"
-members = ["plonk-core", "plonk-hashing"]
+members = [ "bin","plonk-core", "plonk-hashing", "utils"]
 
 [dependencies]
 circuits = { path = "./circuits" }

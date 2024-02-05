@@ -16,7 +16,6 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
-plonk-core = { path = "../plonk-core" }
 ark-ec = "0.3"
 ark-ff = "0.3"
 ark-poly = "0.3"
@@ -27,6 +26,7 @@ itertools = { version = "0.10.1", default-features = false }
 num-traits = "0.2.14"
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
 thiserror = "1.0.30"
+plonk-core = { path = "../plonk-core" }
 
 [dev-dependencies]
 ark-bn254 = "0.3"

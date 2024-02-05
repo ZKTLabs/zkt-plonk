@@ -1,5 +1,6 @@
 //! Correct, Naive, reference implementation of Poseidon hash function.
 
+use alloc::rc::Rc;
 use ark_ff::PrimeField;
 use core::{fmt::Debug, marker::PhantomData};
 use derivative::Derivative;
@@ -219,15 +220,15 @@ impl<F: PrimeField, const WIDTH: usize>
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = ""))]
-pub struct PoseidonRef<CS, S: PoseidonRefSpec<CS, WIDTH>, const WIDTH: usize>
+pub struct PoseidonRef<CS, S, const WIDTH: usize>
 where
-    S: ?Sized,
+    S: PoseidonRefSpec<CS, WIDTH> + ?Sized,
 {
     pub(crate) constants_offset: usize,
     pub(crate) current_round: usize,
     pub elements: [S::Field; WIDTH],
     pos: usize,
-    pub(crate) constants: PoseidonConstants<S::ParameterField>,
+    pub(crate) constants: Rc<PoseidonConstants<S::ParameterField>>,
 }
 
 impl<
@@ -235,7 +236,7 @@ impl<
     S: PoseidonRefSpec<CS, WIDTH>,
     const WIDTH: usize,
 > PoseidonRef<CS, S, WIDTH> {
-    pub fn new(constants: PoseidonConstants<S::ParameterField>) -> Self {
+    pub fn new(constants: Rc<PoseidonConstants<S::ParameterField>>) -> Self {
         let mut elements = S::zeros();
         elements[0] = S::constant(constants.domain_tag);
         PoseidonRef {
@@ -327,7 +328,7 @@ impl<
     const WIDTH: usize,
 > Default for PoseidonRef<CS, S, WIDTH> {
     fn default() -> Self {
-        let param = PoseidonConstants::generate::<WIDTH>();
+        let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
         PoseidonRef::new(param)
     }
 }
@@ -374,7 +375,7 @@ mod tests {
                 let rng = &mut test_rng();
 
                 // native poseidon
-                let param = PoseidonConstants::generate::<WIDTH>();
+                let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
                 let mut poseidon =
                     PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param.clone());
                 let inputs = (0..ARITY).map(|_| Fr::rand(rng)).collect::<Vec<_>>();
@@ -407,7 +408,7 @@ mod tests {
         const WIDTH: usize = ARITY + 1;
         let mut rng = test_rng();
 
-        let param = PoseidonConstants::generate::<WIDTH>();
+        let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
         let mut poseidon =
             PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param);
         (0..(ARITY + 1)).for_each(|_| {
