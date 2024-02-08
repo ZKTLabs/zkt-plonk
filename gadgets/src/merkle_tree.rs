@@ -5,14 +5,14 @@ use plonk_core::error::Error;
 use plonk_hashing::hasher::FieldHasher;
 
 
-struct MerkleTree<F, H, const HEIGHT: usize>
-    where
-        F: Field,
-        H: FieldHasher<(), F>
-{
+struct MerkleTree<
+    F: Field,
+    H: FieldHasher<(), F>,
+    const HEIGHT: usize,
+> {
     hasher: H,
     store: BTreeMap<(usize, usize), F>,
-    nodes: [F; HEIGHT]
+    nodes: [F; HEIGHT],
 }
 
 impl<
@@ -20,6 +20,7 @@ impl<
     H: FieldHasher<(), F>,
     const HEIGHT: usize,
 > MerkleTree<F, H, HEIGHT> {
+
     pub fn new(mut hasher: H) -> Result<Self, Error> {
         let mut nodes = [F::default(); HEIGHT];
         let mut hash = H::empty_hash();

@@ -2,8 +2,8 @@
 use core::{iter::Sum, ops::Sub, fmt::Debug};
 use ark_ff::Field;
 use bitvec::{prelude::Lsb0, view::BitView};
-use itertools::{Itertools, izip};
 use derivative::Derivative;
+use itertools::{Itertools, izip};
 use plonk_core::{constraint_system::*, plonk::Circuit, error::Error};
 use plonk_hashing::{hasher::FieldHasher, merkle::PoECircuit};
 
@@ -18,7 +18,7 @@ pub struct WithdrawCircuit<
     const SIZE: usize,
 > where
     F: Field,
-    A: Copy + Debug + Default + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    A: BitView + Copy + Debug + Default + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
     H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
     hasher: H,
@@ -138,7 +138,6 @@ where
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

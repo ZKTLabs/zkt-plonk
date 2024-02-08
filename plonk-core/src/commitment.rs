@@ -3,6 +3,8 @@ use ark_ec::{msm::VariableBaseMSM, AffineCurve, PairingEngine};
 use ark_ff::{Field, PrimeField};
 use ark_poly::univariate::DensePolynomial;
 use ark_poly_commit::{sonic_pc::SonicKZG10, PolynomialCommitment};
+use blake2::digest::{Digest, Update};
+use itertools::Itertools;
 
 /// A homomorphic polynomial commitment
 pub trait HomomorphicCommitment<F>:
@@ -26,10 +28,7 @@ pub type KZG10Commitment<E> = <KZG10<E> as PolynomialCommitment<
     DensePolynomial<<E as PairingEngine>::Fr>,
 >>::Commitment;
 
-impl<E> HomomorphicCommitment<E::Fr> for KZG10<E>
-where
-    E: PairingEngine,
-{
+impl<E: PairingEngine> HomomorphicCommitment<E::Fr> for KZG10<E> {
     fn multi_scalar_mul(
         commitments: &[KZG10Commitment<E>],
         scalars: &[E::Fr],
@@ -50,7 +49,7 @@ where
 pub type IPA<G, D> = ark_poly_commit::ipa_pc::InnerProductArgPC<
     G,
     D,
-    DensePolynomial<<G as ark_ec::AffineCurve>::ScalarField>,
+    DensePolynomial<<G as AffineCurve>::ScalarField>,
 >;
 /// Shortened type for an Inner Product Argument polynomial commitment
 pub type IPACommitment<G, D> = <IPA<G, D> as PolynomialCommitment<
@@ -58,9 +57,7 @@ pub type IPACommitment<G, D> = <IPA<G, D> as PolynomialCommitment<
     DensePolynomial<<G as AffineCurve>::ScalarField>,
 >>::Commitment;
 
-use blake2::digest::{Digest, Update};
-use itertools::Itertools;
-impl<G, D> HomomorphicCommitment<<G as ark_ec::AffineCurve>::ScalarField>
+impl<G, D> HomomorphicCommitment<<G as AffineCurve>::ScalarField>
     for IPA<G, D>
 where
     G: AffineCurve,
@@ -68,11 +65,11 @@ where
 {
     fn multi_scalar_mul(
         commitments: &[IPACommitment<G, D>],
-        scalars: &[<G as ark_ec::AffineCurve>::ScalarField],
+        scalars: &[<G as AffineCurve>::ScalarField],
     ) -> IPACommitment<G, D> {
         let scalars_repr = scalars
             .iter()
-            .map(<G as ark_ec::AffineCurve>::ScalarField::into_repr)
+            .map(<G as AffineCurve>::ScalarField::into_repr)
             .collect_vec();
 
         let points_repr = commitments.iter().map(|c| c.comm).collect_vec();

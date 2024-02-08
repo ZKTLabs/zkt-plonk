@@ -8,15 +8,13 @@ description = "A Plonkish ZK-SNARK implementation of the ZKT Protocol."
 license = "MPL"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-ark-ff = "0.3"
-bitvec = "1.0.0"
+ark-ff = "0.3.0"
+bitvec = { version = "1.0.1", default-features = false, features = ["atomic"] }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
-itertools = { version = "0.10.1", default-features = false }
-plonk-core = { path = "../plonk-core" }
-plonk-hashing = { path = "../plonk-hashing" }
+itertools = { version = "0.12.1", default-features = false }
+plonk-core = { path = "../plonk-core", default-features = false }
+plonk-hashing = { path = "../plonk-hashing", default-features = false }
 
 [dev-dependencies]
 ark-std = "0.3"
@@ -26,8 +24,8 @@ array-init = "2.1.0"
 bitvec = "1.0.0"
 
 [features]
-default = ["std", "asm", "itertools/default", "parallel"]
-std = ["ark-ff/std", "plonk-core/std", "plonk-hashing/std"]
+default = ["std", "asm", "parallel"]
+std = ["ark-ff/std", "bitvec/std", "itertools/use_std", "plonk-core/std", "plonk-hashing/std"]
 asm = ["ark-ff/asm", "plonk-core/asm", "plonk-hashing/asm"]
 parallel = ["ark-ff/parallel", "plonk-core/parallel", "plonk-hashing/parallel"]
 trace = ["plonk-core/trace", "plonk-hashing/trace"]

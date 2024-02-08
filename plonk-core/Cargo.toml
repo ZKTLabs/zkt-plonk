@@ -16,35 +16,35 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
-blake2 = "0.9"
-ark-ec = "0.3"
-ark-ff = "0.3"
-ark-poly = "0.3"
-ark-poly-commit = { version = "0.3", default-features = false }
-ark-serialize = { version = "0.3", features = ["derive"] }
-ark-std = { version = "0.3", default-features = false }
-backtrace = { version = "0.3", optional = true }
+ark-ec = "0.3.0"
+ark-ff = "0.3.0"
+ark-poly = "0.3.0"
+ark-poly-commit = { version = "0.3.0", default-features = false }
+ark-serialize = { version = "0.3.0", features = ["derive"] }
+ark-std = { version = "0.3.0", default-features = false }
+blake2 = { version = "0.9.2", default-features = false }
+backtrace = { version = "0.3.69", optional = true, default-features = false }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
-indexmap = { version = "1.8.1", default-features = false }
-itertools = { version = "0.10.1", default-features = false }
-merlin = { version = "3.0", default-features = false }
-num-traits = "0.2.14"
-rand_core = { version = "0.6", default-features = false, features = ["getrandom"] }
-rayon = { version = "1.5.3", optional = true }
+indexmap = { version = "2.2.2", default-features = false }
+itertools = { version = "0.12.1", default-features = false }
+merlin = { version = "3.0.0", default-features = false }
+num-traits = { version = "0.2.17", default-features = false }
+rand_core = { version = "0.6.4", default-features = false, features = ["getrandom"] }
+rayon = { version = "1.8.1", optional = true }
 thiserror = "1.0.56"
 
 [dev-dependencies]
-ark-bn254 = "0.3"
-ark-bls12-377 = "0.3"
-ark-bls12-381 = "0.3"
-proptest = "1.0.0"
-paste = "1.0.6"
-tempdir = "0.3"
-cfg-if = "0.1"
+ark-bn254 = "0.3.0"
+ark-bls12-377 = "0.3.0"
+ark-bls12-381 = "0.3.0"
+proptest = "1.4.0"
+paste = "1.0.14"
+tempdir = "0.3.7"
+cfg-if = "1.0.0"
 
 [features]
 # Default Features
-default = ["std", "asm", "itertools/default", "parallel"]
+default = ["std", "asm", "parallel"]
 # Enable Standard Library
 std = [
     "ark-std/std",
@@ -53,6 +53,13 @@ std = [
     "ark-poly/std",
     "ark-poly-commit/std",
     "ark-serialize/std",
+    "blake2/std",
+    "backtrace/std",
+    "indexmap/std",
+    "itertools/use_std",
+    "merlin/std",
+    "num-traits/std",
+    "rand_core/std",
 ]
 # Raw Assembly
 asm = ["ark-ff/asm"]
@@ -66,4 +73,4 @@ parallel = [
     "ark-poly-commit/parallel",
 ]
 # Trace
-trace = ["backtrace", "ark-std/print-trace"]
+trace = ["backtrace", "ark-std/print-trace", "ark-poly-commit/print-trace"]

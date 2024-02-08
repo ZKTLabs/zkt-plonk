@@ -6,7 +6,7 @@
 
 //! Prover-side of the PLONK Proving System
 
-use std::rc::Rc;
+use alloc::rc::Rc;
 use ark_std::cfg_iter_mut;
 use ark_ff::{Field, FftField};
 use ark_poly::{

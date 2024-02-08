@@ -16,26 +16,26 @@ all-features = true
 rustdoc-args = ["--cfg", "doc_cfg"]
 
 [dependencies]
-ark-ec = "0.3"
-ark-ff = "0.3"
-ark-poly = "0.3"
-ark-poly-commit = { version = "0.3", default-features = false }
-ark-serialize = { version = "0.3", features = ["derive"] }
-ark-std = { version = "^0.3.0", default-features = false }
-itertools = { version = "0.10.1", default-features = false }
-num-traits = "0.2.14"
+ark-ec = "0.3.0"
+ark-ff = "0.3.0"
+ark-poly = "0.3.0"
+ark-poly-commit = { version = "0.3.0", default-features = false }
+ark-serialize = { version = "0.3.0", features = ["derive"] }
+ark-std = { version = "0.3.0", default-features = false }
+itertools = { version = "0.12.1", default-features = false }
+num-traits = { version = "0.2.17", default-features = false }
 derivative = { version = "2.2.0", default-features = false, features = ["use_core"] }
-thiserror = "1.0.30"
-plonk-core = { path = "../plonk-core" }
+thiserror = "1.0.56"
+plonk-core = { path = "../plonk-core", default-features = false }
 
 [dev-dependencies]
-ark-bn254 = "0.3"
-ark-bls12-381 = "0.3"
-bitvec = "1.0.0"
+ark-bn254 = "0.3.0"
+ark-bls12-381 = "0.3.0"
+bitvec = "1.0.1"
 array-init = "2.1.0"
 
 [features]
-default = ["std", "asm", "itertools/default", "parallel"]
+default = ["std", "asm", "parallel"]
 std = [
     "ark-std/std",
     "ark-ec/std",
@@ -43,6 +43,8 @@ std = [
     "ark-poly/std",
     "ark-poly-commit/std",
     "ark-serialize/std",
+    "itertools/use_std",
+    "num-traits/std",
     "plonk-core/std"
 ]
 asm = ["ark-ff/asm", "plonk-core/asm"]
@@ -54,4 +56,4 @@ parallel = [
     "ark-poly-commit/parallel",
     "plonk-core/parallel",
 ]
-trace = ["ark-std/print-trace", "plonk-core/trace"]
+trace = ["ark-std/print-trace", "ark-poly-commit/print-trace", "plonk-core/trace"]

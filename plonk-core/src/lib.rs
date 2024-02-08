@@ -36,6 +36,7 @@
 extern crate alloc;
 
 mod util;
+mod test;
 
 pub mod permutation;
 pub mod transcript;
@@ -45,4 +46,3 @@ pub mod constraint_system;
 pub mod error;
 pub mod lookup;
 pub mod proof_system;
-pub mod test;
