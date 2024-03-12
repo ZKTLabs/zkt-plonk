@@ -32,9 +32,9 @@ fn merkle_proof<F, H>(
 #[derive(Derivative, Clone, Copy)]
 #[derivative(Debug(bound = ""), Default(bound = ""))]
 pub struct PoECircuit<F: Field, const HEIGHT: usize> {
-    leaf_index: usize,
+    pub leaf_index: usize,
     #[derivative(Default(value = "[F::default(); HEIGHT]"))]
-    path_elements: [F; HEIGHT],
+    pub path_elements: [F; HEIGHT],
 }
 
 impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
@@ -93,16 +93,16 @@ mod tests {
         array_init(|_| (bool::rand(rng), Fr::rand(rng)))
     }
 
-    fn native_poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<(), NativeSpecRef<Fr>, WIDTH> {
-        PoseidonRef::new(param)
+    fn native_poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<(), NativePlonkSpecRef<Fr>, WIDTH> {
+        PoseidonRef::new(&param)
     }
 
     fn poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH> {
-        PoseidonRef::new(param)
+        PoseidonRef::new(&param)
     }
 
     fn native_merkle_proof(
-        hasher: &mut PoseidonRef<(), NativeSpecRef<Fr>, WIDTH>,
+        hasher: &mut PoseidonRef<(), NativePlonkSpecRef<Fr>, WIDTH>,
         path_elements: impl IntoIterator<Item = (bool, Fr)>,
         leaf_node: Fr,
     ) -> Result<Vec<Fr>, Error> {

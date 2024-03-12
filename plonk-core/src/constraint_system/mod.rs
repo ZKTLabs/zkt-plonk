@@ -151,6 +151,7 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Proving(composer) => {
                 let out = composer.var_map.value_of_lt_var(x);
                 // confirm that the value is in the lookup table
+                #[cfg(feature = "table-check")]
                 self.lookup_table.contains(&out);
                 let w_o = composer.var_map.assign_variable(out);
                 composer.input_wires(x.var, Variable::Zero, w_o, None);

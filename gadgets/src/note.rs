@@ -1,12 +1,15 @@
 use ark_ff::Field;
+use ark_serialize::{Read, Write, CanonicalSerialize, CanonicalDeserialize, SerializationError};
 
-struct ULO<A, F: Field> {
-    index: usize,
-    amount: A,
-    secret: F,
+#[derive(CanonicalSerialize, CanonicalDeserialize, Debug, Clone)]
+pub struct Note<F: Field, A: CanonicalSerialize + CanonicalDeserialize + Clone> {
+    pub leaf_index: usize,
+    pub identifier: F,
+    pub amount: A,
+    pub secret: F,
 }
 
-struct Note<A, F: Field> {
-    identifier: F,
-    ulos: Vec<ULO<A, F>>,
-}
+#[derive(CanonicalSerialize, CanonicalDeserialize, Debug, Default)]
+pub struct Notes<F: Field, A: CanonicalSerialize + CanonicalDeserialize + Clone>(
+    pub Vec<Note<F, A>>,
+);

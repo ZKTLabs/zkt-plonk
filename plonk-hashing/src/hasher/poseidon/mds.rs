@@ -23,7 +23,7 @@ impl<F: PrimeField> MdsMatrices<F> {
     }
 
     /// Given an MDS matrix `m`, compute all its associated matrices.
-    pub(crate) fn derive_mds_matrices(m: Matrix<F>) -> Self {
+    pub(super) fn derive_mds_matrices(m: Matrix<F>) -> Self {
         let m_inv = m.invert().expect("Derived MDS matrix is not invertible");
         let m_hat = m.minor(0, 0);
         let m_hat_inv =
@@ -40,7 +40,7 @@ impl<F: PrimeField> MdsMatrices<F> {
         }
     }
 
-    fn generate_mds(t: usize) -> Matrix<F> {
+    pub(super) fn generate_mds(t: usize) -> Matrix<F> {
         let xs: Vec<F> = (0..t as u64).map(F::from).collect();
         let ys: Vec<F> = (t as u64..2 * t as u64).map(F::from).collect();
 

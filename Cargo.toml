@@ -1,2 +1,3 @@
 [workspace]
 members = ["circuits", "gadgets", "plonk-core", "plonk-hashing", "wasm", "bin"]
+resolver = "2"

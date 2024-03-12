@@ -4,7 +4,36 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.4.18", features = ["default", "derive", "env"] }
-ethereum-types = "0.14.1"
+ark-ff = "0.3"
+ark-poly = "0.3"
+ark-poly-commit = "0.3"
+ark-serialize = { version = "0.3", features = ["derive", "std"] }
+ark-bn254 = { version = "0.3", features = ["default", "std"], optional = true }
+ark-bls12-381 = { version = "0.3", features = ["default", "std"], optional = true }
+array-init = "2.1.0"
+clap = { version = "4.4", features = ["default", "derive", "env"] }
+ethereum-types = { version = "0.14", default-features = false, features = ["ethbloom", "rlp", "serialize"] }
+rand = { version = "0.8", features = ["default", "getrandom"] }
+rand_core = { version = "0.6", features = ["std"] }
 circuits = { path = "../circuits" }
 gadgets = { path = "../gadgets" }
+plonk-core = { path = "../plonk-core" }
+plonk-hashing = { path = "../plonk-hashing" }
+
+[features]
+default = ["height-48", "notes-3", "kzg10", "ethereum-transcript", "poseidon-bn254-x4"]
+height-48 = []
+height-64 = []
+notes-1 = []
+notes-2 = []
+notes-3 = []
+notes-4 = []
+notes-5 = []
+bn254 = ["ark-bn254"]
+bls12-381 = ["ark-bls12-381"]
+kzg10 = []
+ethereum-transcript = []
+merlin-transcript = []
+poseidon-bn254-x3 = ["bn254"]
+poseidon-bn254-x4 = ["bn254"]
+poseidon-bn254-x5 = ["bn254"]

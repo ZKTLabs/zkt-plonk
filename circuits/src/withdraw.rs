@@ -1,4 +1,5 @@
 // Copyright (c) Lone G. All rights reserved.
+
 use core::{iter::Sum, ops::Sub, fmt::Debug};
 use ark_ff::Field;
 use bitvec::{prelude::Lsb0, view::BitView};
@@ -21,18 +22,19 @@ pub struct WithdrawCircuit<
     A: BitView + Copy + Debug + Default + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
     H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
 {
-    hasher: H,
+    pub hasher: H,
     #[derivative(Default(value = "[F::default(); INPUTS]"))]
-    secrets: [F; INPUTS],
+    pub secrets: [F; INPUTS],
     #[derivative(Default(value = "[F::default(); INPUTS]"))]
-    identifiers: [F; INPUTS],
+    pub identifiers: [F; INPUTS],
     #[derivative(Default(value = "[A::default(); INPUTS]"))]
-    amount_inputs: [A; INPUTS],
+    pub amount_inputs: [A; INPUTS],
     #[derivative(Default(value = "[PoECircuit::<F, HEIGHT>::default(); INPUTS]"))]
-    poe_circuits: [PoECircuit<F, HEIGHT>; INPUTS],
-    new_secret: F,
-    new_identifier: F,
-    withdraw_amount: A,
+    pub poe_circuits: [PoECircuit<F, HEIGHT>; INPUTS],
+    pub root: F,
+    pub new_secret: F,
+    pub new_identifier: F,
+    pub withdraw_amount: A,
 }
 
 impl<
@@ -64,8 +66,11 @@ where
             .into_iter()
             .map(|identifier| cs.assign_variable(identifier))
             .collect_vec();
-
+        
         let one_var = LTVariable::constant(F::one());
+        let pub_root_var = cs.assign_variable(self.root).into();
+        // set root public
+        cs.set_variable_public(&pub_root_var);
         for (
             &amount_var,
             identifier_var,
@@ -86,8 +91,7 @@ where
             )?;
 
             let (root_var, _) = poe_circuit.synthesize(cs, &mut self.hasher, &leaf_var)?;
-            // make root public
-            cs.set_variable_public(&root_var);
+            cs.equal_constrain(&root_var, &pub_root_var);
 
             // lookup identifier from subset
             cs.lookup_constrain(&identifier_var.into());
@@ -115,12 +119,13 @@ where
             .with_left(-F::one())
             .with_right(-F::one())
             .with_out(F::one());
+        // set withdraw amount public
         cs.arith_constrain(
             left_var,
             right_var,
             amount_out_var,
             sels,
-            Some(amount_out.into()),
+            Some(self.withdraw_amount.into()),
         );
 
         // step 3: hash new secret and commitment

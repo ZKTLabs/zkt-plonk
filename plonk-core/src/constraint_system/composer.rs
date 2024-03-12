@@ -33,6 +33,7 @@ pub struct Selectors<F: Field> {
 
 impl<F: Field> Selectors<F> {
     ///
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             q_m: F::zero(),
@@ -322,10 +323,10 @@ impl<F: Field> Composer<F> {
     }
 }
 
-impl<F: Field> Into<SetupComposer<F>> for Composer<F> {
-    fn into(self) -> SetupComposer<F> {
-        match self {
-            Self::Setup(composer) => composer,
+impl<F: Field> From<Composer<F>> for SetupComposer<F> {
+    fn from(composer: Composer<F>) -> Self {
+        match composer {
+            Composer::Setup(composer) => composer,
             _ => panic!("constraint system is not in setup mode"),
         }
     }
@@ -349,10 +350,10 @@ impl<F: Field> BorrowMut<SetupComposer<F>> for Composer<F> {
     }
 }
 
-impl<F: Field> Into<ProvingComposer<F>> for Composer<F> {
-    fn into(self) -> ProvingComposer<F> {
-        match self {
-            Self::Proving(composer) => composer,
+impl<F: Field> From<Composer<F>> for ProvingComposer<F> {
+    fn from(composer: Composer<F>) -> Self {
+        match composer {
+            Composer::Proving(composer) => composer,
             _ => panic!("constraint system is not in proving mode"),
         }
     }

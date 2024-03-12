@@ -1,71 +1,93 @@
-use alloc::collections::BTreeMap;
+use std::collections::BTreeMap;
 use ark_ff::Field;
+use ark_serialize::{Read, Write, CanonicalSerialize, CanonicalDeserialize, SerializationError};
 use array_init::array_init;
-use plonk_core::error::Error;
+use plonk_core::error::Error as PlonkError;
 use plonk_hashing::hasher::FieldHasher;
 
+#[derive(CanonicalSerialize, CanonicalDeserialize, Default)]
+pub struct MerkleTreeStore<F: Field, const HEIGHT: usize> {
+    tree: BTreeMap<(usize, usize), F>,
+    next_index: usize,
+}
 
-struct MerkleTree<
+impl<F: Field, const HEIGHT: usize> MerkleTreeStore<F, HEIGHT> {
+    pub fn into_merkle_tree<H: FieldHasher<(), F>>(
+        self,
+        hasher: H,
+    ) -> Result<MerkleTree<F, H, HEIGHT>, PlonkError> {
+        MerkleTree::new(hasher, self)
+    }
+}
+
+impl<F, H, const HEIGHT: usize> From<MerkleTree<F, H, HEIGHT>> for MerkleTreeStore<F, HEIGHT>
+where
     F: Field,
     H: FieldHasher<(), F>,
-    const HEIGHT: usize,
-> {
+{
+    fn from(tree: MerkleTree<F, H, HEIGHT>) -> Self {
+        tree.store
+    }
+}
+
+pub struct MerkleTree<F: Field, H: FieldHasher<(), F>, const HEIGHT: usize> {
     hasher: H,
-    store: BTreeMap<(usize, usize), F>,
+    store: MerkleTreeStore<F, HEIGHT>,
     nodes: [F; HEIGHT],
 }
 
-impl<
+impl<F, H, const HEIGHT: usize> MerkleTree<F, H, HEIGHT>
+where
     F: Field,
     H: FieldHasher<(), F>,
-    const HEIGHT: usize,
-> MerkleTree<F, H, HEIGHT> {
-
-    pub fn new(mut hasher: H) -> Result<Self, Error> {
+{
+    pub fn new(mut hasher: H, store: MerkleTreeStore<F, HEIGHT>) -> Result<Self, PlonkError> {
         let mut nodes = [F::default(); HEIGHT];
         let mut hash = H::empty_hash();
 
         nodes
             .iter_mut()
-            .try_for_each(|node| -> Result<(), Error> {
+            .try_for_each(|node| -> Result<(), PlonkError> {
                 *node = hash;
                 hash = hasher.hash_two(&mut (), &hash, &hash)?;
                 Ok(())
             })?;
 
-        Ok(Self {
-            hasher,
-            store: BTreeMap::new(),
-            nodes,
-        })
+        Ok(Self { hasher, store, nodes })
     }
 
     pub fn merkle_path(&self, index: usize) -> [F; HEIGHT] {
         array_init(|layer| {
             let index = index >> layer;
             let witness = if (index & 1) == 1 {
-                self.store.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer])
+                self.store.tree.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer])
             } else {
-                self.store.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer])
+                self.store.tree.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer])
             };
             *witness
         })
     }
 
-    pub fn add_leaf(&mut self, index: usize, mut hash: F) -> Result<(), Error> {
+    pub fn add_leaf(&mut self, mut hash: F) -> Result<usize, PlonkError> {
+        let index = self.store.next_index;
+        self.store.next_index += 1;
         for layer in 0..HEIGHT {
             let index = index >> layer;
-            self.store.insert((layer, index), hash);
+            self.store.tree.insert((layer, index), hash);
 
             if (index & 1) == 1 {
-                let witness = self.store.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer]);
+                let witness = self.store.tree.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer]);
                 hash = self.hasher.hash_two(&mut (), witness, &hash)?;
             } else {
-                let witness = self.store.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer]);
+                let witness = self.store.tree.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer]);
                 hash = self.hasher.hash_two(&mut (), &hash, witness)?;
             }
         }
-        Ok(())
+        Ok(index)
+    }
+    
+    pub fn root(&self) -> F {
+        let index = HEIGHT - 1;
+        *self.store.tree.get(&(index, 0)).unwrap_or(&self.nodes[index])
     }
 }
-

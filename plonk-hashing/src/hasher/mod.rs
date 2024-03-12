@@ -7,6 +7,10 @@ use plonk_core::error::Error;
 
 pub trait FieldHasher<CS, F: Debug + Clone>: Debug + Default {
 
+    type Params: ?Sized;
+
+    fn new(params: &Self::Params) -> Self;
+
     fn empty_hash() -> F;
 
     fn hash(&mut self, cs: &mut CS, input: &[F]) -> Result<F, Error>;

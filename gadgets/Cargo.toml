@@ -6,17 +6,19 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-ff = "0.3.0"
-ark-bn254 = "0.3.0"
-array-init = "2.1.0"
-ethereum-types = { version = "0.14.1", default-features = false, features = ["ethbloom", "rlp", "serialize"] }
-sha3 = { version = "0.10.8", default-features = false }
+ark-ff = "0.3"
+ark-bn254 = "0.3"
+ark-serialize = "0.3"
+array-init = "2.1"
+ethereum-types = { version = "0.14", default-features = false, features = ["ethbloom", "rlp", "serialize"] }
+sha3 = { version = "0.10", default-features = false }
 plonk-core = { path = "../plonk-core", default-features = false }
 plonk-hashing = { path = "../plonk-hashing", default-features = false }
+hex = "0.4"
 
 [dev-dependencies]
 ark-poly-commit = "0.3"
-hex-literal = "0.4.1"
+hex-literal = "0.4"
 
 [features]
 default = ["std", "asm", "parallel"]

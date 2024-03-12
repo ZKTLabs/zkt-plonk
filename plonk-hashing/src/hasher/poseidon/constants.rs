@@ -25,13 +25,9 @@ impl<F: PrimeField> PoseidonConstants<F> {
     /// Generate all constants needed for poseidon hash of specified
     /// width.  Note that WIDTH = ARITY + 1
     pub fn generate<const WIDTH: usize>() -> Self {
-        let arity = WIDTH - 1;
-        let mds_matrices = MdsMatrices::new(WIDTH);
         let (num_full_rounds, num_partial_rounds) =
             calc_round_numbers(WIDTH, true);
-
-        debug_assert_eq!(num_full_rounds % 2, 0);
-        let num_half_full_rounds = num_full_rounds / 2;
+        let mds_matrix = MdsMatrices::generate_mds(WIDTH);
         let round_constants = generate_constants(
             1, // prime field
             1, // sbox
@@ -44,8 +40,32 @@ impl<F: PrimeField> PoseidonConstants<F> {
                 .try_into()
                 .expect("num_partial_rounds is too large"),
         );
-        let domain_tag = F::from(((1 << arity) - 1) as u64);
 
+        Self::from_constants::<WIDTH>(
+            num_full_rounds,
+            num_partial_rounds,
+            mds_matrix,
+            round_constants,
+        )
+    }
+
+    pub fn from_constants<const WIDTH: usize>(
+        num_full_rounds: usize,
+        num_partial_rounds: usize,
+        mds_matrix: Matrix<F>,
+        round_constants: Vec<F>,
+    ) -> PoseidonConstants<F> {
+        debug_assert_eq!(num_full_rounds % 2, 0);
+        assert!(
+            WIDTH * (num_full_rounds + num_partial_rounds) <= round_constants.len(),
+            "Not enough round constants"
+        );
+
+        let arity: usize = WIDTH - 1;
+        let domain_tag = F::from(((1 << arity) - 1) as u64);
+        let num_half_full_rounds = num_full_rounds / 2;
+        let mds_matrices = MdsMatrices::derive_mds_matrices(mds_matrix);
+        
         let compressed_round_constants = compress_round_constants(
             WIDTH,
             num_full_rounds,
@@ -57,12 +77,6 @@ impl<F: PrimeField> PoseidonConstants<F> {
         let (pre_sparse_matrix, sparse_matrixes) = factor_to_sparse_matrixes(
             mds_matrices.m.clone(),
             num_partial_rounds,
-        );
-
-        assert!(
-            WIDTH * (num_full_rounds + num_partial_rounds)
-                <= round_constants.len(),
-            "Not enough round constants"
         );
 
         PoseidonConstants {

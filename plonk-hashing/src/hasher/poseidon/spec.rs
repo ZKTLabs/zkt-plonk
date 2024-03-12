@@ -136,11 +136,11 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
     ) -> Self::Field;
 }
 
-pub struct NativeSpecRef<F: PrimeField> {
+pub struct NativePlonkSpecRef<F: PrimeField> {
     _field: PhantomData<F>,
 }
 
-impl<F: PrimeField, const WIDTH: usize> PoseidonRefSpec<(), WIDTH> for NativeSpecRef<F> {
+impl<F: PrimeField, const WIDTH: usize> PoseidonRefSpec<(), WIDTH> for NativePlonkSpecRef<F> {
     type Field = F;
     type ParameterField = F;
 
@@ -236,23 +236,8 @@ impl<
     S: PoseidonRefSpec<CS, WIDTH>,
     const WIDTH: usize,
 > PoseidonRef<CS, S, WIDTH> {
-    pub fn new(constants: Rc<PoseidonConstants<S::ParameterField>>) -> Self {
-        let mut elements = S::zeros();
-        elements[0] = S::constant(constants.domain_tag);
-        PoseidonRef {
-            constants_offset: 0,
-            current_round: 0,
-            elements,
-            pos: 1,
-            constants,
-        }
-    }
 
-    pub fn arity(&self) -> usize {
-        WIDTH - 1
-    }
-
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.constants_offset = 0;
         self.current_round = 0;
         self.elements[1..].iter_mut().for_each(|l| *l = S::zero());
@@ -262,7 +247,7 @@ impl<
 
     /// input one field element to Poseidon. Return the position of the element
     /// in state.
-    pub fn input(&mut self, input: S::Field) -> Result<usize, PoseidonError> {
+    fn input(&mut self, input: S::Field) -> Result<usize, PoseidonError> {
         // Cannot input more elements than the defined constant width
         if self.pos >= WIDTH {
             return Err(PoseidonError::FullBuffer);
@@ -276,7 +261,7 @@ impl<
     }
 
     /// Output the hash
-    pub fn output_hash(&mut self, cs: &mut CS) -> S::Field {
+    fn output_hash(&mut self, cs: &mut CS) -> S::Field {
         S::full_round(
             cs,
             &self.constants,
@@ -329,7 +314,7 @@ impl<
 > Default for PoseidonRef<CS, S, WIDTH> {
     fn default() -> Self {
         let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
-        PoseidonRef::new(param)
+        PoseidonRef::new(&param)
     }
 }
 
@@ -338,6 +323,20 @@ impl<
     S: PoseidonRefSpec<CS, WIDTH>,
     const WIDTH: usize,
 > FieldHasher<CS, S::Field> for PoseidonRef<CS, S, WIDTH> {
+
+    type Params = Rc<PoseidonConstants<S::ParameterField>>;
+
+    fn new(constants: &Self::Params) -> Self {
+        let mut elements = S::zeros();
+        elements[0] = S::constant(constants.domain_tag);
+        PoseidonRef {
+            constants_offset: 0,
+            current_round: 0,
+            elements,
+            pos: 1,
+            constants: constants.clone(),
+        }
+    }
 
     fn empty_hash() -> S::Field {
         S::zero()
@@ -377,7 +376,7 @@ mod tests {
                 // native poseidon
                 let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
                 let mut poseidon =
-                    PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param.clone());
+                    PoseidonRef::<(), NativePlonkSpecRef<Fr>, WIDTH>::new(&param);
                 let inputs = (0..ARITY).map(|_| Fr::rand(rng)).collect::<Vec<_>>();
                 inputs.iter().for_each(|x| {
                     let _ = poseidon.input(*x).unwrap();
@@ -388,7 +387,7 @@ mod tests {
                 let inputs_var =
                     inputs.iter().map(|x| cs.assign_variable(*x)).collect::<Vec<_>>();
                 let mut poseidon =
-                    PoseidonRef::<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH>::new(param.clone());
+                    PoseidonRef::<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH>::new(&param);
                 inputs_var.into_iter().for_each(|x| {
                     let _ = poseidon.input(x.into()).unwrap();
                 });
@@ -410,7 +409,7 @@ mod tests {
 
         let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
         let mut poseidon =
-            PoseidonRef::<(), NativeSpecRef<Fr>, WIDTH>::new(param);
+            PoseidonRef::<(), NativePlonkSpecRef<Fr>, WIDTH>::new(&param);
         (0..(ARITY + 1)).for_each(|_| {
             let _ = poseidon.input(Fr::rand(&mut rng)).unwrap();
         });

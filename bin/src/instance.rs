@@ -1,0 +1,113 @@
+use std::{rc::Rc, str::FromStr};
+use ark_poly::GeneralEvaluationDomain;
+use plonk_core::{plonk::ZKTPlonk, commitment::KZG10};
+use plonk_hashing::hasher::FieldHasher;
+use circuits::WithdrawCircuit;
+use gadgets::{merkle_tree, transcript, note};
+
+#[cfg(feature = "bn254")]
+pub(crate) type Fr = ark_bn254::Fr;
+#[cfg(feature = "bn254")]
+pub(crate) type ParingEngine = ark_bn254::Bn254;
+
+#[cfg(feature = "bls12-381")]
+type Fr = ark_bls12_381::Fr;
+#[cfg(feature = "bls12-381")]
+type Engine = ark_bls12_381::Bls12_381;
+
+#[cfg(feature = "ethereum-transcript")]
+pub(crate) type Transcript = transcript::EthereumTranscript;
+#[cfg(feature = "merlin-transcript")]
+type Transcript = plonk_core::transcript::MerlinTranscript;
+
+/// Height of the Merkle tree
+#[cfg(feature = "height-48")]
+pub(crate) const HEIGHT: usize = 48;
+#[cfg(feature = "height-64")]
+pub(crate) const HEIGHT: usize = 64;
+
+/// Number of inputs of notes
+#[cfg(feature = "notes-1")]
+pub(crate) const NOTE_INPUTS: usize = 1;
+#[cfg(feature = "notes-2")]
+pub(crate) const NOTE_INPUTS: usize = 2;
+#[cfg(feature = "notes-3")]
+pub(crate) const NOTE_INPUTS: usize = 3;
+#[cfg(feature = "notes-4")]
+pub(crate) const NOTE_INPUTS: usize = 4;
+// #[cfg(feature = "notes-5")]
+// pub(crate) const NOTE_INPUTS: usize = 5;
+
+/// Size of the table for membership proof
+pub(crate) const TABLE_SIZE: usize = 1024;
+
+pub(crate) type Amount = u64;
+
+pub(crate) fn str_to_amount(amount: &str) -> Amount {
+    u64::from_str(amount).unwrap_or_else(|_| panic!("invalid amount: {}", amount))
+}
+
+#[cfg(feature = "poseidon-bn254-x3")]
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x3;
+#[cfg(feature = "poseidon-bn254-x3")]
+pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x3Native;
+
+#[cfg(feature = "poseidon-bn254-x4")]
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x4;
+#[cfg(feature = "poseidon-bn254-x4")]
+pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x4Native;
+
+#[cfg(feature = "poseidon-bn254-x5")]
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x5;
+#[cfg(feature = "poseidon-bn254-x5")]
+pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x5Native;
+
+#[cfg(feature = "kzg10")]
+pub(crate) type CommitmentScheme = KZG10<ParingEngine>;
+
+pub(crate) type ZKTPlonkInstance = ZKTPlonk<
+    Fr,
+    GeneralEvaluationDomain<Fr>,
+    CommitmentScheme,
+    Transcript,
+    WithdrawCircuit<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT, TABLE_SIZE>,
+>;
+
+pub(crate) fn new_field_hasher_params()
+    -> <NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params
+{
+    #[cfg(feature = "poseidon-bn254-x3")]
+    { Rc::new(gadgets::poseidon::bn254_x3_constants()) }
+    #[cfg(feature = "poseidon-bn254-x4")]
+    { Rc::new(gadgets::poseidon::bn254_x4_constants()) }
+    #[cfg(feature = "poseidon-bn254-x5")]
+    { Rc::new(gadgets::poseidon::bn254_x5_constants()) }
+}
+
+pub(crate) fn new_field_hasher(
+    params: &<NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params,
+) -> FieldHasherInstance {
+    #[cfg(feature = "poseidon-bn254-x3")]
+    { gadgets::poseidon::Bn254x3::new(params) }
+    #[cfg(feature = "poseidon-bn254-x4")]
+    { gadgets::poseidon::Bn254x4::new(params) }
+    #[cfg(feature = "poseidon-bn254-x5")]
+    { gadgets::poseidon::Bn254x5::new(params) }
+}
+
+pub(crate) fn new_native_field_hasher(
+    params: &<NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params,
+) -> NativeFieldHasherInstance {
+    #[cfg(feature = "poseidon-bn254-x3")]
+    { gadgets::poseidon::Bn254x3Native::new(params) }
+    #[cfg(feature = "poseidon-bn254-x4")]
+    { gadgets::poseidon::Bn254x4Native::new(params) }
+    #[cfg(feature = "poseidon-bn254-x5")]
+    { gadgets::poseidon::Bn254x5Native::new(params) }
+}
+
+pub(crate) type MerkleTreeStore = merkle_tree::MerkleTreeStore<Fr, HEIGHT>;
+// pub(crate) type MerkleTree = merkle_tree::MerkleTree<Fr, NativeFieldHasherInstance, HEIGHT>;
+
+pub(crate) type Note = note::Note<Fr, Amount>;
+pub(crate) type Notes = note::Notes<Fr, Amount>;
