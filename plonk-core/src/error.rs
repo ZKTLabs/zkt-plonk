@@ -26,8 +26,11 @@ pub enum Error {
 
     // Prover/Verifier errors
     /// This error occurs when a proof verification fails.
-    #[error("proof verification failed")]
-    ProofVerificationError,
+    #[error("proof verification failed at step: {step}")]
+    ProofVerificationError {
+        /// Proof verification failed step
+        step: u8,
+    },
 
     /// Polynomial Commitment errors
     #[error("PCError: {error}")]
@@ -74,7 +77,7 @@ pub enum Error {
     // Plonk circuit errors
     /// Element is not found in lookup table.
     #[error("element not found in lookup table")]
-    ElementNotIndexed,
+    ElementNotIndexedInTable,
     /// Synthesis errors
     #[error("Synthesis error: {error}")]
     SynthesisError {

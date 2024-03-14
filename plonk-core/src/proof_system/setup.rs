@@ -39,9 +39,9 @@ impl<F: Field> SetupComposer<F> {
 
 ///
 #[allow(clippy::type_complexity)]
-pub(crate) fn setup<F, D, PC>(
+pub(crate) fn setup<F, D, PC, const TABLE_SIZE: usize>(
     ck: &PC::CommitterKey,
-    cs: ConstraintSystem<F>,
+    cs: ConstraintSystem<F, TABLE_SIZE>,
     extend: bool,
 ) -> Result<
     (

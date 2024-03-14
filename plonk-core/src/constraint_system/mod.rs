@@ -53,16 +53,16 @@ use crate::lookup::LookupTable;
 /// the ConstraintSystem as a builder.
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub struct ConstraintSystem<F: Field> {
+pub struct ConstraintSystem<F: Field, const TABLE_SIZE: usize> {
     ///
     pub composer: Composer<F>,
     ///
-    pub lookup_table: LookupTable<F>,
+    pub lookup_table: LookupTable<F, TABLE_SIZE>,
 }
 
-impl<F: Field> ConstraintSystem<F> {
+impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
     ///
-    pub fn new(setup: bool, lookup_table: LookupTable<F>) -> Self {
+    pub fn new(setup: bool, lookup_table: LookupTable<F, TABLE_SIZE>) -> Self {
         let composer = if setup {
             Composer::Setup(SetupComposer::new())
         } else {
@@ -77,7 +77,7 @@ impl<F: Field> ConstraintSystem<F> {
         setup: bool,
         constraint_size: usize,
         variable_size: usize,
-        lookup_table: LookupTable<F>,
+        lookup_table: LookupTable<F, TABLE_SIZE>,
     ) -> Self {
         let composer = if setup {
             Composer::Setup(
@@ -94,7 +94,7 @@ impl<F: Field> ConstraintSystem<F> {
 
     /// Returns the length of the circuit that can accomodate the lookup table.
     fn total_size(&self) -> usize {
-        std::cmp::max(self.composer.size(), self.lookup_table.size())
+        std::cmp::max(self.composer.size(), TABLE_SIZE)
     }
 
     /// Returns the smallest power of two needed for the curcuit.
@@ -134,7 +134,7 @@ impl<F: Field> ConstraintSystem<F> {
     }
 }
 
-impl<F: Field> ConstraintSystem<F> {
+impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
 
     /// Constrain a value in the lookup table.
     pub fn lookup_constrain(&mut self, x: &LTVariable<F>) {
@@ -151,7 +151,6 @@ impl<F: Field> ConstraintSystem<F> {
             Composer::Proving(composer) => {
                 let out = composer.var_map.value_of_lt_var(x);
                 // confirm that the value is in the lookup table
-                #[cfg(feature = "table-check")]
                 self.lookup_table.contains(&out);
                 let w_o = composer.var_map.assign_variable(out);
                 composer.input_wires(x.var, Variable::Zero, w_o, None);
@@ -178,6 +177,7 @@ impl<F: Field> ConstraintSystem<F> {
         assert!(bits.len().is_power_of_two(), "bits length must be a power of two");
 
         let mut vars = bits.iter().map(|bit| bit.0).collect_vec();
+        let mut multiplier = 2u64;
         while vars.len() > 1 {
             vars = vars
                 .chunks(2)
@@ -187,7 +187,7 @@ impl<F: Field> ConstraintSystem<F> {
                             let new_var = composer.perm.new_variable();
                             let sels = Selectors::new()
                                 .with_left(F::one())
-                                .with_right(F::from(2u64))
+                                .with_right(F::from(multiplier))
                                 .with_out(-F::one());
 
                             composer.gate_constrain(chunk[0], chunk[1], new_var, sels, false);
@@ -197,7 +197,7 @@ impl<F: Field> ConstraintSystem<F> {
                         Composer::Proving(composer) => {
                             let left = composer.var_map.value_of_var(chunk[0]);
                             let right = composer.var_map.value_of_var(chunk[1]);
-                            let new_val = left + right * F::from(2u64);
+                            let new_val = left + right * F::from(multiplier);
                             let new_var = composer.var_map.assign_variable(new_val);
 
                             composer.input_wires(chunk[0], chunk[1], new_var, None);
@@ -207,6 +207,7 @@ impl<F: Field> ConstraintSystem<F> {
                     }
                 })
                 .collect_vec();
+            multiplier *= multiplier;
         }
 
         vars[0]
@@ -241,7 +242,7 @@ impl<F: Field> ConstraintSystem<F> {
 
     /// A gate which outputs a variable whose value is 1 if
     /// the input is 0 and whose value is 0 otherwise
-    pub fn is_zero_with_output(&mut self, x: &LTVariable<F>) -> Boolean {
+    pub fn should_be_zero_with_output(&mut self, x: &LTVariable<F>) -> Boolean {
         // Enforce constraints. The constraint system being used here is
         // x * y + z - 1 = 0
         // x * z = 0
@@ -284,9 +285,9 @@ impl<F: Field> ConstraintSystem<F> {
 
     /// A gate which outputs a variable whose value is 1 if the
     /// two input variables have equal values and whose value is 0 otherwise.
-    pub fn is_eq_with_output(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) -> Boolean {
+    pub fn should_eq_with_output(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) -> Boolean {
         let difference = self.sub_gate(x, y);
-        self.is_zero_with_output(&difference.into())
+        self.should_be_zero_with_output(&difference.into())
     }
 
     /// Conditionally selects a [`Variable`] based on an input bit.
@@ -459,20 +460,21 @@ mod test {
     use ark_std::test_rng;
     use ark_bn254::Bn254;
 
-    use crate::batch_test_field;
-    use super::test_gate_constraints;
+    use crate::{batch_test_field, lookup::LookupTable};
+    use super::{ConstraintSystem, test_gate_constraints};
 
     fn test_set_variable_public<F: Field>() {
         let rng = &mut test_rng();
         let pi = F::rand(rng);
         test_gate_constraints(
-            |cs| -> Vec<_> {
+            |cs: &mut ConstraintSystem<_, 0>| -> Vec<_> {
                 let x = cs.assign_variable(pi);
                 cs.set_variable_public(&x.into());
 
                 vec![]
             },
             &[pi],
+            LookupTable::default(),
         )
     }
 

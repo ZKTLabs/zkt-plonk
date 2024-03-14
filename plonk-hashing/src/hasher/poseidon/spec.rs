@@ -171,8 +171,8 @@ impl<F: PrimeField, const WIDTH: usize> PoseidonRefSpec<(), WIDTH> for NativePlo
 
 pub struct PlonkSpecRef;
 
-impl<F: PrimeField, const WIDTH: usize>
-    PoseidonRefSpec<ConstraintSystem<F>, WIDTH> for PlonkSpecRef
+impl<F: PrimeField, const TABLE_SIZE: usize, const WIDTH: usize>
+    PoseidonRefSpec<ConstraintSystem<F, TABLE_SIZE>, WIDTH> for PlonkSpecRef
 {
     type Field = LTVariable<F>;
     type ParameterField = F;
@@ -186,7 +186,7 @@ impl<F: PrimeField, const WIDTH: usize>
     }
 
     fn add(
-        cs: &mut ConstraintSystem<F>,
+        cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         x: &Self::Field,
         y: &Self::Field,
     ) -> Self::Field {
@@ -194,7 +194,7 @@ impl<F: PrimeField, const WIDTH: usize>
     }
 
     fn add_constant(
-        _cs: &mut ConstraintSystem<F>,
+        _cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         x: &Self::Field,
         y: &Self::ParameterField,
     ) -> Self::Field {
@@ -202,7 +202,7 @@ impl<F: PrimeField, const WIDTH: usize>
     }
 
     fn mul(
-        cs: &mut ConstraintSystem<F>,
+        cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         x: &Self::Field,
         y: &Self::Field,
     ) -> Self::Field {
@@ -210,7 +210,7 @@ impl<F: PrimeField, const WIDTH: usize>
     }
 
     fn mul_constant(
-        _cs: &mut ConstraintSystem<F>,
+        _cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         x: &Self::Field,
         y: &Self::ParameterField,
     ) -> Self::Field {
@@ -355,13 +355,14 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use ark_ec::PairingEngine;
-    use plonk_core::constraint_system::test_gate_constraints;
+    use ark_std::{test_rng, UniformRand};
+    use plonk_core::{constraint_system::test_gate_constraints, lookup::LookupTable};
+    
+    use super::*;
 
     type E = ark_bls12_381::Bls12_381;
     type Fr = <E as PairingEngine>::Fr;
-    use ark_std::{test_rng, UniformRand};
 
     #[test]
     // poseidon should output something if num_inputs = arity
@@ -387,7 +388,7 @@ mod tests {
                 let inputs_var =
                     inputs.iter().map(|x| cs.assign_variable(*x)).collect::<Vec<_>>();
                 let mut poseidon =
-                    PoseidonRef::<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH>::new(&param);
+                    PoseidonRef::<ConstraintSystem<Fr, 0>, PlonkSpecRef, WIDTH>::new(&param);
                 inputs_var.into_iter().for_each(|x| {
                     let _ = poseidon.input(x.into()).unwrap();
                 });
@@ -396,6 +397,7 @@ mod tests {
                 [(plonk_hash, native_hash)]
             },
             &[],
+            LookupTable::default(),
         );
     }
 

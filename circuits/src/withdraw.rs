@@ -16,11 +16,10 @@ pub struct WithdrawCircuit<
     H,
     const INPUTS: usize,
     const HEIGHT: usize,
-    const SIZE: usize,
 > where
     F: Field,
     A: BitView + Copy + Debug + Default + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
-    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
+    H: Debug + Default,
 {
     pub hasher: H,
     #[derivative(Default(value = "[F::default(); INPUTS]"))]
@@ -41,16 +40,16 @@ impl<
     F,
     A,
     H,
+    const TABLE_SIZE: usize,
     const INPUTS: usize,
     const HEIGHT: usize,
-    const SIZE: usize,
-> Circuit<F> for WithdrawCircuit<F, A, H, INPUTS, HEIGHT, SIZE>
+> Circuit<F, TABLE_SIZE> for WithdrawCircuit<F, A, H, INPUTS, HEIGHT>
 where
     F: Field,
     A: Copy + Debug + Default + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
-    H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
+    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
 {
-    fn synthesize(mut self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
+    fn synthesize(mut self, cs: &mut ConstraintSystem<F, TABLE_SIZE>) -> Result<(), Error> {
         let amount_in = self.amount_inputs.iter().copied().sum::<A>();
         assert!(amount_in >= self.withdraw_amount, "invalid withdraw amount");
         let amount_out = amount_in - self.withdraw_amount;
@@ -137,6 +136,8 @@ where
             cs,
             &[new_identifier_var, amount_out_var.into(), new_commitment_var],
         )?;
+        // set new identifier
+        cs.set_variable_public(&new_identifier_var);
         // set new leaf public
         cs.set_variable_public(&new_leaf_var);
 

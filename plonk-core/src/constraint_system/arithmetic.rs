@@ -10,7 +10,7 @@ use ark_ff::Field;
 
 use super::{Variable, ConstraintSystem, Composer, Selectors, LTVariable};
 
-impl<F: Field> ConstraintSystem<F> {
+impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
     /// x + y - z = 0
     pub fn add_gate(&mut self, x: &LTVariable<F>, y: &LTVariable<F>) -> Variable {
         let z: Variable;
@@ -204,11 +204,14 @@ mod test {
     use ark_bls12_381::Bls12_381;
     use ark_bls12_377::Bls12_377;
 
-    use crate::{batch_test_field, constraint_system::test_gate_constraints};
+    use crate::{
+        batch_test_field, lookup::LookupTable,
+        constraint_system::{test_gate_constraints, ConstraintSystem},
+    };
 
     fn test_add_gate<F: Field>() {
         test_gate_constraints(
-            |cs| -> Vec<_> {
+            |cs: &mut ConstraintSystem<_, 0>| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
@@ -222,12 +225,13 @@ mod test {
                 vec![(lt_z, z_value)]
             },
             &[],
+            LookupTable::default(),
         )
     }
 
     fn test_sub_gate<F: Field>() {
         test_gate_constraints(
-            |cs| -> Vec<_> {
+            |cs: &mut ConstraintSystem<_, 0>| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
@@ -241,12 +245,13 @@ mod test {
                 vec![(lt_z, z_value)]
             },
             &[],
+            LookupTable::default(),
         )
     }
 
     fn test_mul_gate<F: Field>() {
         test_gate_constraints(
-            |cs| -> Vec<_> {
+            |cs: &mut ConstraintSystem<_, 0>| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
@@ -260,12 +265,13 @@ mod test {
                 vec![(lt_z, z_value)]
             },
             &[],
+            LookupTable::default(),
         )
     }
 
     fn test_div_gate<F: Field>() {
         test_gate_constraints(
-            |cs| -> Vec<_> {
+            |cs: &mut ConstraintSystem<_, 0>| -> Vec<_> {
                 let rng = &mut test_rng();
                 let x_value = F::rand(rng);
                 let y_value = F::rand(rng);
@@ -279,6 +285,7 @@ mod test {
                 vec![(lt_z, z_value)]
             },
             &[],
+            LookupTable::default(),
         )
     }
 

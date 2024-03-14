@@ -1,9 +1,10 @@
-use std::{rc::Rc, str::FromStr};
+use std::rc::Rc;
 use ark_poly::GeneralEvaluationDomain;
 use plonk_core::{plonk::ZKTPlonk, commitment::KZG10};
 use plonk_hashing::hasher::FieldHasher;
 use circuits::WithdrawCircuit;
-use gadgets::{merkle_tree, transcript, note};
+use gadgets::{merkle_tree, note};
+use plonk_core::constraint_system::ConstraintSystem;
 
 #[cfg(feature = "bn254")]
 pub(crate) type Fr = ark_bn254::Fr;
@@ -16,7 +17,7 @@ type Fr = ark_bls12_381::Fr;
 type Engine = ark_bls12_381::Bls12_381;
 
 #[cfg(feature = "ethereum-transcript")]
-pub(crate) type Transcript = transcript::EthereumTranscript;
+pub(crate) type Transcript = gadgets::transcript::EthereumTranscript;
 #[cfg(feature = "merlin-transcript")]
 type Transcript = plonk_core::transcript::MerlinTranscript;
 
@@ -43,22 +44,18 @@ pub(crate) const TABLE_SIZE: usize = 1024;
 
 pub(crate) type Amount = u64;
 
-pub(crate) fn str_to_amount(amount: &str) -> Amount {
-    u64::from_str(amount).unwrap_or_else(|_| panic!("invalid amount: {}", amount))
-}
-
 #[cfg(feature = "poseidon-bn254-x3")]
-pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x3;
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x3<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x3")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x3Native;
 
 #[cfg(feature = "poseidon-bn254-x4")]
-pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x4;
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x4<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x4")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x4Native;
 
 #[cfg(feature = "poseidon-bn254-x5")]
-pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x5;
+pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x5<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x5")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x5Native;
 
@@ -70,7 +67,8 @@ pub(crate) type ZKTPlonkInstance = ZKTPlonk<
     GeneralEvaluationDomain<Fr>,
     CommitmentScheme,
     Transcript,
-    WithdrawCircuit<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT, TABLE_SIZE>,
+    WithdrawCircuit<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT>,
+    TABLE_SIZE,
 >;
 
 pub(crate) fn new_field_hasher_params()

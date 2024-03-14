@@ -118,7 +118,7 @@ impl<F: Field> MultiSet<F> {
             if let Some(entry) = counters.get_mut(element) {
                 *entry += 1;
             } else {
-                return Err(Error::ElementNotIndexed);
+                return Err(Error::ElementNotIndexedInTable);
             }
         }
 

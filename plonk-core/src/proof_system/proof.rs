@@ -282,16 +282,13 @@ where
     }
 
     /// Performs the verification of a [`Proof`] returning a boolean result.
-    pub(crate) fn verify<T>(
+    pub(crate) fn verify<T: TranscriptProtocol<F, PC::Commitment>>(
         &self,
         cvk: &PC::VerifierKey,
         vk: &VerifierKey<F, PC>,
         transcript: &mut T,
         pub_inputs: &[F],
-    ) -> Result<(), Error>
-    where
-        T: TranscriptProtocol<F, PC::Commitment>,
-    {
+    ) -> Result<(), Error> {
         let domain = D::new(vk.n)
             .ok_or(Error::InvalidEvalDomainSize {
                 log_size_of_group: vk.n.trailing_zeros(),
@@ -471,7 +468,7 @@ where
             None,
         ) {
             Ok(true) => Ok(()),
-            Ok(false) => Err(Error::ProofVerificationError),
+            Ok(false) => Err(Error::ProofVerificationError { step: 1 }),
             Err(e) => panic!("{:?}", e),
         }
         .and_then(|_| {
@@ -499,7 +496,7 @@ where
                 None,
             ) {
                 Ok(true) => Ok(()),
-                Ok(false) => Err(Error::ProofVerificationError),
+                Ok(false) => Err(Error::ProofVerificationError { step: 2 }),
                 Err(e) => panic!("{:?}", e),
             }
         })

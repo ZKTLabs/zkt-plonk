@@ -65,14 +65,19 @@ pub fn check_arith_gate<F: Field>(
 }
 
 ///
-pub fn test_gate_constraints<F, I, P>(process: P, pub_inputs: &[F])
-where
+pub fn test_gate_constraints<F, I, P, T, const TABLE_SIZE: usize>(
+    process: P,
+    pub_inputs: &[F],
+    table: T,
+) where
     F: Field,
     I: IntoIterator<Item = (LTVariable<F>, F)>,
-    P: Fn(&mut ConstraintSystem<F>) -> I,
+    P: Fn(&mut ConstraintSystem<F, TABLE_SIZE>) -> I,
+    T: Into<LookupTable<F, TABLE_SIZE>>,
 {
-    let mut setup = ConstraintSystem::new(true, Default::default());
-    let mut proving = ConstraintSystem::new(false, Default::default());
+    let table = table.into();
+    let mut setup = ConstraintSystem::new(true, table.clone());
+    let mut proving = ConstraintSystem::new(false, table);
 
     process(&mut setup);
     let setup: SetupComposer<F> = setup.composer.into();

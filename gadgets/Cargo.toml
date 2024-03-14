@@ -11,10 +11,11 @@ ark-bn254 = "0.3"
 ark-serialize = "0.3"
 array-init = "2.1"
 ethereum-types = { version = "0.14", default-features = false, features = ["ethbloom", "rlp", "serialize"] }
+hex = "0.4"
+num-bigint = { version = "0.4", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 plonk-core = { path = "../plonk-core", default-features = false }
 plonk-hashing = { path = "../plonk-hashing", default-features = false }
-hex = "0.4"
 
 [dev-dependencies]
 ark-poly-commit = "0.3"
@@ -22,6 +23,14 @@ hex-literal = "0.4"
 
 [features]
 default = ["std", "asm", "parallel"]
-std = ["ark-ff/std", "ark-bn254/std", "sha3/std", "ethereum-types/std", "plonk-core/std", "plonk-hashing/std"]
+std = [
+    "ark-ff/std",
+    "ark-bn254/std",
+    "sha3/std",
+    "ethereum-types/std",
+    "num-bigint/std",
+    "plonk-core/std",
+    "plonk-hashing/std",
+]
 asm = ["ark-ff/asm", "sha3/asm"]
 parallel = ["ark-ff/parallel", "plonk-core/parallel", "plonk-hashing/parallel"]

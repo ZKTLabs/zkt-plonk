@@ -5,15 +5,15 @@ use plonk_core::{constraint_system::{ConstraintSystem, Boolean, LTVariable}, err
 
 use crate::hasher::FieldHasher;
 
-fn merkle_proof<F, H>(
+fn merkle_proof<F, H, const TABLE_SIZE: usize>(
     hasher: &mut H,
-    cs: &mut ConstraintSystem<F>,
+    cs: &mut ConstraintSystem<F, TABLE_SIZE>,
     path_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
     leaf_node: &LTVariable<F>,
 ) -> Result<Vec<LTVariable<F>>, Error>
-    where
-        F: Field,
-        H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>,
+where
+    F: Field,
+    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
 {
     let mut cur_hash = *leaf_node;
     path_elements
@@ -38,12 +38,15 @@ pub struct PoECircuit<F: Field, const HEIGHT: usize> {
 }
 
 impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
-    pub fn synthesize<H: FieldHasher<ConstraintSystem<F>, LTVariable<F>>>(
+    pub fn synthesize<H, const TABLE_SIZE: usize>(
         self,
-        cs: &mut ConstraintSystem<F>,
+        cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         hasher: &mut H,
         leaf_node: &LTVariable<F>,
-    ) -> Result<(LTVariable<F>, Vec<Boolean>), Error> {
+    ) -> Result<(LTVariable<F>, Vec<Boolean>), Error>
+    where
+        H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
+    {
         let positions = (0..HEIGHT)
             .map(|layer| {
                 let value = (self.leaf_index >> layer) & 1 == 1;
@@ -81,7 +84,7 @@ mod tests {
     use ark_std::{test_rng, UniformRand, rand::prelude::StdRng};
     use bitvec::{field::BitField, prelude::BitVec};
     use array_init::{array_init, map_array_init};
-    use plonk_core::constraint_system::test_gate_constraints;
+    use plonk_core::{constraint_system::test_gate_constraints, lookup::LookupTable};
 
     use crate::hasher::*;
     use super::*;
@@ -97,7 +100,7 @@ mod tests {
         PoseidonRef::new(&param)
     }
 
-    fn poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<ConstraintSystem<Fr>, PlonkSpecRef, WIDTH> {
+    fn poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<ConstraintSystem<Fr, 0>, PlonkSpecRef, WIDTH> {
         PoseidonRef::new(&param)
     }
 
@@ -157,6 +160,7 @@ mod tests {
                 [(root_var, root)]
             },
             &[],
+            LookupTable::default(),
         );
     }
 }

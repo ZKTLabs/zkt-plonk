@@ -8,6 +8,7 @@ use plonk_hashing::hasher::FieldHasher;
 #[derive(CanonicalSerialize, CanonicalDeserialize, Default)]
 pub struct MerkleTreeStore<F: Field, const HEIGHT: usize> {
     tree: BTreeMap<(usize, usize), F>,
+    root: F,
     next_index: usize,
 }
 
@@ -58,11 +59,11 @@ where
 
     pub fn merkle_path(&self, index: usize) -> [F; HEIGHT] {
         array_init(|layer| {
-            let index = index >> layer;
-            let witness = if (index & 1) == 1 {
-                self.store.tree.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer])
+            let idx = index >> layer;
+            let witness = if (idx & 1) == 1 {
+                self.store.tree.get(&(layer, idx - 1)).unwrap_or(&self.nodes[layer])
             } else {
-                self.store.tree.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer])
+                self.store.tree.get(&(layer, idx + 1)).unwrap_or(&self.nodes[layer])
             };
             *witness
         })
@@ -72,22 +73,22 @@ where
         let index = self.store.next_index;
         self.store.next_index += 1;
         for layer in 0..HEIGHT {
-            let index = index >> layer;
-            self.store.tree.insert((layer, index), hash);
+            let idx = index >> layer;
+            self.store.tree.insert((layer, idx), hash);
 
-            if (index & 1) == 1 {
-                let witness = self.store.tree.get(&(layer, index - 1)).unwrap_or(&self.nodes[layer]);
+            if (idx & 1) == 1 {
+                let witness = self.store.tree.get(&(layer, idx - 1)).unwrap_or(&self.nodes[layer]);
                 hash = self.hasher.hash_two(&mut (), witness, &hash)?;
             } else {
-                let witness = self.store.tree.get(&(layer, index + 1)).unwrap_or(&self.nodes[layer]);
+                let witness = self.store.tree.get(&(layer, idx + 1)).unwrap_or(&self.nodes[layer]);
                 hash = self.hasher.hash_two(&mut (), &hash, witness)?;
             }
         }
+        self.store.root = hash;
         Ok(index)
     }
     
     pub fn root(&self) -> F {
-        let index = HEIGHT - 1;
-        *self.store.tree.get(&(index, 0)).unwrap_or(&self.nodes[index])
+        self.store.root
     }
 }

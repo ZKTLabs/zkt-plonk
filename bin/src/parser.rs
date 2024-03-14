@@ -15,6 +15,7 @@ pub(crate) fn serialize_to_file<Se: CanonicalSerialize>(se: &Se, path: &PathBuf)
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(path)
         .unwrap_or_else(|_| panic!("unable to open file {:?}", path));
     se.serialize_unchecked(&mut file)

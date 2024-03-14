@@ -60,12 +60,12 @@ impl<F: Field> ProvingComposer<F> {
 }
 
 ///
-pub(crate) fn prove<F, D, PC, T, R>(
+pub(crate) fn prove<F, D, PC, T, R, const TABLE_SIZE: usize>(
     ck: &PC::CommitterKey,
     pk: &ProverKey<F>,
     epk: Option<Rc<ExtendedProverKey<F>>>,
     vk: &VerifierKey<F, PC>,
-    cs: ConstraintSystem<F>,
+    cs: ConstraintSystem<F, TABLE_SIZE>,
     transcript: &mut T,
     rng: &mut R,
 ) -> Result<Proof<F, D, PC>, Error>

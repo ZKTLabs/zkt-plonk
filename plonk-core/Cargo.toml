@@ -75,4 +75,3 @@ parallel = [
 ]
 # Trace
 trace = ["backtrace", "ark-std/print-trace", "ark-poly-commit/print-trace"]
-table-check = []

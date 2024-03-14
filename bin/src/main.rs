@@ -1,21 +1,20 @@
 mod instance;
 mod parser;
 
-use std::{path::PathBuf, str::FromStr, rc::Rc};
-use std::ops::Sub;
+use std::{path::PathBuf, str::FromStr, rc::Rc, ops::Sub};
 use ark_ff::{BigInteger, Field, PrimeField, UniformRand};
 use ark_poly_commit::PolynomialCommitment;
 use array_init::{array_init, map_array_init};
 use clap::Parser;
 use ethereum_types::Address;
+use num_bigint::BigUint;
 use rand::rngs::StdRng;
 use rand_core::SeedableRng;
 use circuits::WithdrawCircuit;
 use plonk_core::constraint_system::test_gate_constraints;
 use plonk_core::plonk::Circuit;
 use plonk_core::proof_system::{ExtendedProverKey, ProverKey, VerifierKey};
-use plonk_hashing::{hasher::FieldHasher, merkle::PoECircuit};
-use plonk_hashing::hasher::PoseidonConstants;
+use plonk_hashing::{hasher::{FieldHasher, PoseidonConstants}, merkle::PoECircuit};
 
 use crate::{parser::*, instance::*};
 
@@ -23,7 +22,7 @@ use crate::{parser::*, instance::*};
 #[command(name = "ZKT tools", version = "0.1.0", about = "Helpful tools of ZKT protocol")]
 enum Args {
     Compile {
-        #[arg(long = "max-degree", short = 'd', default_value = "2097152")]
+        #[arg(long = "max-degree", short = 'd', default_value = "1048576")]
         max_degree: usize,
         #[arg(long = "ck", default_value = "../../data/ck")]
         ck_path: PathBuf,
@@ -31,7 +30,7 @@ enum Args {
         cvk_path: PathBuf,
         #[arg(long = "pk", default_value = "../../data/pk")]
         pk_path: PathBuf,
-        #[arg(long = "epk", default_value = "../../data/epk")]
+        #[arg(long = "epk")]
         epk_path: Option<PathBuf>,
         #[arg(long = "vk", default_value = "../../data/vk")]
         vk_path: PathBuf,
@@ -67,7 +66,7 @@ enum Args {
         cvk_path: PathBuf,
         #[arg(long = "pk", default_value = "../../data/pk")]
         pk_path: PathBuf,
-        #[arg(long = "epk", default_value = "../../data/epk")]
+        #[arg(long = "epk")]
         epk_path: Option<PathBuf>,
         #[arg(long = "vk", default_value = "../../data/vk")]
         vk_path: PathBuf,
@@ -102,7 +101,7 @@ fn main() {
             let pp = CommitmentScheme::setup(max_degree, None, rng)
                 .unwrap_or_else(|e| panic!("setup KZG10 failed: {e}"));
             let (ck, cvk, pk, epk, vk) =
-                ZKTPlonkInstance::compile(epk_path.is_some(), &pp, TABLE_SIZE)
+                ZKTPlonkInstance::compile(epk_path.is_some(), &pp)
                     .unwrap_or_else(|e| panic!("compile ZKTPlonkInstance failed: {e}"));
 
             serialize_to_file(&ck, &ck_path);
@@ -123,21 +122,22 @@ fn main() {
             println!("full rounds = {}", constants.full_rounds);
             println!("partial rounds = {}", constants.partial_rounds);
 
+            println!("round constants = &[");
+            for constant in constants.round_constants.iter() {
+                println!(" \"{:#}\",", constant.into_repr().to_string());
+            }
+            println!("];");
+
             let matrix = constants.mds_matrices.m;
-            println!("mds matrix =");
+            println!("mds matrix = &[");
             for row in matrix.iter_rows() {
                 println!(" &[");
                 for cell in row.iter() {
-                    println!("  \"{:#}\",", cell.0.to_string());
+                    println!("  \"{:#}\",", cell.into_repr().to_string());
                 }
                 println!(" ],");
             }
-
-            println!("round constants = &[");
-            for constant in constants.round_constants.iter() {
-                println!(" \"{:#}\",", constant.0.to_string());
-            }
-            println!("],");
+            println!("];");
         }
         Args::InitStore { tree_path, notes_path } => {
             let tree = MerkleTreeStore::default();
@@ -149,10 +149,7 @@ fn main() {
         Args::Deposit { tree_path, notes_path, identifier, amount } => {
             let rng = &mut StdRng::from_entropy();
             let secret = Fr::rand(rng);
-            let identifier = Address::from_str(&identifier)
-                .unwrap_or_else(|e| panic!("invalid identifier: {e}"))
-                .to_fixed_bytes();
-            let identifier = Fr::from_be_bytes_mod_order(&identifier);
+            let identifier = identifier_to_fr(&identifier);
             let amount = str_to_amount(&amount);
 
             // load merkle tree
@@ -190,10 +187,11 @@ fn main() {
         Args::ListNotes { notes_path } => {
             let notes: Notes = deserialize_from_file(&notes_path);
             for (i, note) in notes.0.iter().enumerate() {
-                let identifier = note.identifier.into_repr().to_bytes_be();
+                let identifier = note.identifier.into_repr().to_bytes_le();
                 println!("note {i}:");
                 println!("  leaf index = {}", note.leaf_index);
-                println!("  identifier = {}", Address::from_slice(&identifier[12..]));
+                println!("  identifier = {}", Address::from_slice(&identifier[..20]));
+                println!("  amount = {}", note.amount);
             }
         }
         Args::ProveWithdraw {
@@ -216,18 +214,10 @@ fn main() {
             let indexes: [_; NOTE_INPUTS] = array_init(|i| note_indexes[i]);
             let identifiers_set = identifiers_set
                 .iter()
-                .map(|i| {
-                    let identifier = Address::from_str(&i)
-                        .unwrap_or_else(|e| panic!("invalid identifier: {e}"))
-                        .to_fixed_bytes();
-                    Fr::from_be_bytes_mod_order(&identifier)
-                })
+                .map(|i| identifier_to_fr(i))
                 .collect::<Vec<_>>();
             let new_secret = Fr::rand(rng);
-            let new_identifier = Address::from_str(&identifier)
-                .unwrap_or_else(|e| panic!("invalid new identifier: {e}"))
-                .to_fixed_bytes();
-            let new_identifier = Fr::from_be_bytes_mod_order(&new_identifier);
+            let new_identifier = identifier_to_fr(&identifier);
             let withdraw_amount = str_to_amount(&amount);
             
             let params = new_field_hasher_params();
@@ -242,39 +232,23 @@ fn main() {
             let using_notes = map_array_init(&indexes, |&index| {
                 notes.0.get(index).unwrap_or_else(|| panic!("invalid note index: {index}")).clone()
             });
-            for note in &using_notes {
-                assert!(identifiers_set.contains(&note.identifier), "not in identifiers set");
-            }
-            
-            // deserialize keys
-            let ck: <CommitmentScheme as PolynomialCommitment<_, _>>::CommitterKey =
-                deserialize_from_file(&ck_path);
-            let cvk: <CommitmentScheme as PolynomialCommitment<_, _>>::VerifierKey =
-                deserialize_from_file(&cvk_path);
-            let pk: ProverKey<Fr> = deserialize_from_file(&pk_path);
-            let epk: Option<Rc<ExtendedProverKey<Fr>>> = if let Some(epk_path) = epk_path {
-                Some(deserialize_from_file(&epk_path))
-            } else {
-                None
-            };
-            let vk: VerifierKey<Fr, CommitmentScheme> = deserialize_from_file(&vk_path);
 
             // build circuits
             let root = merkle_tree.root();
-            // let withdraw_circuit = WithdrawCircuit::<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT, TABLE_SIZE> {
-            //     hasher: new_field_hasher(&params),
-            //     secrets: map_array_init(&using_notes, |note| note.secret),
-            //     identifiers: map_array_init(&using_notes, |note| note.identifier),
-            //     amount_inputs: map_array_init(&using_notes, |note| note.amount),
-            //     poe_circuits: map_array_init(&using_notes, |note| PoECircuit {
-            //         leaf_index: note.leaf_index,
-            //         path_elements: merkle_tree.merkle_path(note.leaf_index),
-            //     }),
-            //     root,
-            //     new_secret,
-            //     new_identifier,
-            //     withdraw_amount,
-            // };
+            let withdraw_circuit = WithdrawCircuit {
+                hasher: new_field_hasher(&params),
+                secrets: map_array_init(&using_notes, |note| note.secret),
+                identifiers: map_array_init(&using_notes, |note| note.identifier),
+                amount_inputs: map_array_init(&using_notes, |note| note.amount),
+                poe_circuits: map_array_init(&using_notes, |note| PoECircuit {
+                    leaf_index: note.leaf_index,
+                    path_elements: merkle_tree.merkle_path(note.leaf_index),
+                }),
+                root,
+                new_secret,
+                new_identifier,
+                withdraw_amount,
+            };
 
             // insert new leaf in merkle tree
             let mut hasher = new_native_field_hasher(&params);
@@ -283,7 +257,6 @@ fn main() {
                 .map(|note| note.amount)
                 .sum::<Amount>()
                 .sub(withdraw_amount);
-            println!("amount out {amount_out}");
             let nullifiers = using_notes
                 .iter()
                 .map(|n| {
@@ -296,69 +269,99 @@ fn main() {
             let new_leaf_hash = hasher.hash(&mut (), &[new_identifier, amount_out.into(), commitment])
                 .unwrap_or_else(|e| panic!("unable to hash: {e}"));
             // set public inputs
-            let mut public_inputs = Vec::with_capacity(3 + NOTE_INPUTS);
+            let mut public_inputs = Vec::with_capacity(4 + NOTE_INPUTS);
             public_inputs.push(root);
             public_inputs.extend(nullifiers);
             public_inputs.push(withdraw_amount.into());
+            public_inputs.push(new_identifier);
             public_inputs.push(new_leaf_hash);
 
-            test_gate_constraints(
-                |cs| {
-                    let withdraw_circuit = WithdrawCircuit::<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT, TABLE_SIZE> {
-                        hasher: new_field_hasher(&params),
-                        secrets: map_array_init(&using_notes, |note| note.secret),
-                        identifiers: map_array_init(&using_notes, |note| note.identifier),
-                        amount_inputs: map_array_init(&using_notes, |note| note.amount),
-                        poe_circuits: map_array_init(&using_notes, |note| PoECircuit {
-                            leaf_index: note.leaf_index,
-                            path_elements: merkle_tree.merkle_path(note.leaf_index),
-                        }),
-                        root,
-                        new_secret,
-                        new_identifier,
-                        withdraw_amount,
-                    };
-                    withdraw_circuit.synthesize(cs).expect("circuit ok");
+            // test_gate_constraints(
+            //     |cs| {
+            //         let withdraw_circuit = WithdrawCircuit::<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT> {
+            //             hasher: new_field_hasher(&params),
+            //             secrets: map_array_init(&using_notes, |note| note.secret),
+            //             identifiers: map_array_init(&using_notes, |note| note.identifier),
+            //             amount_inputs: map_array_init(&using_notes, |note| note.amount),
+            //             poe_circuits: map_array_init(&using_notes, |note| PoECircuit {
+            //                 leaf_index: note.leaf_index,
+            //                 path_elements: merkle_tree.merkle_path(note.leaf_index),
+            //             }),
+            //             root,
+            //             new_secret,
+            //             new_identifier,
+            //             withdraw_amount,
+            //         };
+            //         withdraw_circuit.synthesize(cs).expect("circuit ok");
+            // 
+            //         []
+            //     },
+            //     &public_inputs,
+            //     identifiers_set.clone(),
+            // );
 
-                    []
-                },
-                &public_inputs,
-            );
-            //
-            //
-            // // prove
-            // let rng = &mut StdRng::from_entropy();
-            // let proof = ZKTPlonkInstance::prove(
-            //     &ck,
-            //     &pk,
-            //     epk,
-            //     &vk,
-            //     identifiers_set,
-            //     withdraw_circuit,
-            //     rng,
-            // ).unwrap_or_else(|e| panic!("snark prove failed: {e}"));
-            //
-            // // verify
-            // ZKTPlonkInstance::verify(&cvk, &vk, &proof, &public_inputs)
-            //     .unwrap_or_else(|e| panic!("snark verify failed: {e}"));
-            //
-            // let new_leaf_index = merkle_tree
-            //     .add_leaf(leaf_hash)
-            //     .unwrap_or_else(|e| panic!("unable to add leaf: {e}"));
-            // let tree_store: MerkleTreeStore = merkle_tree.into();
-            // serialize_to_file(&tree_store, &tree_path);
-            //
-            // // update notes
-            // for note in using_notes {
-            //     notes.0.retain(|n| n.leaf_index != note.leaf_index);
-            // }
-            // notes.0.push(Note {
-            //     leaf_index: new_leaf_index,
-            //     identifier: new_identifier,
-            //     amount: left_amount,
-            //     secret: new_secret,
-            // });
-            // serialize_to_file(&notes, &notes_path);
+            // deserialize keys
+            let ck: <CommitmentScheme as PolynomialCommitment<_, _>>::CommitterKey =
+                deserialize_from_file(&ck_path);
+            let cvk: <CommitmentScheme as PolynomialCommitment<_, _>>::VerifierKey =
+                deserialize_from_file(&cvk_path);
+            let pk: ProverKey<Fr> = deserialize_from_file(&pk_path);
+            let epk: Option<ExtendedProverKey<Fr>> = epk_path
+                .map(|path| deserialize_from_file(&path));
+            let vk: VerifierKey<Fr, CommitmentScheme> = deserialize_from_file(&vk_path);
+
+            // prove
+            println!("start proving...");
+            let proof = ZKTPlonkInstance::prove(
+                &ck,
+                &pk,
+                epk.map(Rc::new),
+                &vk,
+                identifiers_set,
+                withdraw_circuit,
+                rng,
+            ).unwrap_or_else(|e| panic!("snark prove failed: {e}"));
+            println!("proving finished");
+
+            // verify
+            println!("start verifying...");
+            ZKTPlonkInstance::verify(&cvk, &vk, &proof, &public_inputs)
+                .unwrap_or_else(|e| panic!("snark verify failed: {e}"));
+            println!("verifying finished");
+
+            let new_leaf_index = merkle_tree
+                .add_leaf(new_leaf_hash)
+                .unwrap_or_else(|e| panic!("unable to add leaf: {e}"));
+            let tree_store: MerkleTreeStore = merkle_tree.into();
+            serialize_to_file(&tree_store, &tree_path);
+
+            // update notes
+            for note in using_notes {
+                notes.0.retain(|n| n.leaf_index != note.leaf_index);
+            }
+            notes.0.push(Note {
+                leaf_index: new_leaf_index,
+                identifier: new_identifier,
+                amount: amount_out,
+                secret: new_secret,
+            });
+            serialize_to_file(&notes, &notes_path);
         }
     }
+}
+
+fn identifier_to_fr(identifier: &str) -> Fr {
+    let identifier = Address::from_str(&identifier)
+        .unwrap_or_else(|e| panic!("invalid identifier: {e}"))
+        .to_fixed_bytes();
+    let repr = BigUint::from_bytes_le(&identifier).try_into().unwrap_or_else(|_| {
+        panic!("unable to convert BigUint to PrimeField")
+    });
+    Fr::from_repr(repr).unwrap_or_else(|| {
+        panic!("unable to convert BigUint to PrimeField")
+    })
+}
+
+fn str_to_amount(amount: &str) -> Amount {
+    u64::from_str(amount).unwrap_or_else(|_| panic!("invalid amount: {}", amount))
 }

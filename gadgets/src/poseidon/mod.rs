@@ -8,17 +8,19 @@ pub use bn254_x4::*;
 pub use bn254_x5::*;
 
 use ark_ff::PrimeField;
-use hex::{decode, FromHexError};
+use num_bigint::BigUint;
 
-fn parse_vec<F: PrimeField>(arr: &[&str]) -> Result<Vec<F>, FromHexError> {
+fn parse_vec<F: PrimeField>(arr: &[&str]) -> Vec<F> {
     arr.iter().map(|x| {
-        let data = decode(&x[2..])?;
-        Ok(F::from_le_bytes_mod_order(&data))
+        let data = hex::decode(&x[2..])
+            .unwrap_or_else(|e| panic!("unable to decode hex string: {e}"));
+        let repr = BigUint::from_bytes_le(&data)
+            .try_into()
+            .unwrap_or_else(|_| panic!("unable to convert BigUint to PrimeField"));
+        F::from_repr(repr).unwrap_or_else(|| panic!("unable to convert BigUint to PrimeField"))
     }).collect()
 }
 
-fn parse_matrix<F: PrimeField>(
-    mds_entries: &[&[&str]],
-) -> Result<Vec<Vec<F>>, FromHexError> {
+fn parse_matrix<F: PrimeField>(mds_entries: &[&[&str]]) -> Vec<Vec<F>> {
     mds_entries.iter().map(|&row| parse_vec(row)).collect()
 }

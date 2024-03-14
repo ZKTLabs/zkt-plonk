@@ -16,35 +16,33 @@ use super::*;
 /// This struct will be used to determine the outputs of gates within arithmetic
 /// circuits.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct LookupTable<F: Field>(pub IndexSet<F>);
+pub struct LookupTable<F: Field, const SIZE: usize>(IndexSet<F>);
 
-#[allow(dead_code)]
-impl<F: Field> LookupTable<F> {
-    /// Create a new, empty Plookup table
-    pub(crate) fn new() -> Self {
-        Self::default()
-    }
-
-    pub(crate) fn with_capacity(n: usize) -> Self {
-        Self(IndexSet::with_capacity(n))
-    }
+impl<F: Field, const SIZE: usize> LookupTable<F, SIZE> {
+    // /// Create a new, empty Plookup table
+    // pub(crate) fn new() -> Self {
+    //     Self::default()
+    // }
+    // 
+    // pub(crate) fn with_capacity(n: usize) -> Self {
+    //     Self(IndexSet::with_capacity(n))
+    // }
 
     /// Returns the length of the `LookupTable` set.
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.0.len()
     }
 
     ///
-    pub fn contains(&self, entry: &F) {
+    pub(crate) fn contains(&self, entry: &F) {
         self.0.get(entry).unwrap_or_else(|| panic!("element not found in table"));
     }
 
     ///
     pub(crate) fn masks(&self, n: usize) -> Vec<F> {
-        let size = self.size();
-        assert!(size < n, "table size is equal or larger than n");
+        assert!(n > SIZE, "table size is equal or larger than n");
 
-        let mut evals = vec![F::zero(); size];
+        let mut evals = vec![F::zero(); SIZE];
         evals.resize(n, F::one());
         evals
     }
@@ -60,7 +58,11 @@ impl<F: Field> LookupTable<F> {
     }
 }
 
-impl<F: Field, I: IntoIterator<Item = F>> From<I> for LookupTable<F> {
+impl<F, I, const SIZE: usize> From<I> for LookupTable<F, SIZE>
+where
+    F: Field,
+    I: IntoIterator<Item = F>,
+{
     fn from(iter: I) -> Self {
         LookupTable(IndexSet::from_iter(iter))
     }

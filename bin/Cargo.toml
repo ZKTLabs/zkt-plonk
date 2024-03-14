@@ -13,6 +13,7 @@ ark-bls12-381 = { version = "0.3", features = ["default", "std"], optional = tru
 array-init = "2.1.0"
 clap = { version = "4.4", features = ["default", "derive", "env"] }
 ethereum-types = { version = "0.14", default-features = false, features = ["ethbloom", "rlp", "serialize"] }
+num-bigint = "0.4"
 rand = { version = "0.8", features = ["default", "getrandom"] }
 rand_core = { version = "0.6", features = ["std"] }
 circuits = { path = "../circuits" }
@@ -21,7 +22,7 @@ plonk-core = { path = "../plonk-core" }
 plonk-hashing = { path = "../plonk-hashing" }
 
 [features]
-default = ["height-48", "notes-3", "kzg10", "ethereum-transcript", "poseidon-bn254-x4"]
+default = ["height-48", "notes-3", "kzg10", "merlin-transcript", "poseidon-bn254-x4"]
 height-48 = []
 height-64 = []
 notes-1 = []
@@ -37,3 +38,4 @@ merlin-transcript = []
 poseidon-bn254-x3 = ["bn254"]
 poseidon-bn254-x4 = ["bn254"]
 poseidon-bn254-x5 = ["bn254"]
+trace = ["circuits/trace"]

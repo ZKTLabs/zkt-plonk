@@ -14,7 +14,7 @@ use super::{Selectors, Composer, Variable, ConstraintSystem};
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Boolean(pub(crate) Variable);
 
-impl<F: Field> ConstraintSystem<F> {
+impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
     /// Adds a boolean constraint (also known as binary constraint) where
     /// the gate eq. will enforce that the [`Variable`] received is either `0`
     /// or `1` by adding a constraint in the circuit.

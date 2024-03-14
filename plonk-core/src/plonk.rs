@@ -28,20 +28,20 @@ use crate::{
 /// Trait that should be implemented for any circuit function to provide to it
 /// the capabilities of automatically being able to generate, and verify proofs
 /// as well as compile the circuit.
-pub trait Circuit<F: Field>: Default {    
+pub trait Circuit<F: Field, const TABLE_SIZE: usize>: Default {
     /// Implementation used to fill the composer.
-    fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error>;
+    fn synthesize(self, cs: &mut ConstraintSystem<F, TABLE_SIZE>) -> Result<(), Error>;
 }
 
 ///
 #[derive(Debug, Default)]
-pub struct ZKTPlonk<F, D, PC, T, C>
+pub struct ZKTPlonk<F, D, PC, T, C, const TABLE_SIZE: usize>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
     PC: HomomorphicCommitment<F>,
     T: TranscriptProtocol<F, PC::Commitment>,
-    C: Circuit<F>,
+    C: Circuit<F, TABLE_SIZE>,
 {
     _f: PhantomData<F>,
     _d: PhantomData<D>,
@@ -50,21 +50,17 @@ where
     _c: PhantomData<C>,
 }
 
-impl<F, D, PC, T, C> ZKTPlonk<F, D, PC, T, C>
+impl<F, D, PC, T, C, const TABLE_SIZE: usize> ZKTPlonk<F, D, PC, T, C, TABLE_SIZE>
 where
     F: FftField,
     D: EvaluationDomain<F> + EvaluationDomainExt<F>,
     PC: HomomorphicCommitment<F>,
     T: TranscriptProtocol<F, PC::Commitment>,
-    C: Circuit<F>,
+    C: Circuit<F, TABLE_SIZE>,
 {
     ///
     #[allow(clippy::type_complexity)]
-    pub fn compile(
-        extend: bool,
-        pp: &PC::UniversalParams,
-        table_size: usize,
-    ) -> Result<
+    pub fn compile(extend: bool, pp: &PC::UniversalParams) -> Result<
         (
             PC::CommitterKey,
             PC::VerifierKey,
@@ -76,7 +72,7 @@ where
     > {
         let mut cs = ConstraintSystem::new(
             true,
-            (0..table_size as u64).map(F::from).into(),
+            (0..TABLE_SIZE as u64).map(F::from).into(),
         );
         // Generate circuit constraint
         let circuit = C::default();
@@ -91,13 +87,13 @@ where
         .map_err(to_pc_error::<F, PC>)?;
 
         let (pk, epk, vk) =
-            plonk_setup::<_, D, _>(&ck, cs, extend)?;
+            plonk_setup::<_, D, _, TABLE_SIZE>(&ck, cs, extend)?;
 
         Ok((ck, cvk, pk, epk, vk))
     }
 
     ///
-    pub fn prove<I: Into<LookupTable<F>>, R: CryptoRng + RngCore>(
+    pub fn prove<I: Into<LookupTable<F, TABLE_SIZE>>, R: CryptoRng + RngCore>(
         ck: &PC::CommitterKey,
         pk: &ProverKey<F>,
         epk: Option<Rc<ExtendedProverKey<F>>>,
@@ -147,6 +143,8 @@ mod test {
     };
     use super::*;
 
+    const SIZE: usize = 10;
+
     // Implements a circuit that checks:
     // 1) a + b = c
     // 2) d = a * c, d is a PI
@@ -162,8 +160,8 @@ mod test {
         e: bool,
     }
 
-    impl<F: Field> Circuit<F> for TestCircuit {
-        fn synthesize(self, cs: &mut ConstraintSystem<F>) -> Result<(), Error> {
+    impl<F: Field> Circuit<F, SIZE> for TestCircuit {
+        fn synthesize(self, cs: &mut ConstraintSystem<F, SIZE>) -> Result<(), Error> {
             let a = cs.assign_variable(self.a.into());
             let b = cs.assign_variable(self.b.into());
             
@@ -176,9 +174,9 @@ mod test {
             let e = cs.boolean_gate(e);
             let f = cs.conditional_select(e, &a.into(), &b.into());
             cs.set_variable_public(&f.into());
-
+            
             cs.lookup_constrain(&c.into());
-
+            
             Ok(())
         }
     }
@@ -189,6 +187,7 @@ mod test {
         PC,
         MerlinTranscript,
         TestCircuit,
+        SIZE,
     >;
 
     fn test_full<F: PrimeField, PC: HomomorphicCommitment<F>>() {
@@ -203,7 +202,7 @@ mod test {
             pk,
             epk,
             vk,
-        ) = ZKTPlonkInstance::<F, PC>::compile(true, &pp, 3)
+        ) = ZKTPlonkInstance::<F, PC>::compile(true, &pp)
             .unwrap_or_else(|e| panic!("compile failed: {e}"));
 
         // prove
@@ -215,7 +214,7 @@ mod test {
             e: true,
         };
         let epk = epk.map(Rc::new);
-        let table = [F::from(1u64), F::from(5u64), F::from(7u64)];
+        let table = [F::from(1u64), F::from(2u64), F::from(5u64)];
         let proof =
             ZKTPlonkInstance::<F, PC>::prove(&ck, &pk, epk, &vk, table, circuit, rng)
                 .unwrap_or_else(|e| panic!("prove failed: {e}"));
