@@ -6,7 +6,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use derivative::Derivative;
 use plonk_core::{constraint_system::{ConstraintSystem, LTVariable}, error::Error};
 
-use crate::hasher::FieldHasher;
+use crate::hasher::{FieldHasher, FieldHasherGenerator};
 use super::{PoseidonError, constants::PoseidonConstants};
 
 pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
@@ -17,7 +17,7 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
 
     fn full_round(
         cs: &mut CS,
-        constants: &PoseidonConstants<Self::ParameterField>,
+        constants: &PoseidonConstants<Self::ParameterField, WIDTH>,
         constants_offset: &mut usize,
         state: &mut [Self::Field; WIDTH],
     ) {
@@ -38,7 +38,7 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
 
     fn partial_round(
         cs: &mut CS,
-        constants: &PoseidonConstants<Self::ParameterField>,
+        constants: &PoseidonConstants<Self::ParameterField, WIDTH>,
         constants_offset: &mut usize,
         state: &mut [Self::Field; WIDTH],
     ) {
@@ -56,7 +56,7 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
     fn add_round_constants(
         cs: &mut CS,
         state: &mut [Self::Field; WIDTH],
-        constants: &PoseidonConstants<Self::ParameterField>,
+        constants: &PoseidonConstants<Self::ParameterField, WIDTH>,
         constants_offset: &mut usize,
     ) {
         for (element, round_constant) in state
@@ -72,7 +72,7 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
 
     fn product_mds(
         cs: &mut CS,
-        constants: &PoseidonConstants<Self::ParameterField>,
+        constants: &PoseidonConstants<Self::ParameterField, WIDTH>,
         state: &mut [Self::Field; WIDTH],
     ) {
         let matrix = &constants.mds_matrices.m;
@@ -137,7 +137,7 @@ pub trait PoseidonRefSpec<CS, const WIDTH: usize> {
 }
 
 pub struct NativePlonkSpecRef<F: PrimeField> {
-    _field: PhantomData<F>,
+    _p: PhantomData<F>,
 }
 
 impl<F: PrimeField, const WIDTH: usize> PoseidonRefSpec<(), WIDTH> for NativePlonkSpecRef<F> {
@@ -220,22 +220,25 @@ impl<F: PrimeField, const TABLE_SIZE: usize, const WIDTH: usize>
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = ""))]
-pub struct PoseidonRef<CS, S, const WIDTH: usize>
+pub struct PoseidonRef<CS, S, G, const WIDTH: usize>
 where
     S: PoseidonRefSpec<CS, WIDTH> + ?Sized,
+    G: FieldHasherGenerator<Rc<PoseidonConstants<S::ParameterField, WIDTH>>>,
 {
     pub(crate) constants_offset: usize,
     pub(crate) current_round: usize,
     pub elements: [S::Field; WIDTH],
     pos: usize,
-    pub(crate) constants: Rc<PoseidonConstants<S::ParameterField>>,
+    pub(crate) constants: Rc<PoseidonConstants<S::ParameterField, WIDTH>>,
+    _p: PhantomData<G>,
 }
 
 impl<
     CS,
     S: PoseidonRefSpec<CS, WIDTH>,
+    G: FieldHasherGenerator<Rc<PoseidonConstants<S::ParameterField, WIDTH>>>,
     const WIDTH: usize,
-> PoseidonRef<CS, S, WIDTH> {
+> PoseidonRef<CS, S, G, WIDTH> {
 
     fn reset(&mut self) {
         self.constants_offset = 0;
@@ -310,10 +313,11 @@ impl<
 impl<
     CS,
     S: PoseidonRefSpec<CS, WIDTH>,
+    G: FieldHasherGenerator<Rc<PoseidonConstants<S::ParameterField, WIDTH>>>,
     const WIDTH: usize,
-> Default for PoseidonRef<CS, S, WIDTH> {
+> Default for PoseidonRef<CS, S, G, WIDTH> {
     fn default() -> Self {
-        let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
+        let param = G::generate();
         PoseidonRef::new(&param)
     }
 }
@@ -321,11 +325,12 @@ impl<
 impl<
     CS,
     S: PoseidonRefSpec<CS, WIDTH>,
+    G: FieldHasherGenerator<Rc<PoseidonConstants<S::ParameterField, WIDTH>>>,
     const WIDTH: usize,
-> FieldHasher<CS, S::Field> for PoseidonRef<CS, S, WIDTH> {
+> FieldHasher<CS, S::Field, G> for PoseidonRef<CS, S, G, WIDTH> {
 
-    type Params = Rc<PoseidonConstants<S::ParameterField>>;
-
+    type Params = Rc<PoseidonConstants<S::ParameterField, WIDTH>>;
+    
     fn new(constants: &Self::Params) -> Self {
         let mut elements = S::zeros();
         elements[0] = S::constant(constants.domain_tag);
@@ -335,6 +340,7 @@ impl<
             elements,
             pos: 1,
             constants: constants.clone(),
+            _p: PhantomData,
         }
     }
 
@@ -364,6 +370,17 @@ mod tests {
     type E = ark_bls12_381::Bls12_381;
     type Fr = <E as PairingEngine>::Fr;
 
+    #[derive(Debug)]
+    struct PoseidonGenerator<const WIDTH: usize>;
+    
+    impl<const WIDTH: usize> FieldHasherGenerator<Rc<PoseidonConstants<Fr, WIDTH>>>
+    for PoseidonGenerator<WIDTH>
+    {
+        fn generate() -> Rc<PoseidonConstants<Fr, WIDTH>> {
+            Rc::new(PoseidonConstants::generate())
+        }
+    }
+    
     #[test]
     // poseidon should output something if num_inputs = arity
     fn sanity_test() {
@@ -375,9 +392,9 @@ mod tests {
                 let rng = &mut test_rng();
 
                 // native poseidon
-                let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
+                let param = PoseidonGenerator::generate();
                 let mut poseidon =
-                    PoseidonRef::<(), NativePlonkSpecRef<Fr>, WIDTH>::new(&param);
+                    PoseidonRef::<(), NativePlonkSpecRef<Fr>, PoseidonGenerator<WIDTH>, WIDTH>::new(&param);
                 let inputs = (0..ARITY).map(|_| Fr::rand(rng)).collect::<Vec<_>>();
                 inputs.iter().for_each(|x| {
                     let _ = poseidon.input(*x).unwrap();
@@ -388,7 +405,7 @@ mod tests {
                 let inputs_var =
                     inputs.iter().map(|x| cs.assign_variable(*x)).collect::<Vec<_>>();
                 let mut poseidon =
-                    PoseidonRef::<ConstraintSystem<Fr, 0>, PlonkSpecRef, WIDTH>::new(&param);
+                    PoseidonRef::<ConstraintSystem<Fr, 0>, PlonkSpecRef, PoseidonGenerator<WIDTH>, WIDTH>::new(&param);
                 inputs_var.into_iter().for_each(|x| {
                     let _ = poseidon.input(x.into()).unwrap();
                 });
@@ -409,9 +426,9 @@ mod tests {
         const WIDTH: usize = ARITY + 1;
         let mut rng = test_rng();
 
-        let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
+        let param = PoseidonGenerator::generate();
         let mut poseidon =
-            PoseidonRef::<(), NativePlonkSpecRef<Fr>, WIDTH>::new(&param);
+            PoseidonRef::<(), NativePlonkSpecRef<Fr>, PoseidonGenerator<WIDTH>, WIDTH>::new(&param);
         (0..(ARITY + 1)).for_each(|_| {
             let _ = poseidon.input(Fr::rand(&mut rng)).unwrap();
         });

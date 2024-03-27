@@ -10,10 +10,11 @@ use itertools::izip;
 use super::*;
 
 ///
-pub fn check_arith_gate<F: Field>(
+pub fn check_gate<F: Field, const TABLE_SIZE: usize>(
     setup: &SetupComposer<F>,
     proving: &ProvingComposer<F>,
     pub_inputs: &[F],
+    table: &LookupTable<F, TABLE_SIZE>,
 ) {
     assert_eq!(setup.n, proving.n, "circuit size in setup not equals to proving");
     assert_eq!(setup.pp.size(), pub_inputs.len(), "arity of public inputs in setup is not correct");
@@ -28,38 +29,47 @@ pub fn check_arith_gate<F: Field>(
         setup.q_r.iter(),
         setup.q_o.iter(),
         setup.q_c.iter(),
+        setup.q_lookup.iter(),
+        setup.pp.get_pos(),
         proving.w_l.iter(),
         proving.w_r.iter(),
         proving.w_o.iter(),
         proving.pi.as_evals(proving.n),
     );
 
+    #[cfg(feature = "trace")]
+    let show_trace = |i: usize| {
+        let mut backtrace = setup.backtrace[i].clone();
+        backtrace.resolve();
+        println!("{:?}", backtrace);
+    };
+
     for (
         i,
-        (
-            &q_m,
-            &q_l,
-            &q_r,
-            &q_o,
-            &q_c,
-            &w_l,
-            &w_r,
-            &w_o,
-            pi,
-        ),
+        (&q_m, &q_l, &q_r, &q_o, &q_c, &q_lookup, &pp, &w_l, &w_r, &w_o, pi),
     ) in gates.enumerate() {
         let a = proving.var_map.value_of_var(w_l);
         let b = proving.var_map.value_of_var(w_r);
         let c = proving.var_map.value_of_var(w_o);
-        let out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
-        if !out.is_zero() {
+
+        if i != pp && !pi.is_zero() {
             #[cfg(feature = "trace")]
-            {
-                let mut backtrace = setup.backtrace[i].clone();
-                backtrace.resolve();
-                println!("{:?}", backtrace);
-            }
+            show_trace(i);
+            panic!("public input at {:?} is not satisfied", i);
+        }
+
+        let arith_out = (q_m * a * b) + (q_l * a) + (q_r * b) + (q_o * c) + pi + q_c;
+        if !arith_out.is_zero() {
+            #[cfg(feature = "trace")]
+            show_trace(i);
             panic!("arithmetic gate at {:?} is not satisfied", i);
+        }
+
+        let query_out = q_lookup * c;
+        if !query_out.is_zero() && !table.contains(&query_out) {
+            #[cfg(feature = "trace")]
+            show_trace(i);
+            panic!("lookup gate at {:?} is not satisfied", i);
         }
     }
 }
@@ -77,7 +87,7 @@ pub fn test_gate_constraints<F, I, P, T, const TABLE_SIZE: usize>(
 {
     let table = table.into();
     let mut setup = ConstraintSystem::new(true, table.clone());
-    let mut proving = ConstraintSystem::new(false, table);
+    let mut proving = ConstraintSystem::new(false, table.clone());
 
     process(&mut setup);
     let setup: SetupComposer<F> = setup.composer.into();
@@ -99,9 +109,5 @@ pub fn test_gate_constraints<F, I, P, T, const TABLE_SIZE: usize>(
         }
     }
 
-    check_arith_gate(
-        &setup,
-        &proving,
-        pub_inputs,
-    )
+    check_gate(&setup, &proving, pub_inputs, &table)
 }

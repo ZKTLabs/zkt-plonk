@@ -94,7 +94,7 @@ impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
 
     /// Returns the length of the circuit that can accomodate the lookup table.
     fn total_size(&self) -> usize {
-        std::cmp::max(self.composer.size(), TABLE_SIZE)
+        core::cmp::max(self.composer.size(), TABLE_SIZE)
     }
 
     /// Returns the smallest power of two needed for the curcuit.
@@ -150,8 +150,6 @@ impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
             }
             Composer::Proving(composer) => {
                 let out = composer.var_map.value_of_lt_var(x);
-                // confirm that the value is in the lookup table
-                self.lookup_table.contains(&out);
                 let w_o = composer.var_map.assign_variable(out);
                 composer.input_wires(x.var, Variable::Zero, w_o, None);
             }

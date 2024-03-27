@@ -1,7 +1,5 @@
-use std::rc::Rc;
 use ark_poly::GeneralEvaluationDomain;
 use plonk_core::{plonk::ZKTPlonk, commitment::KZG10};
-use plonk_hashing::hasher::FieldHasher;
 use circuits::WithdrawCircuit;
 use gadgets::{merkle_tree, note};
 use plonk_core::constraint_system::ConstraintSystem;
@@ -48,16 +46,23 @@ pub(crate) type Amount = u64;
 pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x3<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x3")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x3Native;
+#[cfg(feature = "poseidon-bn254-x3")]
+pub(crate) type FieldHasherGeneratorInstance = gadgets::poseidon::Bn254x3Generator;
 
 #[cfg(feature = "poseidon-bn254-x4")]
 pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x4<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x4")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x4Native;
+#[cfg(feature = "poseidon-bn254-x4")]
+pub(crate) type FieldHasherGeneratorInstance = gadgets::poseidon::Bn254x4Generator;
+
 
 #[cfg(feature = "poseidon-bn254-x5")]
 pub(crate) type FieldHasherInstance = gadgets::poseidon::Bn254x5<ConstraintSystem<Fr, TABLE_SIZE>>;
 #[cfg(feature = "poseidon-bn254-x5")]
 pub(crate) type NativeFieldHasherInstance = gadgets::poseidon::Bn254x5Native;
+#[cfg(feature = "poseidon-bn254-x5")]
+pub(crate) type FieldHasherGeneratorInstance = gadgets::poseidon::Bn254x5Generator;
 
 #[cfg(feature = "kzg10")]
 pub(crate) type CommitmentScheme = KZG10<ParingEngine>;
@@ -67,42 +72,16 @@ pub(crate) type ZKTPlonkInstance = ZKTPlonk<
     GeneralEvaluationDomain<Fr>,
     CommitmentScheme,
     Transcript,
-    WithdrawCircuit<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT>,
+    WithdrawCircuit<
+        Fr,
+        Amount,
+        FieldHasherGeneratorInstance,
+        FieldHasherInstance,
+        NOTE_INPUTS,
+        HEIGHT,
+    >,
     TABLE_SIZE,
 >;
-
-pub(crate) fn new_field_hasher_params()
-    -> <NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params
-{
-    #[cfg(feature = "poseidon-bn254-x3")]
-    { Rc::new(gadgets::poseidon::bn254_x3_constants()) }
-    #[cfg(feature = "poseidon-bn254-x4")]
-    { Rc::new(gadgets::poseidon::bn254_x4_constants()) }
-    #[cfg(feature = "poseidon-bn254-x5")]
-    { Rc::new(gadgets::poseidon::bn254_x5_constants()) }
-}
-
-pub(crate) fn new_field_hasher(
-    params: &<NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params,
-) -> FieldHasherInstance {
-    #[cfg(feature = "poseidon-bn254-x3")]
-    { gadgets::poseidon::Bn254x3::new(params) }
-    #[cfg(feature = "poseidon-bn254-x4")]
-    { gadgets::poseidon::Bn254x4::new(params) }
-    #[cfg(feature = "poseidon-bn254-x5")]
-    { gadgets::poseidon::Bn254x5::new(params) }
-}
-
-pub(crate) fn new_native_field_hasher(
-    params: &<NativeFieldHasherInstance as FieldHasher<(), Fr>>::Params,
-) -> NativeFieldHasherInstance {
-    #[cfg(feature = "poseidon-bn254-x3")]
-    { gadgets::poseidon::Bn254x3Native::new(params) }
-    #[cfg(feature = "poseidon-bn254-x4")]
-    { gadgets::poseidon::Bn254x4Native::new(params) }
-    #[cfg(feature = "poseidon-bn254-x5")]
-    { gadgets::poseidon::Bn254x5Native::new(params) }
-}
 
 pub(crate) type MerkleTreeStore = merkle_tree::MerkleTreeStore<Fr, HEIGHT>;
 // pub(crate) type MerkleTree = merkle_tree::MerkleTree<Fr, NativeFieldHasherInstance, HEIGHT>;

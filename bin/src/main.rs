@@ -1,7 +1,7 @@
 mod instance;
 mod parser;
 
-use std::{path::PathBuf, str::FromStr, rc::Rc, ops::Sub};
+use std::{path::PathBuf, str::FromStr, rc::Rc, ops::Sub, marker::PhantomData};
 use ark_ff::{BigInteger, Field, PrimeField, UniformRand};
 use ark_poly_commit::PolynomialCommitment;
 use array_init::{array_init, map_array_init};
@@ -11,10 +11,11 @@ use num_bigint::BigUint;
 use rand::rngs::StdRng;
 use rand_core::SeedableRng;
 use circuits::WithdrawCircuit;
-use plonk_core::constraint_system::test_gate_constraints;
-use plonk_core::plonk::Circuit;
 use plonk_core::proof_system::{ExtendedProverKey, ProverKey, VerifierKey};
-use plonk_hashing::{hasher::{FieldHasher, PoseidonConstants}, merkle::PoECircuit};
+use plonk_hashing::{
+    hasher::{FieldHasher, FieldHasherGenerator},
+    merkle::PoECircuit,
+};
 
 use crate::{parser::*, instance::*};
 
@@ -35,10 +36,7 @@ enum Args {
         #[arg(long = "vk", default_value = "../../data/vk")]
         vk_path: PathBuf,
     },
-    SetupPoseidon {
-        #[arg(long, short = 'w', default_value = "3")]
-        width: usize,
-    },
+    SetupPoseidon {},
     InitStore {
         #[arg(long = "merkle-tree", short = 't', default_value = "../../data/merkle-tree")]
         tree_path: PathBuf,
@@ -112,13 +110,8 @@ fn main() {
             }
             serialize_to_file(&vk, &vk_path);
         }
-        Args::SetupPoseidon { width } => {
-            let constants = match width {
-                3 => PoseidonConstants::<Fr>::generate::<3>(),
-                4 => PoseidonConstants::<Fr>::generate::<4>(),
-                5 => PoseidonConstants::<Fr>::generate::<5>(),
-                _ => panic!("unsupported width: {width}"),
-            };
+        Args::SetupPoseidon {} => {
+            let constants = FieldHasherGeneratorInstance::generate();
             println!("full rounds = {}", constants.full_rounds);
             println!("partial rounds = {}", constants.partial_rounds);
 
@@ -128,7 +121,7 @@ fn main() {
             }
             println!("];");
 
-            let matrix = constants.mds_matrices.m;
+            let matrix = &constants.mds_matrices.m;
             println!("mds matrix = &[");
             for row in matrix.iter_rows() {
                 println!(" &[");
@@ -154,16 +147,16 @@ fn main() {
 
             // load merkle tree
             let tree_store: MerkleTreeStore = deserialize_from_file(&tree_path);
-            let params = new_field_hasher_params();
+            let params = FieldHasherGeneratorInstance::generate();
             let mut merkle_tree = tree_store
-                .into_merkle_tree(new_native_field_hasher(&params))
+                .into_merkle_tree(NativeFieldHasherInstance::new(&params))
                 .unwrap_or_else(|e| panic!("unable to create merkle tree: {e}"));
 
             // load notes
             let mut notes: Notes = deserialize_from_file(&notes_path);
 
             // handle deposit
-            let mut hasher = new_native_field_hasher(&params);
+            let mut hasher = NativeFieldHasherInstance::new(&params);
             let commitment = hasher.hash(&mut (), &[secret])
                 .unwrap_or_else(|e| panic!("unable to hash: {e}"));
             let leaf_hash = hasher.hash(&mut (), &[identifier, amount.into(), commitment])
@@ -220,11 +213,11 @@ fn main() {
             let new_identifier = identifier_to_fr(&identifier);
             let withdraw_amount = str_to_amount(&amount);
             
-            let params = new_field_hasher_params();
+            let params = FieldHasherGeneratorInstance::generate();
             // deserialize merkle tree
             let tree_store: MerkleTreeStore = deserialize_from_file(&tree_path);
             let mut merkle_tree = tree_store
-                .into_merkle_tree(new_native_field_hasher(&params))
+                .into_merkle_tree(NativeFieldHasherInstance::new(&params))
                 .unwrap_or_else(|e| panic!("unable to create merkle tree: {e}"));
 
             // deserialize notes
@@ -236,7 +229,7 @@ fn main() {
             // build circuits
             let root = merkle_tree.root();
             let withdraw_circuit = WithdrawCircuit {
-                hasher: new_field_hasher(&params),
+                hasher: FieldHasherInstance::new(&params),
                 secrets: map_array_init(&using_notes, |note| note.secret),
                 identifiers: map_array_init(&using_notes, |note| note.identifier),
                 amount_inputs: map_array_init(&using_notes, |note| note.amount),
@@ -248,10 +241,11 @@ fn main() {
                 new_secret,
                 new_identifier,
                 withdraw_amount,
+                _p: PhantomData,
             };
 
             // insert new leaf in merkle tree
-            let mut hasher = new_native_field_hasher(&params);
+            let mut hasher = NativeFieldHasherInstance::new(&params);
             let amount_out = using_notes
                 .iter()
                 .map(|note| note.amount)
@@ -275,30 +269,6 @@ fn main() {
             public_inputs.push(withdraw_amount.into());
             public_inputs.push(new_identifier);
             public_inputs.push(new_leaf_hash);
-
-            // test_gate_constraints(
-            //     |cs| {
-            //         let withdraw_circuit = WithdrawCircuit::<Fr, Amount, FieldHasherInstance, NOTE_INPUTS, HEIGHT> {
-            //             hasher: new_field_hasher(&params),
-            //             secrets: map_array_init(&using_notes, |note| note.secret),
-            //             identifiers: map_array_init(&using_notes, |note| note.identifier),
-            //             amount_inputs: map_array_init(&using_notes, |note| note.amount),
-            //             poe_circuits: map_array_init(&using_notes, |note| PoECircuit {
-            //                 leaf_index: note.leaf_index,
-            //                 path_elements: merkle_tree.merkle_path(note.leaf_index),
-            //             }),
-            //             root,
-            //             new_secret,
-            //             new_identifier,
-            //             withdraw_amount,
-            //         };
-            //         withdraw_circuit.synthesize(cs).expect("circuit ok");
-            // 
-            //         []
-            //     },
-            //     &public_inputs,
-            //     identifiers_set.clone(),
-            // );
 
             // deserialize keys
             let ck: <CommitmentScheme as PolynomialCommitment<_, _>>::CommitterKey =

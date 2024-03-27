@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, marker::PhantomData};
 use ark_ff::Field;
 use ark_serialize::{Read, Write, CanonicalSerialize, CanonicalDeserialize, SerializationError};
 use array_init::array_init;
 use plonk_core::error::Error as PlonkError;
-use plonk_hashing::hasher::FieldHasher;
+use plonk_hashing::hasher::{FieldHasher, FieldHasherGenerator};
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Default)]
 pub struct MerkleTreeStore<F: Field, const HEIGHT: usize> {
@@ -13,34 +13,46 @@ pub struct MerkleTreeStore<F: Field, const HEIGHT: usize> {
 }
 
 impl<F: Field, const HEIGHT: usize> MerkleTreeStore<F, HEIGHT> {
-    pub fn into_merkle_tree<H: FieldHasher<(), F>>(
+    pub fn into_merkle_tree<G, H>(
         self,
         hasher: H,
-    ) -> Result<MerkleTree<F, H, HEIGHT>, PlonkError> {
+    ) -> Result<MerkleTree<F, G, H, HEIGHT>, PlonkError>
+    where
+        H: FieldHasher<(), F, G>,
+        G: FieldHasherGenerator<H::Params>,
+    {
         MerkleTree::new(hasher, self)
     }
 }
 
-impl<F, H, const HEIGHT: usize> From<MerkleTree<F, H, HEIGHT>> for MerkleTreeStore<F, HEIGHT>
+impl<F, H, G, const HEIGHT: usize> From<MerkleTree<F, G, H, HEIGHT>> for MerkleTreeStore<F, HEIGHT>
 where
     F: Field,
-    H: FieldHasher<(), F>,
+    H: FieldHasher<(), F, G>,
+    G: FieldHasherGenerator<H::Params>,
 {
-    fn from(tree: MerkleTree<F, H, HEIGHT>) -> Self {
+    fn from(tree: MerkleTree<F, G, H, HEIGHT>) -> Self {
         tree.store
     }
 }
 
-pub struct MerkleTree<F: Field, H: FieldHasher<(), F>, const HEIGHT: usize> {
+pub struct MerkleTree<F, G, H, const HEIGHT: usize>
+where
+    F: Field,
+    G: FieldHasherGenerator<H::Params>,
+    H: FieldHasher<(), F, G>,
+{
     hasher: H,
     store: MerkleTreeStore<F, HEIGHT>,
     nodes: [F; HEIGHT],
+    _p: PhantomData<G>,
 }
 
-impl<F, H, const HEIGHT: usize> MerkleTree<F, H, HEIGHT>
+impl<F, G, H, const HEIGHT: usize> MerkleTree<F, G, H, HEIGHT>
 where
     F: Field,
-    H: FieldHasher<(), F>,
+    G: FieldHasherGenerator<H::Params>,
+    H: FieldHasher<(), F, G>,
 {
     pub fn new(mut hasher: H, store: MerkleTreeStore<F, HEIGHT>) -> Result<Self, PlonkError> {
         let mut nodes = [F::default(); HEIGHT];
@@ -54,7 +66,12 @@ where
                 Ok(())
             })?;
 
-        Ok(Self { hasher, store, nodes })
+        Ok(Self {
+            hasher,
+            store,
+            nodes,
+            _p: PhantomData,
+        })
     }
 
     pub fn merkle_path(&self, index: usize) -> [F; HEIGHT] {

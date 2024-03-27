@@ -10,7 +10,7 @@
 //! This module contains the implementation of the `ConstraintSystem`s [`Proof`]
 //! structure and it's methods.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 use ark_ff::{Field, FftField};
 use ark_poly::EvaluationDomain;
 use ark_serialize::*;

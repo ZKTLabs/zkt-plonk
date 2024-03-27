@@ -1,24 +1,26 @@
 // Copyright (c) Lone G. All rights reserved.
 
-use core::{iter::Sum, ops::Sub, fmt::Debug};
+use core::{iter::Sum, ops::Sub, fmt::Debug, marker::PhantomData};
 use ark_ff::Field;
 use bitvec::{prelude::Lsb0, view::BitView};
 use derivative::Derivative;
 use itertools::{Itertools, izip};
 use plonk_core::{constraint_system::*, plonk::Circuit, error::Error};
-use plonk_hashing::{hasher::FieldHasher, merkle::PoECircuit};
+use plonk_hashing::{hasher::{FieldHasher, FieldHasherGenerator}, merkle::PoECircuit};
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = ""), Default(bound = ""))]
 pub struct WithdrawCircuit<
     F,
     A,
+    G,
     H,
     const INPUTS: usize,
     const HEIGHT: usize,
 > where
     F: Field,
     A: BitView + Copy + Debug + Default + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
+    G: Debug,
     H: Debug + Default,
 {
     pub hasher: H,
@@ -34,20 +36,23 @@ pub struct WithdrawCircuit<
     pub new_secret: F,
     pub new_identifier: F,
     pub withdraw_amount: A,
+    pub _p: PhantomData<G>,
 }
 
 impl<
     F,
     A,
+    G,
     H,
     const TABLE_SIZE: usize,
     const INPUTS: usize,
     const HEIGHT: usize,
-> Circuit<F, TABLE_SIZE> for WithdrawCircuit<F, A, H, INPUTS, HEIGHT>
+> Circuit<F, TABLE_SIZE> for WithdrawCircuit<F, A, G, H, INPUTS, HEIGHT>
 where
     F: Field,
     A: Copy + Debug + Default + BitView + PartialOrd + Sum<A> + Sub<Output = A> + Into<F>,
-    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
+    G: FieldHasherGenerator<H::Params>,
+    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>, G>,
 {
     fn synthesize(mut self, cs: &mut ConstraintSystem<F, TABLE_SIZE>) -> Result<(), Error> {
         let amount_in = self.amount_inputs.iter().copied().sum::<A>();
@@ -146,6 +151,4 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

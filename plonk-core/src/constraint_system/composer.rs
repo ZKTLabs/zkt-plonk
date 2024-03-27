@@ -14,7 +14,7 @@
 //! It allows us not only to build Add and Mul constraints but also to build
 //! ECC op. gates, Range checks, Logical gates (Bitwise ops) etc.
 
-use std::borrow::{Borrow, BorrowMut};
+use core::borrow::{Borrow, BorrowMut};
 use ark_ff::Field;
 
 use crate::permutation::Permutation;

@@ -9,7 +9,7 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PoseidonConstants<F: PrimeField> {
+pub struct PoseidonConstants<F: PrimeField, const WIDTH: usize> {
     pub mds_matrices: MdsMatrices<F>,
     pub round_constants: Vec<F>,
     pub compressed_round_constants: Vec<F>,
@@ -21,10 +21,10 @@ pub struct PoseidonConstants<F: PrimeField> {
     pub partial_rounds: usize,
 }
 
-impl<F: PrimeField> PoseidonConstants<F> {
+impl<F: PrimeField, const WIDTH: usize> PoseidonConstants<F, WIDTH> {
     /// Generate all constants needed for poseidon hash of specified
     /// width.  Note that WIDTH = ARITY + 1
-    pub fn generate<const WIDTH: usize>() -> Self {
+    pub fn generate() -> Self {
         let (num_full_rounds, num_partial_rounds) =
             calc_round_numbers(WIDTH, true);
         let mds_matrix = MdsMatrices::generate_mds(WIDTH);
@@ -41,7 +41,7 @@ impl<F: PrimeField> PoseidonConstants<F> {
                 .expect("num_partial_rounds is too large"),
         );
 
-        Self::from_constants::<WIDTH>(
+        Self::from_constants(
             num_full_rounds,
             num_partial_rounds,
             mds_matrix,
@@ -49,12 +49,12 @@ impl<F: PrimeField> PoseidonConstants<F> {
         )
     }
 
-    pub fn from_constants<const WIDTH: usize>(
+    pub fn from_constants(
         num_full_rounds: usize,
         num_partial_rounds: usize,
         mds_matrix: Matrix<F>,
         round_constants: Vec<F>,
-    ) -> PoseidonConstants<F> {
+    ) -> Self {
         debug_assert_eq!(num_full_rounds % 2, 0);
         assert!(
             WIDTH * (num_full_rounds + num_partial_rounds) <= round_constants.len(),

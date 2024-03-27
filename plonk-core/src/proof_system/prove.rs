@@ -9,11 +9,7 @@
 use alloc::rc::Rc;
 use ark_std::cfg_iter_mut;
 use ark_ff::{Field, FftField};
-use ark_poly::{
-    univariate::DensePolynomial,
-    EvaluationDomain,
-    UVPolynomial,
-};
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use ark_poly_commit::PCRandomness;
 use itertools::Itertools;
 use rand_core::{CryptoRng, RngCore};

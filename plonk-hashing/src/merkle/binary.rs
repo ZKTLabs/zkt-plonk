@@ -3,9 +3,9 @@ use itertools::Itertools;
 use derivative::Derivative;
 use plonk_core::{constraint_system::{ConstraintSystem, Boolean, LTVariable}, error::Error};
 
-use crate::hasher::FieldHasher;
+use crate::hasher::{FieldHasher, FieldHasherGenerator};
 
-fn merkle_proof<F, H, const TABLE_SIZE: usize>(
+fn merkle_proof<F, G, H, const TABLE_SIZE: usize>(
     hasher: &mut H,
     cs: &mut ConstraintSystem<F, TABLE_SIZE>,
     path_elements: impl IntoIterator<Item = (Boolean, LTVariable<F>)>,
@@ -13,7 +13,8 @@ fn merkle_proof<F, H, const TABLE_SIZE: usize>(
 ) -> Result<Vec<LTVariable<F>>, Error>
 where
     F: Field,
-    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
+    G: FieldHasherGenerator<H::Params>,
+    H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>, G>,
 {
     let mut cur_hash = *leaf_node;
     path_elements
@@ -38,14 +39,15 @@ pub struct PoECircuit<F: Field, const HEIGHT: usize> {
 }
 
 impl<F: Field, const HEIGHT: usize> PoECircuit<F, HEIGHT> {
-    pub fn synthesize<H, const TABLE_SIZE: usize>(
+    pub fn synthesize<H, G, const TABLE_SIZE: usize>(
         self,
         cs: &mut ConstraintSystem<F, TABLE_SIZE>,
         hasher: &mut H,
         leaf_node: &LTVariable<F>,
     ) -> Result<(LTVariable<F>, Vec<Boolean>), Error>
     where
-        H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>>,
+        H: FieldHasher<ConstraintSystem<F, TABLE_SIZE>, LTVariable<F>, G>,
+        G: FieldHasherGenerator<H::Params>,
     {
         let positions = (0..HEIGHT)
             .map(|layer| {
@@ -92,20 +94,34 @@ mod tests {
     const WIDTH: usize = 5;
     const HEIGHT: usize = 20;
 
+    #[derive(Debug)]
+    struct PoseidonGenerator;
+
+    impl FieldHasherGenerator<Rc<PoseidonConstants<Fr, WIDTH>>> for PoseidonGenerator
+    {
+        fn generate() -> Rc<PoseidonConstants<Fr, WIDTH>> {
+            Rc::new(PoseidonConstants::generate())
+        }
+    }
+
     fn random_merkle_witness(rng: &mut StdRng) -> [(bool, Fr); HEIGHT] {
         array_init(|_| (bool::rand(rng), Fr::rand(rng)))
     }
 
-    fn native_poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<(), NativePlonkSpecRef<Fr>, WIDTH> {
+    fn native_poseidon_hasher(param: Rc<PoseidonConstants<Fr, WIDTH>>)
+        -> PoseidonRef<(), NativePlonkSpecRef<Fr>, PoseidonGenerator, WIDTH>
+    {
         PoseidonRef::new(&param)
     }
 
-    fn poseidon_hasher(param: Rc<PoseidonConstants<Fr>>) -> PoseidonRef<ConstraintSystem<Fr, 0>, PlonkSpecRef, WIDTH> {
+    fn poseidon_hasher(param: Rc<PoseidonConstants<Fr, WIDTH>>)
+        -> PoseidonRef<ConstraintSystem<Fr, 0>, PlonkSpecRef, PoseidonGenerator, WIDTH>
+    {
         PoseidonRef::new(&param)
     }
 
     fn native_merkle_proof(
-        hasher: &mut PoseidonRef<(), NativePlonkSpecRef<Fr>, WIDTH>,
+        hasher: &mut PoseidonRef<(), NativePlonkSpecRef<Fr>, PoseidonGenerator, WIDTH>,
         path_elements: impl IntoIterator<Item = (bool, Fr)>,
         leaf_node: Fr,
     ) -> Result<Vec<Fr>, Error> {
@@ -129,7 +145,7 @@ mod tests {
         test_gate_constraints(
             |cs| {
                 let rng = &mut test_rng();
-                let param = Rc::new(PoseidonConstants::generate::<WIDTH>());
+                let param = PoseidonGenerator::generate();
                 let mut hasher = native_poseidon_hasher(param.clone());
 
                 // native merkle path computation

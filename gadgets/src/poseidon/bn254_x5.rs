@@ -1,5 +1,8 @@
+use alloc::rc::Rc;
 use ark_bn254::Fr;
-use plonk_hashing::hasher::{NativePlonkSpecRef, PlonkSpecRef, PoseidonConstants, PoseidonRef};
+use plonk_hashing::hasher::{
+    FieldHasherGenerator, NativePlonkSpecRef, PlonkSpecRef, PoseidonConstants, PoseidonRef,
+};
 
 use crate::poseidon::{parse_matrix, parse_vec};
 
@@ -368,15 +371,22 @@ const MDS_MATRIX: &[&[&str]] = &[
     ],
 ];
 
-pub type Bn254x5<CS> = PoseidonRef<CS, PlonkSpecRef, WIDTH>;
+pub type Bn254x5<CS> = PoseidonRef<CS, PlonkSpecRef, Bn254x5Generator, WIDTH>;
 
-pub type Bn254x5Native = PoseidonRef<(), NativePlonkSpecRef<Fr>, WIDTH>;
+pub type Bn254x5Native = PoseidonRef<(), NativePlonkSpecRef<Fr>, Bn254x5Generator, WIDTH>;
 
-pub fn bn254_x5_constants() -> PoseidonConstants<Fr> {
-    PoseidonConstants::from_constants::<WIDTH>(
-        FULL_ROUNDS,
-        PARTIAL_ROUNDS,
-        parse_matrix(MDS_MATRIX).into(),
-        parse_vec(ROUND_CONSTANTS),
-    )
+#[derive(Debug)]
+pub struct Bn254x5Generator;
+
+impl FieldHasherGenerator<Rc<PoseidonConstants<Fr, WIDTH>>> for Bn254x5Generator {
+    fn generate() -> Rc<PoseidonConstants<Fr, WIDTH>> {
+        Rc::new(
+            PoseidonConstants::from_constants(
+                FULL_ROUNDS,
+                PARTIAL_ROUNDS,
+                parse_matrix(MDS_MATRIX).into(),
+                parse_vec(ROUND_CONSTANTS),
+            )
+        )
+    }
 }

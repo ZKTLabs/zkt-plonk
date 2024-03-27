@@ -34,13 +34,13 @@ impl<F: Field, const SIZE: usize> LookupTable<F, SIZE> {
     }
 
     ///
-    pub(crate) fn contains(&self, entry: &F) {
-        self.0.get(entry).unwrap_or_else(|| panic!("element not found in table"));
+    pub(crate) fn contains(&self, entry: &F) -> bool {
+        self.0.get(entry).is_some()
     }
 
     ///
     pub(crate) fn masks(&self, n: usize) -> Vec<F> {
-        assert!(n > SIZE, "table size is equal or larger than n");
+        assert!(n > SIZE, "max table size is equal or larger than n");
 
         let mut evals = vec![F::zero(); SIZE];
         evals.resize(n, F::one());
@@ -50,9 +50,12 @@ impl<F: Field, const SIZE: usize> LookupTable<F, SIZE> {
     /// Takes in a table, which is a vector of slices containing all elements,
     /// turns them into multiset for c and extends the length to `n`, 
     pub(crate) fn into_multiset(self, n: usize) -> MultiSet<F> {
+        assert!(n > SIZE, "max table size is equal or larger than n");
+        
         let mut t = MultiSet::from_iter(self.0.into_iter());
-        assert!(t.len() < n, "table size is equal or larger than n");
-
+        // must ensure at least 1 zero element
+        assert!(t.len() <= SIZE, "table size exceeds max size");
+        
         t.pad_with_zero(n);
         t
     }

@@ -146,7 +146,7 @@ impl<F: Field, const TABLE_SIZE: usize> ConstraintSystem<F, TABLE_SIZE> {
                 let z_value = y_value * (F::one() - x_value);
                 
                 z = composer.var_map.assign_variable(z_value);
-
+                
                 composer.input_wires(x.0, y.0, z, None);
             }
         }

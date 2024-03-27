@@ -6,7 +6,8 @@
 
 //! Tools & traits for PLONK circuits
 
-use std::{marker::PhantomData, rc::Rc};
+use core::marker::PhantomData;
+use alloc::rc::Rc;
 use ark_ff::{FftField, Field};
 use ark_poly::EvaluationDomain;
 use rand_core::{CryptoRng, RngCore};
@@ -70,10 +71,7 @@ where
         ),
         Error
     > {
-        let mut cs = ConstraintSystem::new(
-            true,
-            (0..TABLE_SIZE as u64).map(F::from).into(),
-        );
+        let mut cs = ConstraintSystem::new(true, LookupTable::default());
         // Generate circuit constraint
         let circuit = C::default();
         circuit.synthesize(&mut cs)?;
@@ -143,7 +141,7 @@ mod test {
     };
     use super::*;
 
-    const SIZE: usize = 10;
+    const SIZE: usize = 100;
 
     // Implements a circuit that checks:
     // 1) a + b = c
@@ -196,14 +194,9 @@ mod test {
         let pp =
             PC::setup(1 << 10, None, rng)
                 .unwrap_or_else(|e| panic!("setup failed: {e}"));
-        let (
-            ck,
-            cvk,
-            pk,
-            epk,
-            vk,
-        ) = ZKTPlonkInstance::<F, PC>::compile(true, &pp)
-            .unwrap_or_else(|e| panic!("compile failed: {e}"));
+        let (ck, cvk, pk, epk, vk) =
+            ZKTPlonkInstance::<F, PC>::compile(true, &pp)
+                .unwrap_or_else(|e| panic!("compile failed: {e}"));
 
         // prove
         let circuit = TestCircuit {
@@ -235,25 +228,25 @@ mod test {
         [test_full],
         []
     );
-
+    
     batch_test_kzg!(
         Bls12_381,
         [test_full],
         []
     );
-
+    
     batch_test_ipa!(
         Bn254,
         [test_full],
         []
     );
-
+    
     batch_test_ipa!(
         Bls12_377,
         [test_full],
         []
     );
-
+    
     batch_test_ipa!(
         Bls12_381,
         [test_full],

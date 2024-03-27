@@ -5,9 +5,17 @@ pub use poseidon::*;
 use core::fmt::Debug;
 use plonk_core::error::Error;
 
-pub trait FieldHasher<CS, F: Debug + Clone>: Debug + Default {
+pub trait FieldHasherGenerator<P>: Debug {
+    fn generate() -> P;
+}
 
-    type Params: ?Sized;
+pub trait FieldHasher<CS, F, G>: Debug + Default
+where
+    F: Debug + Clone,
+    G: FieldHasherGenerator<Self::Params>,
+{
+
+    type Params;
 
     fn new(params: &Self::Params) -> Self;
 
